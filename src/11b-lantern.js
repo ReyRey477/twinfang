@@ -1,10 +1,12 @@
 // ===================== ORBS + LANTERN =====================
 // Slow homing orbs fired by Lanterns and the Stormvane. Slash one to send it back at its owner; shoot it to pop it.
+const ORB_RED=new THREE.Color(3.4,.07,.16);
 const orbs={list:[],pool:[],
   make(){
-    // a hot core in a dark shell with a bright rim, and a thin ring tumbling round it. Red-orange while it is the enemy's,
-    // the hero's cyan once it has been slashed back (the shell and ring read the core's colour).
-    const m=new THREE.Mesh(GS,new THREE.MeshBasicMaterial({color:hdr(0xff5a1a,3.2)})),u={uC:{value:m.material.color}}; m.scale.setScalar(.15);
+    // a hot core in a dark shell with a bright rim, and a thin ring tumbling round it. Pure red while it is the enemy's (the
+    // colour of danger, and nothing like the amber wall lamps), the hero's cyan once it has been slashed back (the shell and
+    // ring read the core's colour). It pulses at 6 Hz, drags a ribbon and throws a pool of its light on the floor under it.
+    const m=new THREE.Mesh(GS,new THREE.MeshBasicMaterial({color:ORB_RED.clone()})),u={uC:{value:m.material.color}}; m.scale.setScalar(.175);
     const sh=new THREE.Mesh(GS,new THREE.ShaderMaterial({uniforms:u,vertexShader:GHOST_VS,fragmentShader:`uniform vec3 uC;varying vec3 vN;varying vec3 vP;void main(){vec3 n=vN*inversesqrt(max(dot(vN,vN),1e-10)),v=vP*inversesqrt(max(dot(vP,vP),1e-10));float f=1.-clamp(abs(dot(n,v)),0.,1.),r=f*f*f;gl_FragColor=vec4(uC*r*.8,.85*(1.-r)*smoothstep(.08,.5,f));}`,
       blending:THREE.CustomBlending,blendSrc:THREE.OneFactor,blendDst:THREE.OneMinusSrcAlphaFactor,depthWrite:false,transparent:true})); sh.scale.setScalar(2.1); m.add(sh);
     m.add(new THREE.Mesh(new THREE.TorusGeometry(2.7,.12,6,40),new THREE.ShaderMaterial({uniforms:u,vertexShader:GHOST_VS,fragmentShader:`uniform vec3 uC;void main(){gl_FragColor=vec4(uC*.7,1.);}`})));
@@ -12,11 +14,11 @@ const orbs={list:[],pool:[],
   },
   spawn(x,y,z,dx,dy,dz,owner,speed=7.8){
     const o={pos:V(x,y,z),vel:V(dx,dy,dz).normalize().multiplyScalar(speed),owner,life:7,back:false,dodged:false,dead:false,speed,m:this.pool.pop()||this.make()};
-    o.m.visible=true; o.m.material.color.copy(hdr(0xff5a1a,3.2)); o.m.position.copy(o.pos); this.list.push(o); sfx.orb(); return o;
+    o.m.visible=true; o.m.material.color.copy(ORB_RED); o.m.position.copy(o.pos); this.list.push(o); sfx.orb(); return o;
   },
   kill(o,burst=true){
     const i=this.list.indexOf(o); if(i>=0)this.list.splice(i,1); o.m.visible=false; this.pool.push(o.m); o.dead=true;
-    if(burst){const c=o.back?[.6,2.4,3.2]:[3.2,1,.3];fx.sparks(o.pos,0,.3,0,12,c,6);fx.halo(o.pos,c,.2,1.3,.12);fx.core(o.pos,c,.6);}
+    if(burst){const c=o.back?[.6,2.4,3.2]:[3.2,.3,.3];fx.sparks(o.pos,0,.3,0,12,c,6);fx.halo(o.pos,c,.2,1.5,.14,0,0,0,1,.03);fx.core(o.pos,c,.7);}
   },
   deflect(o){
     o.back=true; o.life=5; o.m.material.color.copy(hdr(0x45d4ff,3.6));
@@ -36,7 +38,10 @@ const orbs={list:[],pool:[],
         const lead=min(.3,d*.05); _a.x+=p.vel.x*lead; _a.z+=p.vel.z*lead; _a.setLength(o.speed); o.vel.lerp(_a,1-exp(-2*dt)).setLength(o.speed);
       }
       o.pos.addScaledVector(o.vel,dt); o.m.position.copy(o.pos); const rg=o.m.children[1]; rg.rotation.x+=dt*7; rg.rotation.y+=dt*4.3;
-      if(o.back)fx.tail(o.pos,o.vel,[.5,2.6,3.4],1.7,.24);else fx.tail(o.pos,o.vel,[3,.85,.22],.9,.2);
+      const pu=1+.13*sin(G.rt*TAU*6+o.life*9); o.m.scale.setScalar(.175*pu);
+      if(o.back){fx.tail(o.pos,o.vel,[.5,2.6,3.4],1.8,.28);fx.pool(o.pos.x,p.gy,o.pos.z,2.6,[.1,.55,.8],.5);}
+      else{fx.tail(o.pos,o.vel,[3.2,.12,.2],1.2,.3);fx.pool(o.pos.x,(o.owner&&o.owner.gy)||p.gy,o.pos.z,3,[1,.02,.05],.55*pu);}
+      fx.parts.put(o.pos.x,o.pos.y,o.pos.z,o.back?1.2:2.6,o.back?2.2:1.5,o.back?2.6:1.3,0,1,.3,.3,2|64);   // the white-hot centre
     }
   },
   clear(){while(this.list.length)this.kill(this.list[0],false);}
@@ -290,7 +295,7 @@ class Lantern{
     P.y=damp(P.y,ty+(S==='stun'?0:sin(G.rt*2+this.seed)*.15),ky,dt);
     const L=this.link;
     if(L){if(L.dead||L.gone||(!this.forced&&hypot(L.pos.x-P.x,L.pos.z-P.z)>20)||S==='stun'&&!this.forced)this.unlink(1.5);
-      else if(!this.dead){L.shield=this;_a.set(L.pos.x,L.cy(),L.pos.z);this.beam.set(P,_a,.035);}}
+      else if(!this.dead){L.shield=this;_a.set(L.pos.x,L.cy(),L.pos.z);this.beam.set(P,_a,.02);}}
     if(!this.link||this.dead)this.beam.hide();
     this.anim(dt,glow);
   }

@@ -174,7 +174,7 @@ class Stormvane{
     let flap=true,tp=0,tr=0,kJ=9,coreK=2.5,gY=gy+2.1;
     T.wsL=T.wsR=0;T.np=.15;T.hp=0;T.tp=-.1;T.wf=.1;T.we=-.15;
     const want=this.hp>this.maxHp*.66?1:this.hp>this.maxHp*.33?2:3;
-    if(!this.dead&&want>this.phase&&(S==='circle'||S==='volley'||S==='stun'||S==='gidle'||S==='grec')){this.phase=want;this.pinned=false;this.go('shift');sfx.roar();cam.shake(.6);G.storm.flash=1;sfx.thunder(1);
+    if(!this.dead&&want>this.phase&&(S==='circle'||S==='volley'||S==='stun'||S==='gidle'||S==='grec')){this.phase=want;this.pinned=false;this.go('shift');sfx.roar();cam.shake(.6);G.storm.flash=1;sfx.thunder(1);fx.phase(P.x,gy,P.z,0x9fc8ff,0x6a7486,2.4,18,P.y);fx.bolt(P.x,gy,P.z,true);
       G.msg('',want===2?'IT COMES DOWN':'THE STORM ANSWERS',2.2);return this.pose(dt,true,0,0,9,4);}
     if(this.phase===3&&!this.dead&&live&&S!=='shift'&&S!=='toperch'){this.boltCd-=dt;if(this.boltCd<=0){this.boltCd=S==='perch'?1:2.1;
       G.strike(clamp(pl.pos.x+pl.vel.x*.35,ar.x0,ar.x1),clamp(pl.pos.z+pl.vel.z*.35,ar.z0,ar.z1),gy,.9,3.2,16,this);}}
@@ -306,6 +306,6 @@ class Stormvane{
     const sh=this.shieldOn;this.coreM.color.setHex(sh?0x6fffe0:this.phase===2&&this.armor>0?0xffc070:0xbfe4ff).multiplyScalar(coreK*(1+.2*sin(G.rt*8)));
     this.core.scale.set(.68,.62,.78).multiplyScalar(1+min(.6,(coreK-2.5)*.05));
     this.iron.emissiveIntensity=.04;   // a faint constant glow so the dark hull never vanishes into the night; hits and tells are the rim's job
-    fx.rim(this,this.rimM||(this.rimM={m:this.iron}),this.flash,S==='wsw'?sat(t/.8):S==='tail'?sat(t/.55):S==='bite'?sat(t/.66):0,1,S==='stun',0);
+    fx.rim(this,this.rimM||(this.rimM={m:this.iron}),this.flash,S==='wsw'?sat(t/.8):S==='tail'?sat(t/.55):S==='bite'?sat(t/.66):0,1,S==='stun',G.boltA<.05?1.5*G.boltK:0,0xbfd8ff);   // lightning rims it for three frames
   }
 }

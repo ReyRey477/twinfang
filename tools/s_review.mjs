@@ -43,13 +43,16 @@ export default async ({ page, shot, ev, log }) => {
   await ev(() => {
     HX.hud(true); window.requestAnimationFrame = () => 0; window.__ev = []; window.__want = new Set();
     window.__block = new Set();
-    const tap = (k, key) => { const f = sfx[k].bind(sfx); sfx[k] = (...a) => { const n = key(a[0]); if (n && window.__want.has(n) && !window.__block.has(n + '|' + (G.enc ? G.enc.def.id : '-'))) window.__ev.push(n); return f(...a); }; };
+    // a death is framed where it happened (the foe is gone by the time the picture is taken, and it may have been the last one)
+    const tap = (k, key) => { const f = sfx[k].bind(sfx); sfx[k] = (...a) => { const n = key(a[0]); if (n && window.__want.has(n) && !window.__block.has(n + '|' + (G.enc ? G.enc.def.id : '-'))) { window.__ev.push(n);
+      if (n === 'death' && window.__ev.length === 1) { const e = G.enemies.find(e => e.gone && e.dead); if (e) window.__at = { pos: e.pos.clone().setY(e.gy || 0), scale: e.scale || 1, kind: e.kind, state: 'destroyed' }; } } return f(...a); }; };
     tap('hit', a => a >= .6 ? 'hitBig' : 'hitLight'); tap('land', a => a >= .7 ? 'land' : null); tap('telegraph', a => a ? 'telegraphBig' : 'telegraph'); tap('slow', a => a ? 'slow' : null);
     for (const k of ['gun', 'hurt', 'death', 'boom', 'dodge', 'orb', 'deflect', 'spawn', 'barrier', 'armorBreak', 'roar', 'thunder', 'charge', 'coreCharge']) if (sfx[k]) tap(k, () => k);
     // staged camera: frames the hero and the nearest foe together, from the side or from behind the hero
     window.__dir = mode => {
       const p = G.player, P = p.pos; let tg = null, bd = 1e9;
       for (const e of G.enemies) { if (e.dead || e.ghost) continue; const d = Math.hypot(e.pos.x - P.x, e.pos.z - P.z); if (d < bd) { bd = d; tg = e; } }
+      if (window.__at) tg = window.__at;
       let dx = tg ? tg.pos.x - P.x : Math.sin(p.yaw), dz = tg ? tg.pos.z - P.z : Math.cos(p.yaw); const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
       const D = tg ? Math.min(l, 10) : 3, sc = tg ? (tg.scale || 1) : 1, mx = P.x + dx * D * .5, mz = P.z + dz * D * .5, ey = tg ? Math.min(tg.pos.y, P.y + 6) : P.y, ty = P.y + 1.05 + (ey - P.y) * .35 + (sc > 1.6 ? .7 : 0), R = 4 + D * .5 + sc * .9;
       const c = [[mx - dz * R, mz + dx * R], [mx + dz * R, mz - dx * R], [P.x - dx * (4.4 + D * .15) - dz * 1.3, P.z - dz * (4.4 + D * .15) + dx * 1.3], [P.x - dx * (4.4 + D * .15) + dz * 1.3, P.z - dz * (4.4 + D * .15) - dx * 1.3]];
@@ -66,7 +69,7 @@ export default async ({ page, shot, ev, log }) => {
   const left = Object.fromEntries(Object.entries(QUOTA).map(([k, v]) => [k, v[0]])); let n = 0, frames = 0; const hudDone = {}, per = {}, block = [];
   for (let guard = 0; guard < 220 && frames < 60000; guard++) {
     const want = Object.keys(left).filter(k => left[k] > 0); if (!want.length) break;
-    const r = await ev(([want, block]) => { window.__want = new Set(want); window.__block = new Set(block); window.__ev.length = 0; const o = JSON.parse(bot(1200, { dmg: 60, stop: () => window.__ev.length > 0 }).split('} {')[0] + '}');
+    const r = await ev(([want, block]) => { window.__want = new Set(want); window.__block = new Set(block); window.__ev.length = 0; window.__at = null; const o = JSON.parse(bot(1200, { dmg: 60, stop: () => window.__ev.length > 0 }).split('} {')[0] + '}');
       return { ev: window.__ev.slice(), f: o.frames, err: o.err, gs: G.state, enc: G.enc ? G.enc.def.id : null, set: G.player.set, done: DBG.ENCS.filter(d => d.done).length }; }, [want, block]);
     frames += r.f; if (r.err) { log('BOT ERROR', r.err); break; }
     if (r.gs === 'done') break; if (r.gs === 'dead') { await ev(() => G.respawn()); continue; }

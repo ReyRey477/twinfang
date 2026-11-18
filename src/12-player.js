@@ -1,4 +1,5 @@
 // ===================== PLAYER =====================
+const MAUL_TR=[.34,1.26];   // the maul's ribbon runs from the upper shaft over the head: about a metre wide, like the sword's
 class Player{
   constructor(){
     this.pos=V(0,0,7);this.prev=V(0,0,7);this.vel=V();this.yaw=0;this.pyaw=0;this.hp=100;this.state='move';this.t=0;this.grounded=true;this.gy=0;
@@ -6,7 +7,7 @@ class Player{
     this.set=0;this.wantSet=0;this.gunCd=0;this.aimT=0;this.aimP=V();this.gunAir=0;this.charge=0;this.smash=0;this.ready=false;
     this.rig=new Rig({kind:'hero',mats:heroMats});scene.add(this.rig.root);this.rig.play(CL.idle,0);
     this.rig.post=(o,clip)=>{if(clip.loco)stance(o,clip.loco,this.set,this.rig);};
-    this.trails=[new Trail(20,0x45d4ff),new Trail(20,0x45d4ff)];
+    this.trails=[new Trail(20,WCOL[0]),new Trail(20,WCOL[0])];
     this.light=new THREE.PointLight(0x58d8ff,3.2,8,2);scene.add(this.light);
   }
   angTo(e){return atan2(e.pos.x-this.pos.x,e.pos.z-this.pos.z);}
@@ -20,9 +21,9 @@ class Player{
   nudge(dx,dz){this.moveTo(this.pos.x+dx,this.pos.z+dz);}
   // ---------- actions ----------
   switchSet(i){
-    this.set=i;this.rig.setWeapon(i);this.trails[1].mesh.material.uniforms.uC.value.setHex(WEAPONS[i].col);
+    this.set=i;this.rig.setWeapon(i);this.trails[1].mesh.material.uniforms.uC.value.setHex(WCOL[i]);
     _a.set(0,.5,0);this.rig.sword[1].localToWorld(_a);if(_a.distanceTo(this.pos)>4)_a.copy(this.pos).setY(this.pos.y+1.2);
-    fx.glint(_a,WEAPONS[i].col,3,1.2,.16);sfx.swap();
+    fx.glint(_a,WCOL[i],3,1.2,.16);sfx.swap();
   }
   jump(){this.vel.y=11.8;this.grounded=false;this.pos.y=this.gy+.02;this.state='air';this.t=0;sfx.jump();fx.puff(this.pos.x,this.pos.z,6,.5,this.gy);}
   heavyIn(){if(this.set===1){if(held.heavy||input.peek('heavy')){input.take('heavy');this.shoot();}return false;}return input.take('heavy');}
@@ -37,9 +38,8 @@ class Player{
     else{this.ddx=-sin(this.yaw);this.ddz=-cos(this.yaw);this.rig.play(CL.back,.05,true);}
     if(!this.grounded)this.vel.y=2;else fx.puff(this.pos.x,this.pos.z,8,.6,this.gy);
     sfx.dodge();cam.fovKick=7;
-    // an afterimage where the hero stood, and a short thruster streak from each back vane, opposite the dodge
-    this.gN=1;fx.ghost(this.rig.root,0x58d8ff);
-    for(const s of [-.16,.16]){_a.set(this.pos.x-this.ddx*.55+this.ddz*s,this.pos.y+1.32,this.pos.z-this.ddz*.55-this.ddx*s);fx.lens(_a,-this.ddx,.04,-this.ddz,.4,1.5,.085,.02,[.5,2.2,3],.13,.9);}
+    // an afterimage where the hero stood (two more follow 40 ms apart, see update) and a kick of sparks; the thruster streaks ride the back vents for four frames
+    this.gN=1;fx.ghost(this.rig.root,0x58d8ff);_a.set(this.pos.x-this.ddx*.3,this.pos.y+1.32,this.pos.z-this.ddz*.3);
     fx.sparks(_a,-this.ddx,.05,-this.ddz,8,[.6,2.4,3.4],8,.3);fx.flash(_a,0x58d8ff,24,.1);
   }
   shoot(){
@@ -51,7 +51,7 @@ class Player{
     else aim.set(this.pos.x+sin(this.yaw)*30,this.pos.y+1.3,this.pos.z+cos(this.yaw)*30);
     const a=atan2(aim.x-this.pos.x,aim.z-this.pos.z);if(abs(wrapA(a-this.yaw))>1.5&&(this.state==='move'||this.state==='air'))this.yaw=a;
     _c.set(0,.26,-.056);this.rig.sword[0].localToWorld(_c);if(_c.distanceTo(this.pos)>3)_c.set(this.pos.x,this.pos.y+1.4,this.pos.z);
-    fx.tracer(_c,aim,hit===2);sfx.gun();cam.shake(.05);
+    fx.tracer(_c,aim,hit===2);sfx.gun();cam.shake(.05);if(hit===2){tg._hk=.7;tg._hc=WCOL[0];}   // the target's rim answers the shot in the pistol's cyan
     if(hit===1){orbs.kill(orb);G.gunScore();}
     else if(hit===2&&tg.gunHit())G.gunScore();
     if(!this.grounded&&this.gunAir<10){this.gunAir++;this.vel.y=max(this.vel.y,1.6);}
@@ -70,8 +70,8 @@ class Player{
   onLand(){
     this.airActs=0;this.airDash=false;this.dj=false;this.gunAir=0;const gy=this.gy;
     if(this.state==='attack'&&this.move.dive){
-      const maul=this.move.land==='MPOUNDLAND',c=maul?0xffb060:0x6fe0ff;
-      this.startMove(this.move.land);fx.slam(this.pos.x,gy,this.pos.z,maul?5:4,c,maul);_a.set(this.pos.x,gy+.3,this.pos.z);fx.flash(_a,c,90,.16);sfx.land(1);cam.shake(.4);
+      const maul=this.move.land==='MPOUNDLAND',c=0x9fe8ff;   // the hero's marks on the floor are always the hero's cyan-white
+      this.startMove(this.move.land);fx.slam(this.pos.x,gy,this.pos.z,maul?5:4,c,maul,true);_a.set(this.pos.x,gy+.3,this.pos.z);fx.flash(_a,c,90,.16);sfx.land(1);cam.shake(.4);
     }else if(this.state==='air'){this.state='move';sfx.land(.2);fx.puff(this.pos.x,this.pos.z,6,.5,gy);}
   }
   takeHit(dmg,e){
@@ -79,7 +79,7 @@ class Player{
     if(this.state==='dodge'&&this.t<.3){if(!e.dodged){e.dodged=true;G.perfectDodge(e);}return false;}
     if(this.invuln>0)return false;
     this.hp=max(0,this.hp-dmg);G.dmgTaken+=dmg;this.invuln=1.1;const a=atan2(this.pos.x-e.pos.x,this.pos.z-e.pos.z);this.vel.x=sin(a)*8;this.vel.z=cos(a)*8;this.yaw=a+PI;
-    cam.shake(.5);G.hurtFx(e.pos);sfx.hurt();G.style.m=max(0,G.style.m-200);G.combo=0;_a.copy(this.pos);_a.y+=1.1;fx.hit(_a,sin(a),cos(a),false,null,0xff3a28);
+    cam.shake(.5);G.hurtFx(e.pos);sfx.hurt();G.style.m=max(0,G.style.m-200);G.combo=0;_a.copy(this.pos);_a.y+=1.1;fx.hit(_a,sin(a),cos(a),false,null,0xff3a28,{lvl:1});
     if(this.hp<=0){this.state='dead';this.t=0;this.rig.play(CL.dead,.06,true);G.onDeath();}
     else{this.state='hurt';this.t=0;this.rig.play(CL.hurt,.04,true);}
     return true;
@@ -108,8 +108,8 @@ class Player{
     while(!m.rush&&this.hitIdx<m.hits.length&&t>=m.hits[this.hitIdx].t){
       let h=m.hits[this.hitIdx++];const full=m.id==='MSMASH'&&this.smash>=1;
       if(m.id==='MSMASH')h=Object.assign({},h,{dmg:20+34*this.smash,breaker:full,range:full?4.4:3.6,arc:full?7:2.6,pts:full?30:20});
-      if(h.ring){const x=this.pos.x+fwx*2,z=this.pos.z+fwz*2,gy=this.gy;fx.slam(x,gy,z,full?6:3.6,0xffb060,true);
-        _a.set(x,gy+.3,z);fx.flash(_a,0xffb060,full?120:70,.16);sfx.land(full?1:.7);cam.shake(full?.5:.25);if(full)sfx.boom();}
+      if(h.ring){const x=this.pos.x+fwx*2,z=this.pos.z+fwz*2,gy=this.gy;fx.slam(x,gy,z,full?6:3.6,0x9fe8ff,true,true);
+        _a.set(x,gy+.3,z);fx.flash(_a,0x9fe8ff,full?120:70,.16);sfx.land(full?1:.7);cam.shake(full?.5:.25);if(full)sfx.boom();}
       if(G.playerHit(m,h))this.hitAny=true;
     }
     while(m.sw&&this.swIdx<m.sw.length&&t>=m.sw[this.swIdx]){sfx.whoosh((m.pitch||1)*rand(.92,1.12),m.big?1.3:1);this.swIdx++;}
@@ -135,8 +135,8 @@ class Player{
     return tr;
   }
   sampleTrails(dt){
-    this.trAcc+=dt;if(this.trAcc<.009)return;const W=WEAPONS[this.set],td=this.trAcc;this.trAcc=0;
-    for(let s=0;s<2;s++){const sw=this.rig.sword[s],tp=W.trail[s]||[.1,.2];_a.set(0,tp[0],0);sw.localToWorld(_a);_b.set(0,tp[1],0);sw.localToWorld(_b);this.trails[s].sample(_a,_b,!!W.trail[s]&&!!(this.trailOn&(s?2:1)),td);}
+    this.trAcc+=dt;if(this.trAcc<.005)return;const W=WEAPONS[this.set],td=this.trAcc;this.trAcc=0;   // every sub-step of a swing: about 180 samples a second
+    for(let s=0;s<2;s++){const sw=this.rig.sword[s],tp=s&&this.set===2?MAUL_TR:W.trail[s]||[.1,.2];_a.set(0,tp[0],0);sw.localToWorld(_a);_b.set(0,tp[1],0);sw.localToWorld(_b);this.trails[s].sample(_a,_b,!!W.trail[s]&&!!(this.trailOn&(s?2:1)),td);}
   }
   update(dt){
     this.t+=dt;this.invuln-=dt;this.dodgeCd-=dt;this.gunCd-=dt;const rig=this.rig,mv=input.move();this.prev.copy(this.pos);this.pyaw=this.yaw;let trail=0;
@@ -163,7 +163,9 @@ class Player{
     }else if(st==='attack'){trail=this.updAttack(dt,mv);}
     else if(st==='dodge'){
       const sp=lerp(18,5,sat(this.t/.36));this.vel.x=this.ddx*sp;this.vel.z=this.ddz*sp;
-      if(this.gN<3&&this.t>=this.gN*.07){this.gN++;fx.ghost(this.rig.root,0x58d8ff);}
+      if(this.gN<3&&this.t>=this.gN*.04){this.gN++;fx.ghost(this.rig.root,0x58d8ff);}
+      if(this.t<.105){const l=min(1.25,.5+this.t*11)*min(1,(.105-this.t)/.035+.35),bx=this.pos.x+this.vel.x*dt-this.ddx*.2,bz=this.pos.z+this.vel.z*dt-this.ddz*.2;   // two tapered streaks about 1.2 m long, from the back vents, opposite the dodge
+        for(const s of [-.17,.17]){_a.set(bx+this.ddz*s,this.pos.y+1.3,bz-this.ddx*s);fx.lens(_a,-this.ddx,.03,-this.ddz,l,l,.14,.14,[.45,2.1,3],1,1,2|64,4);}}
       if(this.t>=.2){if(input.take('light'))this.startMove(W.light);else if(this.heavyIn())this.heavy(mv);else if(this.grounded&&input.take('rush'))this.startMove(W.rush);}
       if(this.state==='dodge'&&this.t>=.36)this.state=this.grounded?'move':'air';
     }else if(st==='hurt'){this.vel.x=damp(this.vel.x,0,7,dt);this.vel.z=damp(this.vel.z,0,7,dt);if(this.t>=.45)this.state=this.grounded?'move':'air';}
@@ -181,6 +183,6 @@ class Player{
     for(let i=1;i<=n;i++){const k=i/n;rig.root.position.lerpVectors(this.prev,this.pos,k);rig.root.rotation.y=this.pyaw+wrapA(this.yaw-this.pyaw)*k;rig.update(dt/n);rig.root.updateMatrixWorld(true);this.sampleTrails(dt/n);}
     this.light.position.set(this.pos.x+sy*.9,this.pos.y+2.1,this.pos.z+cy*.9);
     // hurt and invulnerable: a white rim flash, then a rim flicker. The hero is never hidden (it used to blink out of sight).
-    fx.rim(this,this.rimM||(this.rimM=Object.fromEntries(Object.entries(heroMats).filter(([k])=>k!=='glow'))),this.invuln>1.04?1:0,0,0,this.hp>0&&this.invuln>0&&this.state!=='dodge',G.dark>.001?2.5:0,0x9fe8ff);   // and rim-lit through the dark frames that open a finisher
+    fx.rim(this,this.rimM||(this.rimM=Object.fromEntries(Object.entries(heroMats).filter(([k])=>k!=='glow'))),this.invuln>1.04?1:0,0,0,this.hp>0&&this.invuln>0&&this.state!=='dodge',G.dark>.001?2.5:G.boltA<.05?1.5*G.boltK:0,0x9fe8ff);   // and rim-lit through the dark frames that open a finisher, and for three frames by lightning
   }
 }

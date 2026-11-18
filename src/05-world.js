@@ -148,7 +148,7 @@ const barrierMat=()=>new THREE.ShaderMaterial({uniforms:{uT:{value:0},uA:{value:
     float hz=smoothstep(.04,0.,abs(fract(p.y*.7-uT*.25)-.5))*.5;
     vec2 hx=vec2(p.x*1.5,p.y*1.3+floor(p.x*1.5)*.5);float cell=smoothstep(.5,.42,max(abs(fract(hx.x)-.5),abs(fract(hx.y)-.5)))*.12;
     vec3 dv=vW-cameraPosition;float a=uA*vF*smoothstep(1.2,3.4,sqrt(max(dot(dv,dv),0.)));
-    vec3 c=vec3(1.,.36,.08)*((ln*(.35+sc*.65)+hz+.05+cell)*e+smoothstep(.03,0.,vUv.y)*2.4)*.8;gl_FragColor=vec4(c*a,a*(.1+.16*f));}`,
+    vec3 c=vec3(1.,.36,.08)*((ln*(.35+sc*.65)+hz+.05+cell)*e+smoothstep(.03,0.,vUv.y)*1.2)*.8;gl_FragColor=vec4(min(c,vec3(1.1))*a,a*(.1+.16*f));}`,   // the floor line at half its old level and capped, so it cannot bloom into a band wider than a fighter
   blending:THREE.CustomBlending,blendSrc:THREE.OneFactor,blendDst:THREE.OneMinusSrcAlphaFactor,depthWrite:false,side:THREE.DoubleSide,transparent:true});
 const barriers=[];
 function makeBarrier(x,y,z,len,h,alongX=true){
