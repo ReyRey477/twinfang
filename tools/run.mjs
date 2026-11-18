@@ -21,6 +21,7 @@ const ROOT = opt('root', path.resolve(here, '..'));
 const OUT = opt('out', path.join(here, 'shots'));
 const W = +opt('w', 960), H = +opt('h', 540);
 const FILE = opt('file', 'twinfang.html'), Q = opt('q', 'debug');
+const NOFONTS = args.includes('--nofonts');
 const THREE_DIR = [process.env.THREE_DIR, path.join(here, 'node_modules/three'), path.join(ROOT, 'node_modules/three')].find(d => d && fs.existsSync(d));
 fs.mkdirSync(OUT, { recursive: true });
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.css': 'text/css' };
@@ -43,7 +44,7 @@ await page.route('**/*', route => {
   const u = route.request().url();
   const m = u.match(/cdn\.jsdelivr\.net\/npm\/three@[\d.]+\/(.*)$/);
   if (m && THREE_DIR) { const f = path.join(THREE_DIR, m[1]); return fs.existsSync(f) ? route.fulfill({ path: f, contentType: 'text/javascript' }) : route.abort(); }
-  if (/fonts\.(googleapis|gstatic)\.com/.test(u)) return route.fulfill({ status: 200, contentType: 'text/css', body: '' });
+  if (NOFONTS && /fonts\.(googleapis|gstatic)\.com/.test(u)) return route.fulfill({ status: 200, contentType: 'text/css', body: '' });   // --nofonts: offline runs; otherwise the real web fonts load, so interface pictures are true
   return route.continue();
 });
 const log = (...a) => console.log(...a);
@@ -54,6 +55,7 @@ await page.goto(`http://127.0.0.1:${port}/${FILE}?${Q}`, { waitUntil: 'load' });
 let code = 0;
 try {
   await page.waitForFunction(() => window.G && window.step, null, { timeout: 120000 });
+  await page.evaluate(() => Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 6000))]));
   log('ready in', Date.now() - t0, 'ms');
   const scen = (await import(pathToFileURL(path.resolve(args[0])).href)).default;
   await scen({ page, shot, ev, log });
