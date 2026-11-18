@@ -4,10 +4,11 @@
 // The hero: white lacquer over a graphite core and gunmetal frame, navy secondary plates, teal power, and a cool rim light
 // so the figure separates from a dark floor when seen from behind.
 const heroMats={
-  shell:charMat('shell',{color:0xe8ebf2,envMapIntensity:.9,rim:0x8fdcff,rimK:.5}),
-  shell2:charMat('shell',{color:0x24365e,envMapIntensity:.9,rim:0x8fdcff,rimK:.45}),
-  frame:charMat('frame',{color:0xc8ccd8,envMapIntensity:1,rim:0x8fdcff,rimK:.3}),
-  dark:charMat('frame',{color:0x5e626c,roughness:1.7,metalness:.6,envMapIntensity:.6,rim:0x8fdcff,rimK:.2}),
+  shell:charMat('shell',{color:0xe8ebf2,envMapIntensity:.9,rim:0x8fdcff,rimK:.5,wear:0x9499a4,wearK:.3,grime:.2}),   // white lacquer chips to a grey alloy
+  shell2:charMat('shell',{color:0x24365e,envMapIntensity:.9,rim:0x8fdcff,rimK:.45,wear:0xa9b0bd,wearK:.6,grime:.2}),
+  frame:charMat('frame',{color:0x9096a4,roughness:1.25,envMapIntensity:.8,rim:0x8fdcff,rimK:.3,wearK:0}),
+  dark:charMat('frame',{color:0x5e626c,roughness:1.7,metalness:.6,envMapIntensity:.6,rim:0x8fdcff,rimK:.2,wearK:0}),
+  mglow:new THREE.MeshBasicMaterial({color:hdr(0x45d4ff,.55)}),   // the maul's lights: raised by the rig while it swings
   steel:pbr('steel',{color:0xaeb6c4,envMapIntensity:1}),
   visor:charMat('steel',{color:0x12161c,roughness:.5,envMapIntensity:1.6}),
   rubber:pbr('rubber',{envMapIntensity:.3}),
@@ -16,8 +17,10 @@ const heroMats={
   glow:new THREE.MeshBasicMaterial({color:hdr(0x45d4ff,2.6)})};
 // Foes: bone-khaki ceramic (Husk), matte military olive (Brute), violet-black (Stalker, with a magenta rim from below so its
 // outline reads in a dark hall). Their armour carries the emissive colour the enemy code raises for tells and hit flashes.
+// Each has a second paint tone for the parts the rig flags: dark umber (Husk), light grey (Brute), a paler violet (Stalker).
 const enemyMats=k=>{const B=k==='brute',S=k==='stalker';return {
-  armor:charMat('armor',Object.assign({color:B?0x5f6c3e:S?0x393052:0xb7a478,emissive:S?0xa050ff:0xff6a2a,emissiveIntensity:0,envMapIntensity:.6,hold:.6},S?{rim:0xff3fc8,rimK:.45,rimY:-1}:{})),
+  armor:charMat('armor',Object.assign({color:B?0x5f6c3e:S?0x2c2540:0xb7a478,tone:B?0x9a9f98:S?0x4a3f6c:0x4a3a2b,emissive:S?0xa050ff:0xff6a2a,emissiveIntensity:0,envMapIntensity:.6,hold:.6},
+    S?{rim:0xff3fc8,rimK:.2,rimY:-1,roughness:.62,envMapIntensity:.45,wear:0xb9b2d2,wearK:1.3,grime:.1}:{})),
   frame:charMat('frame',Object.assign({color:S?0x9a94b4:0xa4a8b2,envMapIntensity:.9},S?{rim:0xff3fc8,rimK:.3,rimY:-1}:{})),
   trim:pbr('steel',{color:B?0x8a8672:S?0x7a70a0:0x8a8e98,envMapIntensity:.9}),
   rubber:pbr('rubber',{envMapIntensity:.3}),
@@ -25,11 +28,16 @@ const enemyMats=k=>{const B=k==='brute',S=k==='stalker';return {
   blade:pbr('steel',{color:0xa8acb8,roughness:1.6,envMapIntensity:1.2}),
   edge:pbr('steel',{color:0xf4f6ff,roughness:.5,envMapIntensity:2}),
   glow:new THREE.MeshBasicMaterial({color:hdr(S?0xa040ff:0xff4d14,3.4)})};};
+// The Gatewarden: forged dark steel with a blue-black cast, worn bright along its edges. Its gold is painted metal that holds its hue
+// (bare gold turned green under the hall's cyan strips), its mantle and crest a dark red. char is the scorched plate left on its
+// limbs when the armour falls, seam the dull fire in the gaps of the frame.
 const wardenMats=()=>({
-  armor:charMat('iron',{color:0x7e838e,emissive:0xff6a2a,emissiveIntensity:0,envMapIntensity:.8,rim:0xffa468,rimK:.3,rimY:-1}),   // rim: the glow of the hall's floor ring
-  dark:charMat('frame',{color:0x9a9aa2,emissive:0x9a300c,emissiveIntensity:0,envMapIntensity:.8,rim:0xffa468,rimK:.2,rimY:-1}),   // a dull heat: the fire is in the core and the joints
-  trim:pbr('steel',{color:0xc08a3c,envMapIntensity:1.1}),
-  cloth:charMat('armor',{color:0x7a1a20,envMapIntensity:.4,hold:.5}),
+  armor:charMat('iron',{color:0x6c7690,metalness:.9,roughness:1.2,emissive:0xff6a2a,emissiveIntensity:0,envMapIntensity:.55,rim:0xffa468,rimK:.3,rimY:-1,wear:0xd9dde8,wearK:1.25,grime:.2}),   // rim: the glow of the hall's floor ring
+  dark:charMat('frame',{color:0x9a9aa2,emissive:0x9a300c,emissiveIntensity:0,envMapIntensity:.8,rim:0xffa468,rimK:.2,rimY:-1,wearK:0}),   // a dull heat: the fire is in the core and the joints
+  char:charMat('frame',{color:0x34343a,roughness:2.2,metalness:.5,envMapIntensity:.3,rim:0xffa468,rimK:.25,rimY:-1,wear:0x8a8c94,wearK:.8}),
+  trim:charMat('steel',{color:0xa87c2a,metalness:.55,roughness:1.6,envMapIntensity:.6,hold:.85,wearK:0}),
+  cloth:charMat('armor',{color:0x7a1a20,envMapIntensity:.4,hold:.75,wearK:.6}),
+  seam:new THREE.MeshBasicMaterial({color:hdr(0xff5a14,1.05)}),
   rubber:pbr('rubber',{envMapIntensity:.3}),
   blade:pbr('steel',{color:0x8a8e98,roughness:1.6,envMapIntensity:1.3}),
   edge:pbr('steel',{color:0xfff0dc,roughness:.5,envMapIntensity:2}),
