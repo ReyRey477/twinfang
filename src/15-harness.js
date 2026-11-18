@@ -1,6 +1,6 @@
 // ===================== DEV HARNESS =====================
 // Lets a script (or a person) look at any part of the game in isolation and measure it. Nothing here runs in normal play.
-//   ?show=hero|husk|brute|stalker|lantern|warden|storm|mats   one subject on a lit stage, orbiting camera (&a=deg &d=dist &h=height &clip=name &t=sec)
+//   ?show=hero|husk|brute|stalker|lantern|warden|storm|mats|all   one subject (or the whole cast) on a lit stage, orbiting camera (&a=deg &d=dist &h=height &clip=name &t=sec &set=0..2)
 //   ?tp=x,y,z[,yaw]      start playing at that spot          ?cam=x,y,z,tx,ty,tz   fix the camera (hides the HUD)
 //   ?bench               fly a fixed path through the level and print frame times
 //   ?nan                 live count of invalid (NaN / infinite) pixels in the top right corner
@@ -16,10 +16,17 @@ const HX={cam:null,stage:null,orbit:null,frames:0,calls:0,tris:0,
     this.begin();this.hud(false);for(const d of ENCS)d.done=true;G.resetCombat();
     const cx=0,cz=109,p=G.player;this.tp(cx,0,kind==='hero'?cz:cz-30,0);G.ts=0;
     if(!this.lights){this.lights=[[3,4.2,-4,0xfff2e0,46],[-4.5,2.6,-1.5,0x45d4ff,30],[3.5,3.4,4.5,0xff8a3a,28]].map(([x,y,z,c,i])=>{const L=new THREE.PointLight(c,i,16,2);L.position.set(cx+x,y,cz+z);scene.add(L);return L;});}
-    this.lights.forEach((L,i)=>{L.intensity=[46,30,28][i]*(kind==='hero'?1:2.2);});
+    this.lights.forEach((L,i)=>{L.intensity=[46,30,28][i]*(kind==='hero'?1:kind==='all'?1.5:2.2);L.distance=kind==='all'?26:16;});
     let root=null,h=1.1,d=4.2,upd=null;const enc={gy:0,ar:inset(AREA.hall,1),ceil:16};
     if(this.stage){this.stage.remove&&this.stage.remove();this.stage=null;}
     if(kind==='hero'){root=p.rig.root;root.position.set(cx,0,cz);root.rotation.y=PI;root.visible=true;const c=o.clip&&CL[o.clip];if(c)p.rig.play(c,0,true);if(o.set!==undefined){p.set=p.wantSet=+o.set;p.rig.setWeapon(+o.set);}upd=dt=>{p.rig.update(dt);};}
+    else if(kind==='all'){   // the cast in a line: hero in front, foes either side, the Gatewarden behind
+      const list=[];root=p.rig.root;root.position.set(cx,0,cz);root.rotation.y=PI;root.visible=true;p.rig.play(CL.idle,0,true);
+      G.enc={def:Object.assign({bars:[],waves:[[]],tokens:0,id:'x'},enc),wave:0};
+      for(const [k,x,z] of [['husk',-1.8,.2],['stalker',1.8,.2],['brute',-4.4,1],['lantern',4.2,.8],['warden',0,5]]){
+        const e=k==='lantern'?new Lantern(cx+x,cz+z,enc):k==='warden'?new Warden(enc):new Enemy(k,cx+x,cz+z,enc),r=e.rig?e.rig.root:e.root;
+        r.position.set(cx+x,k==='lantern'?2:0,cz+z);r.rotation.y=PI;r.visible=true;if(e.rig){r.scale.setScalar(e.scale);e.rig.play(CL.eIdle,0,true);}list.push(e);}
+      G.enc=null;this.stage={remove(){for(const e of list)e.remove();}};upd=dt=>{p.rig.update(dt);for(const e of list)if(e.rig)e.rig.update(dt);};h=1.9;d=10;}
     else if(kind==='mats'){root=new THREE.Group();scene.add(root);const ks=['floor','wall','plate','armor','steel','rubber','hazard'];
       ks.forEach((k,i)=>{const m=pbr(k),t=TILE[k],g=new THREE.PlaneGeometry(1.6,1.6),s=new THREE.SphereGeometry(.42,32,20);for(const q of [g,s]){const uv=q.attributes.uv;for(let j=0;j<uv.count;j++)uv.setXY(j,uv.getX(j)*1.6/t,uv.getY(j)*1.6/t);}
         const a=new THREE.Mesh(g,m),b=new THREE.Mesh(s,m);a.position.set((i-3)*1.75,1.2,0);b.position.set((i-3)*1.75,2.75,0);root.add(a,b);});

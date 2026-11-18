@@ -5,9 +5,10 @@ Headless checks for TWINFANG. They load the built `twinfang.html` in Chrome, dri
 Setup once, from the repository root:
 
 ```bash
-npm i -D playwright three@0.160.0
-npx playwright install chromium
+npm i --no-save playwright-core three@0.160.0     # uses an installed Edge or Chrome
 ```
+
+(or `npm i -D playwright three@0.160.0` and `npx playwright install chromium` for a bundled browser)
 
 Then build (`python build.py`) and run any of:
 
@@ -19,6 +20,18 @@ node tools/run.mjs tools/s_scenes.mjs --only cor,roof    # in-game views at fixe
 node tools/run.mjs tools/s_show.mjs --kinds "hero:30:d=2.5;h=1,warden:25:d=6.5;h=2.4"   # showcase captures: kind:angle:options
 ```
 
+More checks:
+
+```bash
+node tools/run.mjs tools/s_poses.mjs --w 420 --h 420      # the hero stepped to chosen clip times with each weapon set (--poses "clip:time:set:angle[:dist[:height]],...")
+python tools/sheet.py pose 6                              # tile any group of shots (pose_*, show_*, scene_*) into one contact sheet
+node tools/run.mjs tools/s_grip.mjs                       # steps every hero clip and reports hands or blades that snap round in one step
+node tools/audio_lab.mjs                                  # runs the sound engine alone and writes every sound, the music and the ambience to WAV files
+python tools/audio_view.py                                # spectrogram sheets and a table (length, peak, loudness, tonalness, ring time) for those WAVs
+```
+
+`audio_view.py` needs numpy, scipy and Pillow. Its `ring` column is the longest time a narrow spectral peak above 250 Hz holds its pitch: the signature of a bell. Keep it under about 60 ms.
+
 Every run prints the page's console errors at the end. A scenario is a small module, so adding a check means adding a file.
 
-These scripts were written and run on Linux with software rendering (`SOFTWARE=1`). They have not been run on Windows; the Playwright calls are platform-neutral, but treat the first run there as a test of the tools themselves.
+The scripts run on Linux with software rendering (`SOFTWARE=1`) and on Windows with the real GPU (tested with Edge through Direct3D).

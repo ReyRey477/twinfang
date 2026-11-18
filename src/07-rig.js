@@ -10,7 +10,13 @@ const AL=(d,reach=.56,blade)=>{const n=nrm(d);return {hl:[SHX+n[0]*reach,SHY+n[1
 const AR=(d,reach=.56,blade)=>{const n=nrm(d);return {hr:[-SHX+n[0]*reach,SHY+n[1]*reach,n[2]*reach],sr:nrm(blade||d)};};
 const DOWN=V(0,-1,0),XAX=V(1,0,0);
 const _a=V(),_b=V(),_c=V(),_d=V(),_e=V(),_f=V(),_g=V(),_h=V(),_q=new THREE.Quaternion(),_q2=new THREE.Quaternion(),_m4=new THREE.Matrix4();
-const _w=V(),_fd=V(),_xh=V(),_yh=V(),_zh=V(),_zw=V(),_pole=V();
+const _w=V(),_fd=V(),_xh=V(),_yh=V(),_zh=V(),_zw=V(),_pole=V(),_rt=V();
+// turn v about the axis ax by the fraction k of its angle to t (v and t both perpendicular to ax)
+const rollTo=(v,t,ax,k)=>{const an=atan2(_rt.crossVectors(v,t).dot(ax),v.dot(t))*k;if(abs(an)>1e-5)v.applyQuaternion(_q.setFromAxisAngle(ax,an));};
+// blend a direction channel along the arc instead of the chord, so a blade swings round at an even rate instead of snapping through the middle
+function slerp3(o,i,a,b,k){
+  const la=hypot(a[i],a[i+1],a[i+2])||1,lb=hypot(b[i],b[i+1],b[i+2])||1,c=(a[i]*b[i]+a[i+1]*b[i+1]+a[i+2]*b[i+2])/(la*lb);if(c>.9995||c<-.9995)return;
+  const w=Math.acos(c),sn=sin(w),ka=sin((1-k)*w)/sn/la,kb=sin(k*w)/sn/lb;for(let j=0;j<3;j++)o[i+j]=a[i+j]*ka+b[i+j]*kb;}
 function ik2(o,t,l1,l2,pole,qa,qb){
   const d=_e.subVectors(t,o); let L=d.length(); L=clamp(L,abs(l1-l2)+.002,l1+l2-.002); d.normalize();
   const a=(l1*l1-l2*l2+L*L)/(2*L), h=sqrt(max(0,l1*l1-a*a));
@@ -63,7 +69,7 @@ class Rig{
     const hips=this.hips=new THREE.Group(); hips.rotation.order='YXZ'; body.add(hips);
     const chest=this.chest=new THREE.Group(); chest.rotation.order='YXZ'; chest.position.y=.14; hips.add(chest);
     const head=this.head=new THREE.Group(); head.rotation.order='YXZ'; head.position.y=.56; chest.add(head);
-    this.arm=[];this.fore=[];this.sword=[];this.hand=[];this.leg=[];this.shin=[];this.foot=[];this.gripD=[0,0];this.palm=[V(0,-.4,.9).normalize(),V(0,-.4,.9).normalize()];
+    this.arm=[];this.fore=[];this.sword=[];this.hand=[];this.leg=[];this.shin=[];this.foot=[];this.gripD=[0,0];this.palm=[V(0,-.4,.9).normalize(),V(0,-.4,.9).normalize()];this.gz=[V(0,0,1),V(0,0,1)];this.gb=[V(0,1,0),V(0,1,0)];this.gc=[0,0];
     for(let s=0;s<2;s++){const sx=s?-1:1;
       const ua=new THREE.Group(); ua.position.set(sx*SHX,SHY,0); chest.add(ua);
       const fa=new THREE.Group(); fa.position.y=-ARM1; ua.add(fa);
@@ -328,7 +334,7 @@ class Rig{
     this.clip.fn(this.t,tmp,this);
     if(this.air>.01&&!this.clip.noAir){const a=this.air;tmp[I.fl+1]+=.34*a;tmp[I.fl+2]+=.1*a;tmp[I.fr+1]+=.14*a;tmp[I.fr+2]-=.08*a;}
     if(this.post)this.post(tmp,this.clip);
-    if(this.bt<this.bd){const k=smooth(this.bt/this.bd),f=this.from;for(let i=0;i<PN;i++)cur[i]=f[i]+(tmp[i]-f[i])*k;}else cur.set(tmp);
+    if(this.bt<this.bd){const k=smooth(this.bt/this.bd),f=this.from;for(let i=0;i<PN;i++)cur[i]=f[i]+(tmp[i]-f[i])*k;slerp3(cur,I.sl,f,tmp,k);slerp3(cur,I.sr,f,tmp,k);}else cur.set(tmp);
     if(dt>0&&dt<.1){const x=this.spx,v=this.spv;if(!this.spOn){this.spOn=true;for(const i of SPR)x[i]=cur[i];}
       for(let j=0;j<SPR.length;j++){const i=SPR[j],w=j<3?26:17,z=j<3?.5:.38;v[i]+=((cur[i]-x[i])*w*w-v[i]*2*z*w)*dt;x[i]+=v[i]*dt;cur[i]=x[i];}}
     this.apply(dt);
@@ -350,31 +356,37 @@ class Rig{
         else if(this.aimW>.001){_q.copy(hips.quaternion).multiply(chest.quaternion).invert(); _d.copy(this.aimDir).applyQuaternion(_q).normalize();
           _e.copy(_a).addScaledVector(_d,.56); _b.lerp(_e,this.aimW); bl.lerp(_d,this.aimW).normalize();}
       }
-      // weapon frame: X = cutting edge (follows the swing), Y = blade, Z = flat
-      const ed=this.edge[s],pistol=s===0&&this.aimHand;
-      if(pistol){ed.crossVectors(bl,DOWN); if(ed.lengthSq()<.02)ed.set(1,0,0);}
+      // weapon frame: X = cutting edge (follows the swing), Y = blade, Z = flat.
+      // The roll references (edge, and the hand's knuckle direction gz) are first carried along with the blade's own
+      // rotation, so however fast it swings they only ever turn about the blade by what the rules below ask for.
+      const ed=this.edge[s],pistol=s===0&&this.aimHand,gz=this.gz[s],gb=this.gb[s];
+      _q.setFromUnitVectors(gb,bl); gb.copy(bl); ed.applyQuaternion(_q); gz.applyQuaternion(_q).addScaledVector(bl,-gz.dot(bl));
+      ed.addScaledVector(bl,-ed.dot(bl)); if(ed.lengthSq()<1e-6)ed.set(1,0,0).addScaledVector(bl,-bl.x); ed.normalize();
+      if(gz.lengthSq()<1e-6)gz.copy(ed); gz.normalize();
       let swung=pistol;
-      if(!pistol){const tip=_d.copy(_b).addScaledVector(bl,1.1),vel=_e.subVectors(tip,this.tipPrev[s]); this.tipPrev[s].copy(tip);
-        if(vel.lengthSq()>4e-5){swung=true;vel.addScaledVector(bl,-vel.dot(bl));if(vel.lengthSq()>1e-6){vel.normalize();if(vel.dot(ed)<0)vel.negate();ed.lerp(vel,.4);}}}
-      ed.addScaledVector(bl,-ed.dot(bl)); if(ed.lengthSq()<1e-6)ed.set(1,0,0).addScaledVector(bl,-bl.x); ed.normalize(); _zw.crossVectors(ed,bl);
+      if(pistol){   // gz is the top of the gun: it leans toward upright, and holds its line when the barrel points straight up or down
+        _e.set(0,1,0).addScaledVector(bl,-bl.y); if(_e.lengthSq()>.05){_e.normalize(); rollTo(gz,_e,bl,dt>0?min(1,14*dt):1);}
+        ed.crossVectors(gz,bl).normalize();
+      }else{const tip=_d.copy(_b).addScaledVector(bl,1.1),vel=_e.subVectors(tip,this.tipPrev[s]); this.tipPrev[s].copy(tip);
+        if(vel.lengthSq()>(dt>0?dt*dt*1.3:4e-5)){swung=true;vel.addScaledVector(bl,-vel.dot(bl));if(vel.lengthSq()>1e-8){vel.normalize();if(vel.dot(ed)<0)vel.negate();rollTo(ed,vel,bl,dt>0?1-exp(-60*dt):.4);}}}
+      _zw.crossVectors(ed,bl);
       const ua=this.arm[s],fa=this.fore[s],gd=this.gripD[s],sw=this.sword[s]; _pole.set(sx*.5,-.8,-.45);
       if(gd>0){
         // The pose gives where the grip is. The wrist is a ball joint a palm's length behind it, on the side the forearm comes
         // from, so the hand always wraps the grip with its heel toward the arm, whatever angle the weapon is at.
-        const hp=this.palm[s],hd=this.hand[s];
+        const hp=this.palm[s],hd=this.hand[s]; let c=this.gc[s];
+        if(pistol){_yh.copy(gz); _zh.copy(bl);}else{_yh.copy(bl); _zh.copy(gz);}
+        hp.copy(_zh).multiplyScalar(sqrt(1-c*c)).addScaledVector(_yh,c);
         _w.copy(_b).addScaledVector(hp,-gd); ik2(_a,_w,ARM1,ARM2,_pole,ua.quaternion,fa.quaternion);
         _q2.copy(ua.quaternion).multiply(fa.quaternion); _fd.set(0,-1,0).applyQuaternion(_q2);
-        if(pistol){_yh.copy(_zw).negate(); _zh.copy(bl);}
-        else{_yh.copy(bl); _zh.copy(_fd).addScaledVector(bl,-_fd.dot(bl)); if(_zh.lengthSq()<.03){_zh.copy(hp).addScaledVector(bl,-hp.dot(bl)); if(_zh.lengthSq()<1e-4)_zh.copy(ed);} _zh.normalize();}
-        const c=clamp(_fd.dot(_yh),-.45,.45); _w.copy(_zh).multiplyScalar(sqrt(1-c*c)).addScaledVector(_yh,c);
-        if(dt>0&&!pistol){hp.lerp(_w,1-exp(-45*dt)).normalize(); _zh.copy(hp).addScaledVector(_yh,-hp.dot(_yh)); if(_zh.lengthSq()<1e-4)_zh.copy(ed); _zh.normalize();} else hp.copy(_w);
+        if(!pistol){_e.copy(_fd).addScaledVector(bl,-_fd.dot(bl)); if(_e.lengthSq()>.03){_e.normalize(); rollTo(gz,_e,bl,dt>0?1-exp(-26*dt):1);} _zh.copy(gz);}
+        const ct=clamp(_fd.dot(_yh),-.45,.45); c=this.gc[s]=dt>0?damp(c,ct,26,dt):ct;
+        hp.copy(_zh).multiplyScalar(sqrt(1-c*c)).addScaledVector(_yh,c);
         _w.copy(_b).addScaledVector(hp,-gd); ik2(_a,_w,ARM1,ARM2,_pole,ua.quaternion,fa.quaternion);
+        if(!swung){rollTo(ed,_zh,bl,dt>0?min(1,9*dt):1); _zw.crossVectors(ed,bl);}   // at rest the edge settles toward the knuckles, as a held blade sits
         _q2.copy(ua.quaternion).multiply(fa.quaternion).invert();
         _xh.crossVectors(_yh,_zh); _m4.makeBasis(_xh,_yh,_zh); _q.setFromRotationMatrix(_m4); hd.quaternion.copy(_q2).multiply(_q);
         _w.copy(hp).multiplyScalar(gd).applyQuaternion(_q2); _w.y-=ARM2; hd.position.copy(_w); sw.position.copy(_w);
-        if(!swung){   // at rest the edge settles toward the knuckles, as a held blade would sit
-          const an=atan2(_e.crossVectors(ed,_zh).dot(bl),ed.dot(_zh)),st=dt>0?min(abs(an),9*dt):abs(an);
-          if(st>1e-4){_q.setFromAxisAngle(bl,an<0?-st:st); ed.applyQuaternion(_q).normalize(); _zw.crossVectors(ed,bl);}}
       }else{ik2(_a,_b,ARM1,ARM2,_pole,ua.quaternion,fa.quaternion); _q2.copy(ua.quaternion).multiply(fa.quaternion).invert();}
       _m4.makeBasis(ed,bl,_zw); _q.setFromRotationMatrix(_m4); sw.quaternion.copy(_q2).multiply(_q);
       // leg

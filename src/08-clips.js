@@ -2,7 +2,7 @@
 const CL={};
 function K(keys,extra){const dur=keys[keys.length-1][0];
   return Object.assign({dur,fn(t,o){let i=0;while(i<keys.length-2&&t>=keys[i+1][0])i++;const a=keys[i],b=keys[i+1];let k=sat((t-a[0])/((b[0]-a[0])||1));const e=b[2];
-    k=e==='in'?k*k:e==='out'?1-(1-k)*(1-k):e==='lin'?k:smooth(k);const pa=a[1],pb=b[1];for(let j=0;j<PN;j++)o[j]=pa[j]+(pb[j]-pa[j])*k;}},extra);}
+    k=e==='in'?k*k:e==='out'?1-(1-k)*(1-k):e==='lin'?k:smooth(k);const pa=a[1],pb=b[1];for(let j=0;j<PN;j++)o[j]=pa[j]+(pb[j]-pa[j])*k;slerp3(o,I.sl,pa,pb,k);slerp3(o,I.sr,pa,pb,k);}},extra);}
 function mir(p){const o=new Float32Array(p);o[I.rot+1]=-p[I.rot+1];o[I.rot+2]=-p[I.rot+2];
   for(const k of ['hip','ch','hd']){o[I[k]+1]=-p[I[k]+1];o[I[k]+2]=-p[I[k]+2];}
   const sw=(a,b)=>{o[a]=-p[b];o[a+1]=p[b+1];o[a+2]=p[b+2];o[b]=-p[a];o[b+1]=p[a+1];o[b+2]=p[a+2];};sw(I.hl,I.hr);sw(I.sl,I.sr);sw(I.fl,I.fr);return o;}
@@ -10,7 +10,7 @@ const mirK=keys=>keys.map(k=>[k[0],mir(k[1]),k[2]]);
 
 // ----- hero -----
 const IDLE=P({by:0,rot:[0,0,0],hy:-.05,hz:0,hip:[.04,-.38,0],ch:[.06,-.12,0],hd:[-.04,.48,0],
-  hl:[.25,.1,.32],sl:nrm([.12,.5,.85]),hr:[-.3,-.12,-.05],sr:nrm([-.25,-.45,-.86]),fl:[.2,0,.26],fr:[-.2,0,-.24]});
+  hl:[.25,.1,.32],sl:nrm([.08,.32,.94]),hr:[-.3,-.12,-.05],sr:nrm([-.25,-.45,-.86]),fl:[.2,0,.26],fr:[-.2,0,-.24]});
 const ATK=P({hy:-.14,hip:[.1,0,0],ch:[.06,0,0],hd:[-.1,0,0],...AL([.3,-.6,.6],.45,[.1,.3,.9]),...AR([-.3,-.6,.6],.45,[-.1,.3,.9]),fl:[.2,0,.32],fr:[-.2,0,-.32]});
 CL.idle={loco:'idle',fn(t,o){o.set(IDLE);const b=sin(t*2.2);o[I.hy]+=b*.012;o[I.ch]+=b*.015;o[I.hl+1]+=b*.012;o[I.hr+1]+=b*.01;}};
 const RUNB=P({hy:-.1,hip:[.32,0,0],ch:[.12,0,0],hd:[-.32,0,0],...AL([.45,-.55,-.7],.5,[.22,-.12,-1]),...AR([-.45,-.55,-.7],.5,[-.22,-.12,-1])});
@@ -79,12 +79,15 @@ CL.L1=K(L1K); CL.L2=K(mirK(L1K));
   const fT0=P({hy:-.26,hip:[.2,0,0],...both([.4,-.2,-.6],.4,[.1,0,1]),fl:[.2,0,.3],fr:[-.2,0,-.4]},ATK);
   const fT1=P({hy:-.32,hip:[.4,0,0],ch:[.15,0,0],hd:[-.5,0,0],...both([.12,.02,1],.61,[.1,0,1]),fl:[.2,0,.75],fr:[-.2,.05,-.7]},ATK);
   const fEnd=K([[0,fT0],[.06,fT0],[.12,fT1,'in'],[.4,fT1]]);
-  CL.flurry={dur:1,fn(t,o,r){
-    if(t>=.6){fEnd.fn(t-.6,o);return;}
-    o.set(ATK);o[I.hy]=-.2;const n=min(4,floor(t/.12)),u=sat((t-n*.12)/.12),s=n%2?-1:1;
+  const fSeg=(o,n,u)=>{o.set(ATK);o[I.hy]=-.2;const s=n%2?-1:1;
     const d=u<.5?mix3([s*.9,.75,.1],[s*.1,.05,1],u*2):mix3([s*.1,.05,1],[-s*.75,-.6,.45],(u-.5)*2);
     if(s>0){wr(o,AL(d,.6));wr(o,AR([-.5,-.35,.55],.4,[-.3,.2,.9]));}else{wr(o,AR(d,.6));wr(o,AL([.5,-.35,.55],.4,[.3,.2,.9]));}
-    o[I.ch+1]=s*(.4-u*.85);o[I.hip+1]=s*(.15-u*.3);o[I.hd+1]=-s*(.5-u*1.1);o[I.fl+2]=.45;o[I.fr+2]=-.36;}};
+    o[I.ch+1]=s*(.4-u*.85);o[I.hip+1]=s*(.15-u*.3);o[I.hd+1]=-s*(.5-u*1.1);o[I.fl+2]=.45;o[I.fr+2]=-.36;};
+  const fPrev=new Float32Array(PN),fMix=(o,k)=>{for(let j=0;j<PN;j++)o[j]=fPrev[j]+(o[j]-fPrev[j])*k;slerp3(o,I.sl,fPrev,fCur,k);slerp3(o,I.sr,fPrev,fCur,k);},fCur=new Float32Array(PN);
+  CL.flurry={dur:1,fn(t,o,r){
+    if(t>=.6){fEnd.fn(t-.6,o);if(t<.66){fCur.set(o);fSeg(fPrev,4,1);fMix(o,smooth((t-.6)/.06));}return;}
+    const n=min(4,floor(t/.12)),u=sat((t-n*.12)/.12);fSeg(o,n,u);
+    if(n>0&&u<.3){fCur.set(o);fSeg(fPrev,n-1,1);fMix(o,smooth(u/.3));}}};
 }
 // ----- enemies -----
 const E_IDLE=P({by:0,rot:[0,0,0],hy:-.16,hz:0,hip:[.28,0,0],ch:[.32,0,0],hd:[-.5,0,0],...AL([.3,-.8,.5],.5,[0,-1,.2]),...AR([-.3,-.8,.5],.52,[-.15,-.5,.85]),fl:[.2,0,.08],fr:[-.2,0,-.08]});

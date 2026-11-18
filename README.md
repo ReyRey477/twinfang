@@ -53,13 +53,13 @@ Edit the parts, not `twinfang.html`.
 
 | Part | What it holds |
 | --- | --- |
-| `02-audio` | Sound engine. Each sound is a recipe that synthesises a buffer (several variants each); two generated reverbs, ambience beds, the combat music sequencer |
+| `02-audio` | Sound engine. Each sound is a recipe that layers noise, low thumps and short dense "clanks" into a buffer (several variants each, no ringing tones); two generated reverbs, ambience beds, the combat music sequencer |
 | `03-renderer` | Render pipeline: HDR scene, ambient occlusion, bloom, lens, ACES tone map and grade |
-| `04-textures` | Material system. A shader per material bakes albedo, normal, roughness and metalness maps on the GPU |
+| `04-textures` | Material system. A shader per material bakes albedo, normal, roughness and metalness maps on the GPU (painted `shell` for the hero, bare `armor` for foes) |
 | `05-world` | The level: walkable `AREAS` (the only thing collision looks at) and the kit that dresses them |
 | `06-fx`, `06b-fx2` | Particles, trails, shockwaves, wreckage |
-| `07-rig` | Character rig, pose format, IK, and the part-by-part models of the hero and foes |
-| `08-clips` | Animation clips (keyframed poses) |
+| `07-rig` | Character rig, pose format, IK, the grip and wrist solver, and the models of the hero and foes, built from lofted shells (`loft`) |
+| `08-clips`, `08b-clips2` | Animation clips (keyframed poses) and `STANCE`: how the hero holds each weapon set standing, running and airborne |
 | `10-data` | Character materials, moves, encounters |
 | `11*` | Enemies and the two bosses |
 | `12-player`, `13-camera`, `14-game` | Player, camera, game loop |
@@ -71,7 +71,7 @@ These work on the normal build; none of them run in ordinary play.
 
 | Address option | What it does |
 | --- | --- |
-| `?show=hero` (or `husk`, `brute`, `stalker`, `lantern`, `warden`, `storm`, `mats`) | One subject on a lit stage with an orbiting camera. Extra options: `&a=30` fixed angle, `&d=2.5` distance, `&h=1` height, `&clip=run` animation, `&t=0.2` freeze at a time |
+| `?show=hero` (or `husk`, `brute`, `stalker`, `lantern`, `warden`, `storm`, `mats`, `all`) | One subject, or the whole cast, on a lit stage with an orbiting camera. Extra options: `&a=30` fixed angle, `&d=2.5` distance, `&h=1` height, `&clip=run` animation, `&t=0.2` freeze at a time, `&set=1` weapon set (hero) |
 | `?tp=x,y,z,yaw` | Start at that spot |
 | `?cam=x,y,z,tx,ty,tz` | Fixed camera, HUD hidden |
 | `?bench` | Flies a fixed path through the level and prints average, median and worst-case frame times |
@@ -82,4 +82,6 @@ From the console: `HX.show(kind, opts)`, `HX.tp(...)`, `HX.view(...)`, `HX.stats
 
 **Shader rule: never let an invalid number reach the screen.** A single NaN or infinite pixel is blurred by bloom into a black block hundreds of pixels wide. It happens most easily with `pow()` of an interpolated value: at polygon edges that value can dip below zero, and Direct3D (Chrome, Brave and Edge on Windows) returns NaN for a negative base, while other renderers quietly do not. Clamp before `pow`, `sqrt` and `normalize`. Lit materials and the frame as a whole are also guarded (`GUARD` in `04-textures`, the pass before bloom in `03-renderer`), so a mistake shows up as one dark pixel instead of a blacked-out screen.
 
-`tools/` holds the headless test runner used to build this version (screenshots of any scene or showcase, an audio-bank check, and a full bot playthrough). See `tools/README.md`.
+**How weapons are held.** A pose says where each grip is and where the blade points. The rig then places the wrist a palm's length behind the grip, on the side the forearm comes from, and builds the hand round the grip axis, so fingers always wrap the hilt (or the pistol's handle, or the maul's shaft) whatever the swing is doing. With the maul the right hand leads and the left slides along the shaft to wherever it can reach.
+
+`tools/` holds the headless test runner used to build this version (screenshots of any scene, showcase or hero pose, a grip-stability check, an audio lab that renders the sound to files and spectrograms, and a full bot playthrough). See `tools/README.md`.

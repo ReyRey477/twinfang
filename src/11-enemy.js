@@ -9,7 +9,7 @@ class Enemy{
     this.flash=0;this.hang=0;this.chain=0;this.token=false;this.dead=false;this.gone=false;this.spiked=false;this.struck=false;this.dodged=false;this.shield=null;this.poise=120;this.gunPoise=0;
     this.mats=enemyMats(kind);this.baseEm=S?0xa050ff:0xff6a2a;this.rig=new Rig({kind,scale:this.scale,mats:this.mats});scene.add(this.rig.root);
     this.rig.play(S?CL.sHang:CL.eIdle,0);this.trail=B?null:new Trail(14,S?0xa050ff:0xff4a12);
-    if(!S){fx.rings.spawn(x,this.gy+.05,z,0xff5a1a,3,.3,2.2*this.scale,.9);sfx.noise({f0:200,f1:1300,dur:.8,q:2,g:.3,a:.4});}
+    if(!S){fx.rings.spawn(x,this.gy+.05,z,0xff5a1a,3,.3,2.2*this.scale,.9);sfx.spawn();}
   }
   get ghost(){return this.state==='spawn'||this.state==='drop';}
   get air(){return this.pos.y>this.gy+.05;}

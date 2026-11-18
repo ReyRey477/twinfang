@@ -21,7 +21,7 @@ const V=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
 // Seeded generator for level dressing, so the level is identical on every load (and in every screenshot).
 let _sd=90210; const srnd=(a=1,b)=>{_sd=(_sd*1664525+1013904223)>>>0;const r=_sd/4294967296;return b===undefined?r*a:a+r*(b-a);};
 // URL options: ?q=low|high picks a quality tier, ?debug keeps the canvas readable. The dev harness (15-harness.js) adds more.
-const BUILD='2026-11-18.3';   // shown on the title screen; bump it with every delivered change so a stale file is obvious
+const BUILD='2026-11-18.4';   // shown on the title screen; bump it with every delivered change so a stale file is obvious
 const QS=new URLSearchParams(location.search);
 const QLOW=QS.get('q')==='low', QHIGH=QS.get('q')==='high';
 window.__errors=[]; addEventListener('error',e=>window.__errors.push(String(e.message)));

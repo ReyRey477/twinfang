@@ -63,6 +63,8 @@ try {
     // ---- scenes: a fresh engine on an OfflineAudioContext, driven by the same tick() the game calls 60 times a second ----
     const S = {
       mus_explore: { dur: 20, f: `(s,t)=>s.tick(false,0,1/60)` },
+      amb_hall: { dur: 10, pre: `s=>s.mGain.gain.value=0`, f: `(s,t)=>s.tick(false,0,1/60)` },
+      mus_pad: { dur: 10, pre: `s=>s.bedHall.disconnect()`, f: `(s,t)=>s.tick(false,0,1/60)` },
       mus_combat0: { dur: 15, f: `(s,t)=>s.tick(true,0,1/60)` },
       mus_combat2: { dur: 15, f: `(s,t)=>s.tick(true,2,1/60)` },
       mus_combat4: { dur: 15, f: `(s,t)=>s.tick(true,4,1/60)` },
@@ -80,17 +82,17 @@ try {
         if(at(12.2)){s.boom();s.slow(true);} if(at(13.4))s.slow(false); if(t>13.6&&ev(.28))s.step(); if(at(14))s.pickup();}` },
     };
     for (const [name, sc] of Object.entries(S)) {
-      const r = await page.evaluate(async ([dur, f, roof]) => {
+      const r = await page.evaluate(async ([dur, f, roof, pre]) => {
         const sr = 48000, ctx = new OfflineAudioContext(2, sr * dur, sr); let T = 0, F = 0;
         Object.defineProperty(ctx, 'currentTime', { get: () => T, configurable: true });
         window.G = roof ? { player: { pos: { z: 300 } } } : undefined;
-        const s = new Sfx(), t0 = performance.now(); s.init(ctx, true); const synth = performance.now() - t0;
+        const s = new Sfx(), t0 = performance.now(); s.init(ctx, true); const synth = performance.now() - t0; if (pre) eval(pre)(s);
         const fn = eval(f), at = x => Math.round(x * 60) === F, ev = p => Math.floor((F + 1) / 60 / p) !== Math.floor(F / 60 / p);
         for (F = 0; F < dur * 60; F++) { T = F / 60; fn(s, T, at, ev); }
         delete ctx.currentTime;
         const b = await ctx.startRendering();
         return { synth: Math.round(synth), chs: [pack(b.getChannelData(0)), pack(b.getChannelData(1))], errs: window.__errors.length };
-      }, [sc.dur, sc.f, !!sc.roof]);
+      }, [sc.dur, sc.f, !!sc.roof, sc.pre || null]);
       wav(path.join(OUT, 'scenes', name + '.wav'), r.chs.map(unpack), 48000);
       console.log(`scene ${name}  ${sc.dur}s  (bank synthesised in one go: ${r.synth} ms)`);
     }

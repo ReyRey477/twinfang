@@ -36,7 +36,7 @@ const mirClip=c=>({dur:c.dur,noAir:c.noAir,fn(t,o,r){c.fn(t,o,r);o.set(mir(o));}
 const HOLD=(hl,sl,hr,sr)=>{const o={};if(hl){o.hl=hl;o.sl=nrm(sl);}if(hr){o.hr=hr;o.sr=nrm(sr);}return o;};
 const STANCE=[
   // twin fangs: lead blade up in a guard, rear blade low and trailing; both swept back on the run
-  {idle:HOLD([.25,.1,.32],[.12,.5,.85],[-.3,-.12,-.05],[-.25,-.45,-.86]),
+  {idle:HOLD([.25,.1,.32],[.08,.32,.94],[-.3,-.12,-.05],[-.25,-.45,-.86]),
    run:HOLD([.34,.02,-.2],[.35,.14,-.93],[-.34,.02,-.2],[-.35,.14,-.93])},
   // blade & pistol: gun forward at the low ready, sword low behind
   {idle:HOLD([.2,.12,.36],[-.1,-.3,.95],[-.3,-.12,-.05],[-.25,-.45,-.86]),
