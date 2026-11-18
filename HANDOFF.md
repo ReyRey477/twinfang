@@ -25,7 +25,7 @@ They said the game "looks better than before, but is still lacking", that the pl
 | Weapon holding (`07-rig`, `08b-clips2`) | Redone. A pose gives where the grip is and where the blade points; the rig puts a ball-joint wrist a palm's length behind the grip on the side the forearm comes from and builds a real hand (palm, four fingers, thumb, knuckle guard) round the grip axis. The pistol is held by its handle. The maul is two-handed: right hand leads, the left slides along the shaft to stay in reach. Hand roll and blade edge are carried along with the blade's rotation so fast swings cannot twist them. `STANCE` holds the idle, run and air hold for each weapon set. |
 | Hero model (`07-rig` `buildHero`, `10-data`) | Rebuilt from the references: white lacquered shells (`loft()`: stacked superellipse rings) over a dark ribbed core, slate-blue secondary plates, teal lights, pointed feet with heel spurs, four coat-tail blades. New painted `shell` material in `04-textures`. |
 | Husk, Brute, Stalker, Gatewarden (`07-rig`) | Rebuilt with the same kit: skeletal bone-plated Husk with swept shoulder guards, olive siege-engine Brute, lean dark Stalker with four wing blades, knightly Gatewarden whose plate still sheds in phase 2. |
-| Lantern, Stormvane (`11b`, `11d`) | LANTERN_STORMVANE_STATE |
+| Lantern, Stormvane (`11b`, `11d`) | Rebuilt from the references. The Lantern is a six-armed hovering automaton (mask, antler horns with ring lights, halo, a glowing core it cradles) whose arms pose per state and which now turns to face the player. The Stormvane is a mechanical raptor: hooked beak with a hinged jaw, three-segment wings carrying instanced feather blades that fan and fold, legs with talons that plant, tuck and step, a segmented tail fan. Gameplay values untouched. Their modelling kit lives at the top of `11b-lantern.js` (`LN_` / `SV_` names). |
 | Sound (`02-audio`) | Rewritten from nothing: effects, feedback cues, ambience and music. No sound holds a pure tone above about 250 Hz; metal is short dense "clank", not ringing partials. Music is D minor at 138 bpm, layered by combat intensity. |
 | Animation | Keyframed and cross-faded blade directions now travel along the arc (`slerp3`). The flurry flows from slash to slash instead of the hands teleporting. Attack timings and damage are untouched. |
 | Tools | `s_poses.mjs` + `sheet.py` (pose contact sheets), `s_grip.mjs` (hand and blade jump check), `s_perf.mjs` (frame cost), `audio_lab.mjs` + `audio_view.py` (render the sound to WAV, spectrograms and measurements), `?show=all` (cast lineup). |
@@ -34,7 +34,7 @@ They said the game "looks better than before, but is still lacking", that the pl
 
 On this PC, real GPU, build `.4`:
 - `s_bot.mjs`: the bot completes all seven encounters with zero errors. It refills its own health and drains boss health on a timer, so this proves the game does not break, not that it is fair or fun.
-- `s_nan.mjs`: zero invalid pixels in every view, on Direct3D. This is the first real-hardware evidence for the old black-block bug (open problem 1 of the previous handoff); the owner has still not confirmed it by eye.
+- `s_nan.mjs` and `s_ctx.mjs` (the same count with the Lantern and Stormvane in view): zero invalid pixels in every view, on Direct3D. This is the first real-hardware evidence for the old black-block bug (open problem 1 of the previous handoff); the owner has still not confirmed it by eye.
 - `s_perf.mjs` at 1920x1080: 4 to 7 ms per frame everywhere (about 140 to 230 fps of headroom), worst in the corridor with six enemies.
 - `s_grip.mjs`: no hand or blade turns more than about 0.75 rad in one 1/180 s step; what remains is authored strike speed.
 - `s_audio.mjs`: the whole bank synthesises without bad samples; `audio_view.py` finds no narrow spectral peak above 250 Hz that holds longer than 48 ms (the old bank: up to 1180 ms).
@@ -50,7 +50,7 @@ Never verified:
 
 1. **Owner feedback on the three things they asked for**: the holds, the sound, the look against their references.
 2. **Animation pass.** Player and boss clips are still the old keyframes, now with better holds. Anticipation and recovery poses are the obvious next step once the owner has played.
-3. **Hero detail.** Clean but plain at close range: no panel lines, the chest yoke is one smooth piece. The references have more exposed mechanism at the neck and waist.
+3. **Model detail.** The hero is clean but plain at close range (the chest yoke is one smooth piece; the references show more exposed mechanism). On the dark roof the grounded Stormvane is mostly a shape carried by its lights, and its wing spars are plain tubes up close. At distance in a dark room the Lantern is slender; its core, halo and horn rings carry it.
 4. **Enemy animation does not use the new hand system.** Foes still mount their blades on a free wrist (`gripD` is 0 for them), which suits machines but is less convincing than the hero's hands.
 
 ## Working rules learned the hard way
@@ -74,7 +74,8 @@ node tools/run.mjs tools/s_audio.mjs              # must end: AUDIO CHECK PASSED
 node tools/run.mjs tools/s_grip.mjs               # lists any hand or blade that snaps
 node tools/run.mjs tools/s_perf.mjs --w 1920 --h 1080
 node tools/run.mjs tools/s_poses.mjs --w 420 --h 420 && python tools/sheet.py pose 6
-node tools/run.mjs tools/s_show.mjs --w 1500 --h 760 --kinds "all:8:d=7.5;h=1.7"
+node tools/run.mjs tools/s_show.mjs --w 1500 --h 800 --kinds "all:8:d=8;h=2.3"       # the whole cast
+node tools/run.mjs tools/s_states.mjs --w 560 --h 520 && python tools/sheet.py state 4   # Lantern and Stormvane in each state
 node tools/audio_lab.mjs && python tools/audio_view.py
 ```
 

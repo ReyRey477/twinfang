@@ -26,6 +26,9 @@ More checks:
 node tools/run.mjs tools/s_poses.mjs --w 420 --h 420      # the hero stepped to chosen clip times with each weapon set (--poses "clip:time:set:angle[:dist[:height]],...")
 python tools/sheet.py pose 6                              # tile any group of shots (pose_*, show_*, scene_*) into one contact sheet
 node tools/run.mjs tools/s_grip.mjs                       # steps every hero clip and reports hands or blades that snap round in one step
+node tools/run.mjs tools/s_states.mjs --w 560 --h 520     # the Lantern and the Stormvane forced into each of their states (then: python tools/sheet.py state 4)
+node tools/run.mjs tools/s_ctx.mjs                        # those two in their real rooms, with the invalid-pixel count taken while they are in view
+node tools/run.mjs tools/s_perf.mjs --w 1920 --h 1080     # milliseconds per frame, draw calls and triangles at seven places, and which GPU rendered them
 node tools/audio_lab.mjs                                  # runs the sound engine alone and writes every sound, the music and the ambience to WAV files
 python tools/audio_view.py                                # spectrogram sheets and a table (length, peak, loudness, tonalness, ring time) for those WAVs
 ```

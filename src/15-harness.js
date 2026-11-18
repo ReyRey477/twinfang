@@ -23,9 +23,9 @@ const HX={cam:null,stage:null,orbit:null,frames:0,calls:0,tris:0,
     else if(kind==='all'){   // the cast in a line: hero in front, foes either side, the Gatewarden behind
       const list=[];root=p.rig.root;root.position.set(cx,0,cz);root.rotation.y=PI;root.visible=true;p.rig.play(CL.idle,0,true);
       G.enc={def:Object.assign({bars:[],waves:[[]],tokens:0,id:'x'},enc),wave:0};
-      for(const [k,x,z] of [['husk',-1.8,.2],['stalker',1.8,.2],['brute',-4.4,1],['lantern',4.2,.8],['warden',0,5]]){
+      for(const [k,x,z] of [['husk',-1.8,.2],['stalker',1.8,.2],['brute',-4.4,1],['lantern',3.9,1.4],['warden',0,5]]){
         const e=k==='lantern'?new Lantern(cx+x,cz+z,enc):k==='warden'?new Warden(enc):new Enemy(k,cx+x,cz+z,enc),r=e.rig?e.rig.root:e.root;
-        r.position.set(cx+x,k==='lantern'?2:0,cz+z);r.rotation.y=PI;r.visible=true;if(e.rig){r.scale.setScalar(e.scale);e.rig.play(CL.eIdle,0,true);}list.push(e);}
+        r.position.set(cx+x,k==='lantern'?4.2:0,cz+z);r.rotation.y=PI;r.visible=true;if(e.rig){r.scale.setScalar(e.scale);e.rig.play(CL.eIdle,0,true);}else r.scale.setScalar(1);list.push(e);}
       G.enc=null;this.stage={remove(){for(const e of list)e.remove();}};upd=dt=>{p.rig.update(dt);for(const e of list)if(e.rig)e.rig.update(dt);};h=1.7;d=7.6;}
     else if(kind==='mats'){root=new THREE.Group();scene.add(root);const ks=['floor','wall','plate','armor','steel','rubber','hazard'];
       ks.forEach((k,i)=>{const m=pbr(k),t=TILE[k],g=new THREE.PlaneGeometry(1.6,1.6),s=new THREE.SphereGeometry(.42,32,20);for(const q of [g,s]){const uv=q.attributes.uv;for(let j=0;j<uv.count;j++)uv.setXY(j,uv.getX(j)*1.6/t,uv.getY(j)*1.6/t);}
@@ -37,7 +37,7 @@ const HX={cam:null,stage:null,orbit:null,frames:0,calls:0,tris:0,
       const e=kind==='lantern'?new Lantern(cx,cz,enc):kind==='warden'?new Warden(enc):kind==='storm'?new Stormvane(enc):new Enemy(kind,cx,cz,enc);
       root=e.rig?e.rig.root:e.root;this.stage=e;G.enc=null;
       if(e.rig){root.position.set(cx,0,cz);root.rotation.y=PI;root.scale.setScalar(e.scale);root.visible=true;e.rig.play(CL[o.clip]||CL.idle,0,true);upd=dt=>e.rig.update(dt);h=1.1*e.scale;d=4.2*e.scale;}
-      else{root.position.set(cx,kind==='storm'?4.5:2,cz);root.rotation.y=PI;root.scale.setScalar(1);if(kind==='storm'){h=4.5;d=17;}else{h=2;d=3.4;}}
+      else{root.position.set(cx,kind==='storm'?4.5:4.2,cz);root.rotation.y=PI;root.scale.setScalar(1);if(kind==='storm'){h=4.5;d=17;}else{h=3;d=6.2;}}
       if(kind==='warden')root.position.z=cz;
     }
     this.subject=root;this.upd=upd;
