@@ -75,7 +75,7 @@ try {
       stem_guitars: { dur: 13, pre: `s=>{s.drumBus.gain.value=0;s.bassIn.gain.value=0;s.padG.disconnect();s.bedHall.disconnect();}`, f: `(s,t)=>s.tick(true,2,1/60)` },
       stem_bass: { dur: 13, pre: `s=>{s.drumBus.gain.value=0;s.gtrBus.gain.value=0;s.padG.disconnect();s.bedHall.disconnect();}`, f: `(s,t)=>s.tick(true,2,1/60)` },
       mus_combat0: { dur: 27, f: `(s,t)=>s.tick(true,0,1/60)` },
-      mus_combat2: { dur: 27, f: `(s,t)=>s.tick(true,2,1/60)` },
+      mus_combat2: { dur: 58, f: `(s,t)=>s.tick(true,2,1/60)` },
       mus_combat4: { dur: 27, f: `(s,t)=>s.tick(true,4,1/60)` },
       amb_roof: { dur: 12, roof: true, f: `(s,t,at)=>{s.tick(false,0,1/60);if(at(4))s.thunder(1);if(at(9))s.thunder(.45);}` },
       mix_transition: { dur: 18, f: `(s,t)=>s.tick(t>4&&t<11,t>7?3:0,1/60)` },

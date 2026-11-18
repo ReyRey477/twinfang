@@ -16,6 +16,13 @@ const MUS={bpm:152,
     [[0,2,'c',0],[2,1,'m',0],[3,1,'m',0],[4,2,'m',0],[6,1,'m',0],[7,1,'m',0],[8,2,'c',3],[10,1,'m',0],[11,1,'m',0],[12,2,'c',6],[14,2,'c',5]],
     [[0,2,'c',0],[2,1,'m',0],[3,1,'m',0],[4,2,'m',0],[6,1,'m',0],[7,1,'m',0],[8,2,'c',3],[10,1,'m',0],[11,1,'m',0],[12,2,'c',5],[14,2,'c',3]],
     [[0,2,'c',0],[2,1,'m',0],[3,1,'m',0],[4,2,'m',0],[6,1,'m',0],[7,1,'m',0],[8,2,'c',8],[10,2,'c',8],[12,2,'c',10],[14,2,'c',10]]],
+  VERSE2:[   // the second verse leans on the flat second (Eb) for a darker, tighter gallop
+    [[0,1,'c',0],[1,1,'m',0],[2,1,'m',0],[3,1,'c',0],[4,1,'m',0],[5,1,'m',0],[6,2,'c',0],[8,2,'c',1],[10,1,'m',0],[11,1,'m',0],[12,2,'c',3],[14,2,'c',1]],
+    [[0,1,'c',0],[1,1,'m',0],[2,1,'m',0],[3,1,'c',0],[4,1,'m',0],[5,1,'m',0],[6,2,'c',0],[8,2,'c',1],[10,1,'m',0],[11,1,'m',0],[12,2,'c',6],[14,2,'c',5]],
+    [[0,1,'c',0],[1,1,'m',0],[2,1,'m',0],[3,1,'c',0],[4,1,'m',0],[5,1,'m',0],[6,2,'c',0],[8,2,'c',1],[10,1,'m',0],[11,1,'m',0],[12,2,'c',3],[14,2,'c',1]],
+    [[0,1,'c',0],[1,1,'m',0],[2,1,'m',0],[3,1,'c',0],[4,1,'m',0],[5,1,'m',0],[6,2,'c',0],[8,2,'c',10],[10,2,'c',8],[12,2,'c',7],[14,2,'c',5]]],
+  BREAK:[[[0,5,'c',0],[6,1,'m',0],[7,1,'m',0],[8,5,'c',0],[14,1,'m',0],[15,1,'m',0]],[[0,5,'c',0],[6,1,'m',0],[7,1,'m',0],[8,3,'c',1],[11,1,'m',0],[12,2,'c',3],[14,2,'c',1]]],   // half-time breakdown
+  FORM:'vvvvvvvvccccccccwwwwwwwwccccccccbbbb',                 // one letter per bar: verse, chorus, second verse, chorus, breakdown
   CHORD:[0,8,10,7,0,3,5,7],                                 // chorus roots, semitones above D: D Bb C A | D F G A
   STRUM:[[0,3],[3,3],[6,2],[8,3],[11,3],[14,2]],            // where the chorus chords land, and how long they ring
   LEAD:[[[0,6,69],[6,2,74],[8,8,77]],[[0,4,77],[4,4,74],[8,8,70]],[[0,6,79],[6,2,76],[8,8,72]],[[0,4,76],[4,4,73],[8,8,69]],
@@ -291,7 +298,11 @@ class Sfx{
     const w=typeof G!=='undefined'&&G.player&&G.player.pos.z>262?1:0;
     if(w!==this.where){this.where=w;this.hallG.gain.setTargetAtTime(w?.15:1,now,.5);this.roofG.gain.setTargetAtTime(w?1:0,now,.5);this.bedHall.gain.setTargetAtTime(w?0:.1,now,1);this.bedRain.gain.setTargetAtTime(w?.15:0,now,1);}
     if(combat!==this.combat){   // the band comes in on the downbeat with a crash; out of combat it rings out and the pad and clean guitar return
-      this.combat=combat;this.stepN=0;this.nextT=now+.06;this.cmb.gain.setTargetAtTime(combat?1:0,now,combat?.02:.5);this.padG.gain.setTargetAtTime(combat?.16:.5,now,.6);this.cleanG.gain.setTargetAtTime(combat?0:1,now,combat?.05:1.2);
+      this.combat=combat;this.stepN=0;this.nextT=now+.06;
+      if(combat)this.cmb.gain.setTargetAtTime(1,now,.02);
+      else{if(this.smpReady){const T=now+.04;this.gtr(this.ampL,0,T,'c',38,1.5);this.gtr(this.ampR,1,T,'c',38,1.5);this.bass(T,26,1.5,false);this.drum('kick',T,1);this.drum('crash',T,.5);this.drum('china',T,.3);}
+        this.cmb.gain.setTargetAtTime(0,now+.9,.4);}
+      this.padG.gain.setTargetAtTime(combat?.16:.5,now,.6);this.cleanG.gain.setTargetAtTime(combat?0:1,now,combat?.05:1.2);
       for(const v of this.padVs){if(v.gain.cancelAndHoldAtTime)v.gain.cancelAndHoldAtTime(now);else v.gain.cancelScheduledValues(now);v.gain.setTargetAtTime(0,now,.15);}}
     this.intensity=intensity;
     const pf=combat?700+intensity*160:520;if(pf!==this.padF){this.padF=pf;this.padLP.frequency.setTargetAtTime(pf,now,.7);}
@@ -331,25 +342,29 @@ class Sfx{
       if(this.smpReady&&s%4===0){const k=((n%32)>>2);const m=[ch[0],ch[1],ch[2],ch[1]+12,ch[2],ch[1],ch[0]+12,-1][k];if(m>0)this.pluck(T,m+12,.5);}
       return;}
     if(!this.smpReady)return;
-    const bar=(n>>4)%16,chorus=bar>=8,cb=bar-8,phraseEnd=bar%4===3,last=bar===7||bar===15;
+    const F=M.FORM,bar=(n>>4)%F.length,sec=F[bar];let cb=0;while(cb<bar&&F[bar-cb-1]===sec)cb++;      // cb: which bar of its section this is
+    const chorus=sec==='c',brk=sec==='b',last=F[(bar+1)%F.length]!==sec;
     let ev;   // this bar's guitar part
-    if(!chorus)ev=M.VERSE[bar%4];
-    else{const r=M.CHORD[cb];ev=(cb%4===3?M.STRUM.slice(0,3).map(([st,ln])=>[st,ln,'c',r]).concat([8,9,10,11,12,13,14,15].map(st=>[st,1,'m',r])):M.STRUM.map(([st,ln])=>[st,ln,'c',r]));}
+    if(chorus){const r=M.CHORD[cb];ev=(cb%4===3?M.STRUM.slice(0,3).map(([st,ln])=>[st,ln,'c',r]).concat([8,9,10,11,12,13,14,15].map(st=>[st,1,'m',r])):M.STRUM.map(([st,ln])=>[st,ln,'c',r]));}
+    else ev=brk?M.BREAK[cb%2]:(sec==='w'?M.VERSE2:M.VERSE)[cb%4];
     if(s===0)this.pad(T,chorus?[38+M.CHORD[cb]+12,38+M.CHORD[cb]+19,38+M.CHORD[cb]+24]:[50,57,62],spb*16);
     let kick=false,chug=false;
     for(const [st,ln,kind,semi] of ev)if(st===s){const dur=ln*spb;
       this.gtr(this.ampL,0,T,kind,38+semi,dur);this.gtr(this.ampR,1,T,kind,38+semi,dur);
       this.bass(T,26+semi,kind==='m'?spb*.9:dur,kind==='m');kick=true;chug=kind==='m';}
-    // drums: the kick locks to the guitar, snare on two and four, cymbals by section and intensity
+    // drums: the kick locks to the guitar, snare on two and four (on three in the breakdown), cymbals by section and intensity
     const fill=last&&s>=8&&I>=1,dbl=chorus&&I>=4;
     if(fill){if(s<12)this.drum(s%2?'snc':'sn',T,.6+(s-8)*.08);else this.drum(['t1','t2','t3','t4'][s-12],T,.95);if(s===8||s===12)this.drum('kick',T,.9);}
-    else{
+    else if(brk){
+      if(kick)this.drum('kick',T,1);if(s===8)this.drum('sn',T,1);
+      if(s%4===0)this.drum(I>=2?'china':'hho',T,I>=2?.4:.3);else if(s%2===0)this.drum('hhs',T,.5);
+    }else{
       if(kick&&!(chug&&(s%4===3||s===4)&&!dbl))this.drum('kick',T,1);else if(dbl)this.drum('kickb',T,.8);
       if(s===4||s===12)this.drum('sn',T,.95);else if(!chorus&&I>=1&&(s===7||s===9)&&bar%2)this.drum('sng',T,.7);
       if(chorus){if(I>=4&&s%4===0)this.drum('china',T,.42);else if(s%2===0)this.drum(I>=2?'hho':'hh',T,I>=2?(s%4?.2:.3):(s%4?.3:.45),1);}
       else if(s%2===0)this.drum(s%4?'hhs':'hh',T,s%4?.6:.42);else if(I>=3)this.drum('hht',T,.16);
     }
-    if(s===0&&(bar%4===0)&&(chorus||I>=1||bar===0))this.drum('crash',T,chorus?.5:.4,bar%8?1:.94);
+    if(s===0&&cb%4===0&&(chorus||brk||I>=1||bar===0))this.drum('crash',T,chorus?.5:.4,cb%8?1:.94);
     // lead guitar over the chorus once the fight is going well
     if(chorus&&I>=3)for(const [st,ln,m] of M.LEAD[cb])if(st===s){this.lead(T,m,ln*spb,1);if(I>=4)this.lead(T+.012,m-12,ln*spb,.7);}
   }
