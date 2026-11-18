@@ -15,10 +15,10 @@ const HX={cam:null,stage:null,orbit:null,frames:0,calls:0,tris:0,
   show(kind,o={}){
     this.begin();this.hud(false);for(const d of ENCS)d.done=true;G.resetCombat();
     const cx=0,cz=109,p=G.player;this.tp(cx,0,kind==='hero'?cz:cz-30,0);G.ts=0;
-    if(!this.lights){this.lights=[[3,4.2,-4,0xfff2e0,95],[-4.5,2.6,-1.5,0x45d4ff,60],[3.5,3.4,4.5,0xff8a3a,55]].map(([x,y,z,c,i])=>{const L=new THREE.PointLight(c,i,16,2);L.position.set(cx+x,y,cz+z);scene.add(L);return L;});}
+    if(!this.lights){this.lights=[[3,4.2,-4,0xfff2e0,46],[-4.5,2.6,-1.5,0x45d4ff,30],[3.5,3.4,4.5,0xff8a3a,28]].map(([x,y,z,c,i])=>{const L=new THREE.PointLight(c,i,16,2);L.position.set(cx+x,y,cz+z);scene.add(L);return L;});}
     let root=null,h=1.1,d=4.2,upd=null;const enc={gy:0,ar:inset(AREA.hall,1),ceil:16};
     if(this.stage){this.stage.remove&&this.stage.remove();this.stage=null;}
-    if(kind==='hero'){root=p.rig.root;root.position.set(cx,0,cz);root.rotation.y=PI;root.visible=true;const c=o.clip&&CL[o.clip];if(c)p.rig.play(c,0,true);if(o.set!==undefined)p.rig.setWeapon(+o.set);upd=dt=>{p.rig.update(dt);};}
+    if(kind==='hero'){root=p.rig.root;root.position.set(cx,0,cz);root.rotation.y=PI;root.visible=true;const c=o.clip&&CL[o.clip];if(c)p.rig.play(c,0,true);if(o.set!==undefined){p.set=p.wantSet=+o.set;p.rig.setWeapon(+o.set);}upd=dt=>{p.rig.update(dt);};}
     else if(kind==='mats'){root=new THREE.Group();scene.add(root);const ks=['floor','wall','plate','armor','steel','rubber','hazard'];
       ks.forEach((k,i)=>{const m=pbr(k),t=TILE[k],g=new THREE.PlaneGeometry(1.6,1.6),s=new THREE.SphereGeometry(.42,32,20);for(const q of [g,s]){const uv=q.attributes.uv;for(let j=0;j<uv.count;j++)uv.setXY(j,uv.getX(j)*1.6/t,uv.getY(j)*1.6/t);}
         const a=new THREE.Mesh(g,m),b=new THREE.Mesh(s,m);a.position.set((i-3)*1.75,1.2,0);b.position.set((i-3)*1.75,2.75,0);root.add(a,b);});

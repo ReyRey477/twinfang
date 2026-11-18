@@ -5,7 +5,7 @@ class Player{
     this.invuln=0;this.dodgeCd=0;this.airActs=0;this.airDash=false;this.dj=false;this.stepI=0;this.trailOn=0;this.trAcc=0;this.move=null;this.target=null;
     this.set=0;this.wantSet=0;this.gunCd=0;this.aimT=0;this.aimP=V();this.gunAir=0;this.charge=0;this.smash=0;this.ready=false;
     this.rig=new Rig({kind:'hero',mats:heroMats});scene.add(this.rig.root);this.rig.play(CL.idle,0);
-    this.rig.post=(o,clip)=>{if(clip.loco&&CARRY[this.set])wr(o,CARRY[this.set]);};
+    this.rig.post=(o,clip)=>{if(clip.loco)stance(o,clip.loco,this.set,this.rig);};
     this.trails=[new Trail(20,0x45d4ff),new Trail(20,0x45d4ff)];
     this.light=new THREE.PointLight(0x58d8ff,3.2,8,2);scene.add(this.light);
   }
@@ -48,7 +48,7 @@ class Player{
     if(orb&&(!tg||od<6)){aim.copy(orb.pos);hit=1;}else if(tg){aim.set(tg.pos.x,tg.cy(),tg.pos.z);hit=2;}
     else aim.set(this.pos.x+sin(this.yaw)*30,this.pos.y+1.3,this.pos.z+cos(this.yaw)*30);
     const a=atan2(aim.x-this.pos.x,aim.z-this.pos.z);if(abs(wrapA(a-this.yaw))>1.5&&(this.state==='move'||this.state==='air'))this.yaw=a;
-    _c.set(0,.32,-.01);this.rig.sword[0].localToWorld(_c);if(_c.distanceTo(this.pos)>3)_c.set(this.pos.x,this.pos.y+1.4,this.pos.z);
+    _c.set(0,.26,-.056);this.rig.sword[0].localToWorld(_c);if(_c.distanceTo(this.pos)>3)_c.set(this.pos.x,this.pos.y+1.4,this.pos.z);
     fx.tracer(_c,aim);fx.flares.spawn(_c,0xfff0c0,5,.07,.3,.3,1.6,.05,rand(3));fx.flash(_c,0xffe0a0,26,.07);sfx.gun();cam.shake(.05);
     if(hit===1){orbs.kill(orb);G.gunScore();}
     else if(hit===2&&tg.gunHit()){fx.sparks(aim,0,.4,0,6,[3,2.4,1.2],5,.8);fx.glows.spawn(aim,0xffe0a0,2,.08,.2,.2,.9,.9);G.gunScore();}
@@ -89,7 +89,7 @@ class Player{
     const fwx=sin(this.yaw),fwz=cos(this.yaw),e14=exp(-14*dt);
     if(m.charge){   // maul: hold to charge, release to smash
       this.vel.x*=e14;this.vel.z*=e14;this.charge=sat(t/1);
-      _a.set(0,1.32,0);this.rig.sword[1].localToWorld(_a);
+      _a.set(0,.98,0);this.rig.sword[1].localToWorld(_a);
       if(random()<dt*(20+this.charge*60)){const a=rand(TAU),r=rand(.8,1.6);fx.parts.spawn(_a.x+cos(a)*r,_a.y+rand(-.8,.8),_a.z+sin(a)*r,-cos(a)*r*3,0,-sin(a)*r*3,3.2,1.8,.6,rand(.05,.12),.33);}
       if(this.charge>=1&&!this.ready){this.ready=true;sfx.ready();fx.flares.spawn(_a,0xffc070,6,.3,.4,.4,4.5,.05,.4);fx.flares.spawn(_a,0xffc070,6,.3,.4,.4,3.4,.05,2);fx.flash(_a,0xffb060,60,.2);}
       if(this.dodgeCd<=0&&input.take('dodge')){this.dodge(mv);return 0;}

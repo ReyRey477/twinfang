@@ -10,16 +10,16 @@ const mirK=keys=>keys.map(k=>[k[0],mir(k[1]),k[2]]);
 
 // ----- hero -----
 const IDLE=P({by:0,rot:[0,0,0],hy:-.05,hz:0,hip:[.04,-.38,0],ch:[.06,-.12,0],hd:[-.04,.48,0],
-  ...AL([.25,-.6,.75],.46,[.2,.45,.85]),...AR([-.35,-.85,-.3],.52,[-.35,-.5,-.8]),fl:[.2,0,.26],fr:[-.2,0,-.24]});
+  hl:[.25,.1,.32],sl:nrm([.12,.5,.85]),hr:[-.3,-.12,-.05],sr:nrm([-.25,-.45,-.86]),fl:[.2,0,.26],fr:[-.2,0,-.24]});
 const ATK=P({hy:-.14,hip:[.1,0,0],ch:[.06,0,0],hd:[-.1,0,0],...AL([.3,-.6,.6],.45,[.1,.3,.9]),...AR([-.3,-.6,.6],.45,[-.1,.3,.9]),fl:[.2,0,.32],fr:[-.2,0,-.32]});
-CL.idle={loco:true,fn(t,o){o.set(IDLE);const b=sin(t*2.2);o[I.hy]+=b*.012;o[I.ch]+=b*.015;o[I.hl+1]+=b*.012;o[I.hr+1]+=b*.01;}};
+CL.idle={loco:'idle',fn(t,o){o.set(IDLE);const b=sin(t*2.2);o[I.hy]+=b*.012;o[I.ch]+=b*.015;o[I.hl+1]+=b*.012;o[I.hr+1]+=b*.01;}};
 const RUNB=P({hy:-.1,hip:[.32,0,0],ch:[.12,0,0],hd:[-.32,0,0],...AL([.45,-.55,-.7],.5,[.22,-.12,-1]),...AR([-.45,-.55,-.7],.5,[-.22,-.12,-1])});
-CL.run={loco:true,fn(t,o,r){o.set(RUNB);const ph=r.phase;
+CL.run={loco:'run',fn(t,o,r){o.set(RUNB);const ph=r.phase;
   for(let s=0;s<2;s++){const f=ph+(s?PI:0),sn=sin(f),cs=cos(f),i=I.fl+s*3;o[i]=(s?-1:1)*.13;o[i+2]=sn*.5-.04;o[i+1]=max(0,cs)*.3+(sn<-.6?(-sn-.6)*.3:0);}
   o[I.hy]=-.11+cos(ph*2)*.035;o[I.hip+1]=-sin(ph)*.18;o[I.ch+1]=sin(ph)*.28;o[I.hl+1]+=sin(ph*2)*.02;o[I.hr+1]+=sin(ph*2+1)*.02;o[I.hl+2]+=sin(ph)*.06;o[I.hr+2]-=sin(ph)*.06;}};
 const AIRUP=P({hy:0,hip:[.1,0,0],ch:[.02,0,0],hd:[-.1,0,0],...AL([.8,-.35,-.2],.5,[.5,-.2,-.85]),...AR([-.8,-.35,-.2],.5,[-.5,-.2,-.85]),fl:[.14,.42,.22],fr:[-.14,.22,-.14]});
 const AIRDN=P({hy:0,hip:[.04,0,0],ch:[0,0,0],hd:[-.2,0,0],...AL([.85,.1,-.1],.52,[.6,.4,-.7]),...AR([-.85,.1,-.1],.52,[-.6,.4,-.7]),fl:[.15,.16,.1],fr:[-.15,.05,-.06]});
-CL.air={noAir:true,loco:true,fn(t,o,r){const k=smooth(sat(.5-r.vy*.07));for(let j=0;j<PN;j++)o[j]=AIRUP[j]+(AIRDN[j]-AIRUP[j])*k;}};
+CL.air={noAir:true,loco:'air',fn(t,o,r){const k=smooth(sat(.5-r.vy*.07));for(let j=0;j<PN;j++)o[j]=AIRUP[j]+(AIRDN[j]-AIRUP[j])*k;}};
 {
   const d0={hy:-.34,hip:[.7,0,0],ch:[.2,0,0],hd:[-.7,0,0],...AL([.5,-.25,-.85],.56),...AR([-.5,-.25,-.85],.56)};
   CL.dash=K([[0,P({...d0,fl:[.16,0,.55],fr:[-.16,.12,-.65]})],[.2,P({...d0,hy:-.3,fl:[.16,.1,-.3],fr:[-.16,0,.5]})],[.36,P({hy:-.2,hip:[.3,0,0],fl:[.2,0,.3],fr:[-.2,0,-.3]},IDLE),'out']]);

@@ -86,6 +86,15 @@ armor:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out f
   al*=1.-pit*.6;
   ro=clamp(.4+(n2-.5)*.3-chip*.16-sc*.1+pit*.3,.12,1.);
   me=mix(.72,1.,max(chip,sc));ao=1.-pit*.5-chip*.1;}`,
+// painted composite shell (tinted per character): smooth satin lacquer, not metal; sparse chips down to the alloy, faint grime
+shell:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out float ao){
+  float n1=fbm(uv,vec2(3.),5),n2=fbm(uv+4.2,vec2(14.),4),n3=fbm(uv+9.1,vec2(64.),3);
+  vec3 v=vor(uv,18.);float chip=smoothstep(.07,.015,v.y)*smoothstep(.64,.8,n2*.65+n1*.35);
+  float sc=scr(uv,vec2(4.,64.),.08,.3)+scr(uv.yx+.6,vec2(3.,52.),.07,.25);
+  float dirt=smoothstep(.5,.85,n1*.6+n3*.4);
+  h=.5+(n3-.5)*.012-chip*.07-sc*.03;
+  al=vec3(.88)*(.94+.08*n1);al=mix(al,al*vec3(.74,.72,.68),dirt*.45);al=mix(al,vec3(.6),sc*.25);al=mix(al,vec3(.22,.23,.25),chip);
+  ro=clamp(.3+(n2-.5)*.12+dirt*.2+sc*.1-chip*.05,.12,1.);me=chip;ao=1.-chip*.2;}`,
 // bright machined steel: brushed along u, fine scratches, oil staining
 steel:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out float ao){
   float br=vn(uv*vec2(4.,300.),vec2(4.,300.))*.6+vn(uv*vec2(9.,140.),vec2(9.,140.))*.4;
@@ -107,8 +116,8 @@ hazard:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out 
   h=.5-chip*.08+(n2-.5)*.04;ro=clamp(.5-chip*.15+(n2-.5)*.3,.15,1.);me=mix(.3,1.,chip);ao=1.;}`
 };
 // tile size in metres, bake size in pixels, normal strength
-const TILE={floor:4,wall:4,plate:2,armor:.7,steel:1,rubber:.3,hazard:1};
-const BAKE={floor:[1024,3.2],wall:[1024,3],plate:[512,1.6],armor:[512,1.5],steel:[512,1],rubber:[256,2.2],hazard:[512,1.2]};
+const TILE={floor:4,wall:4,plate:2,armor:.7,shell:.7,steel:1,rubber:.3,hazard:1};
+const BAKE={floor:[1024,3.2],wall:[1024,3],plate:[512,1.6],armor:[512,1.5],shell:[512,1.2],steel:[512,1],rubber:[256,2.2],hazard:[512,1.2]};
 const TEX={};
 {
   const cam=new THREE.OrthographicCamera(-1,1,1,-1,0,1),sc=new THREE.Scene(),quad=new THREE.Mesh(new THREE.PlaneGeometry(2,2));quad.frustumCulled=false;sc.add(quad);

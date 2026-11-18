@@ -1,10 +1,12 @@
 // ===================== COMBAT DATA =====================
-// The hero: pale ceramic plate over a dark frame, brass fittings, teal power. Foes: dark iron lit amber (or violet for stalkers).
+// The hero: white lacquered shell over a dark mechanical core, slate-blue secondary plates, teal power.
+// Foes: dark iron lit amber (or violet for stalkers).
 const heroMats={
-  shell:pbr('armor',{color:0xdfe2e8,roughness:.9,envMapIntensity:1}),
-  shell2:pbr('armor',{color:0x46546a,envMapIntensity:1}),
-  frame:pbr('plate',{color:0xaab0bc,envMapIntensity:.7}),
-  steel:pbr('steel',{color:0x9aa2ae,envMapIntensity:1}),
+  shell:pbr('shell',{color:0xe8eaf0,envMapIntensity:.9}),
+  shell2:pbr('shell',{color:0x4d5e80,envMapIntensity:.9}),
+  frame:pbr('plate',{color:0x9aa0ac,envMapIntensity:.6}),
+  steel:pbr('steel',{color:0x8d95a2,envMapIntensity:1}),
+  visor:pbr('steel',{color:0x161a20,roughness:.6,envMapIntensity:1.4}),
   brass:pbr('steel',{color:0xc9964a,envMapIntensity:1}),
   rubber:pbr('rubber',{envMapIntensity:.3}),
   blade:pbr('steel',{color:0xdcefff,roughness:.5,envMapIntensity:1.8}),
@@ -29,7 +31,7 @@ const wardenMats=()=>({
 const WEAPONS=[
   {name:'TWIN FANGS',light:'L1',heavy:'LAUNCH',airHeavy:'SLAM',rush:'RUSH',trail:[[.5,1.28],[.5,1.28]],col:0x45d4ff},
   {name:'BLADE & PISTOL',light:'S1',heavy:null,airHeavy:null,rush:'SLAUNCH',trail:[null,[.55,1.62]],col:0x45d4ff},
-  {name:'GREAT MAUL',light:'M1',heavy:'MCH',airHeavy:'MPOUND',rush:'RUSH',trail:[null,[1.0,1.62]],col:0xffb060}];
+  {name:'GREAT MAUL',light:'M1',heavy:'MCH',airHeavy:'MPOUND',rush:'RUSH',trail:[null,[.72,1.22]],col:0xffb060}];
 const launchHit={t:.155,dmg:10,arc:2.5,kb:.6,launch:12.6,stop:.09,shake:.32,pts:16,big:true,h:3.6};
 const MOVES={
   L1:{clip:CL.L1,dur:.44,cancel:.2,free:.3,lunge:[.02,.14,3.2],trail:[.04,.24,2],sw:[.07],next:'L2',airNext:'L2',

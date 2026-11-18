@@ -496,6 +496,15 @@ armor:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out f
   al*=1.-pit*.6;
   ro=clamp(.4+(n2-.5)*.3-chip*.16-sc*.1+pit*.3,.12,1.);
   me=mix(.72,1.,max(chip,sc));ao=1.-pit*.5-chip*.1;}`,
+// painted composite shell (tinted per character): smooth satin lacquer, not metal; sparse chips down to the alloy, faint grime
+shell:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out float ao){
+  float n1=fbm(uv,vec2(3.),5),n2=fbm(uv+4.2,vec2(14.),4),n3=fbm(uv+9.1,vec2(64.),3);
+  vec3 v=vor(uv,18.);float chip=smoothstep(.07,.015,v.y)*smoothstep(.64,.8,n2*.65+n1*.35);
+  float sc=scr(uv,vec2(4.,64.),.08,.3)+scr(uv.yx+.6,vec2(3.,52.),.07,.25);
+  float dirt=smoothstep(.5,.85,n1*.6+n3*.4);
+  h=.5+(n3-.5)*.012-chip*.07-sc*.03;
+  al=vec3(.88)*(.94+.08*n1);al=mix(al,al*vec3(.74,.72,.68),dirt*.45);al=mix(al,vec3(.6),sc*.25);al=mix(al,vec3(.22,.23,.25),chip);
+  ro=clamp(.3+(n2-.5)*.12+dirt*.2+sc*.1-chip*.05,.12,1.);me=chip;ao=1.-chip*.2;}`,
 // bright machined steel: brushed along u, fine scratches, oil staining
 steel:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out float ao){
   float br=vn(uv*vec2(4.,300.),vec2(4.,300.))*.6+vn(uv*vec2(9.,140.),vec2(9.,140.))*.4;
@@ -517,8 +526,8 @@ hazard:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out 
   h=.5-chip*.08+(n2-.5)*.04;ro=clamp(.5-chip*.15+(n2-.5)*.3,.15,1.);me=mix(.3,1.,chip);ao=1.;}`
 };
 // tile size in metres, bake size in pixels, normal strength
-const TILE={floor:4,wall:4,plate:2,armor:.7,steel:1,rubber:.3,hazard:1};
-const BAKE={floor:[1024,3.2],wall:[1024,3],plate:[512,1.6],armor:[512,1.5],steel:[512,1],rubber:[256,2.2],hazard:[512,1.2]};
+const TILE={floor:4,wall:4,plate:2,armor:.7,shell:.7,steel:1,rubber:.3,hazard:1};
+const BAKE={floor:[1024,3.2],wall:[1024,3],plate:[512,1.6],armor:[512,1.5],shell:[512,1.2],steel:[512,1],rubber:[256,2.2],hazard:[512,1.2]};
 const TEX={};
 {
   const cam=new THREE.OrthographicCamera(-1,1,1,-1,0,1),sc=new THREE.Scene(),quad=new THREE.Mesh(new THREE.PlaneGeometry(2,2));quad.frustumCulled=false;sc.add(quad);
@@ -1130,6 +1139,7 @@ const AL=(d,reach=.56,blade)=>{const n=nrm(d);return {hl:[SHX+n[0]*reach,SHY+n[1
 const AR=(d,reach=.56,blade)=>{const n=nrm(d);return {hr:[-SHX+n[0]*reach,SHY+n[1]*reach,n[2]*reach],sr:nrm(blade||d)};};
 const DOWN=V(0,-1,0),XAX=V(1,0,0);
 const _a=V(),_b=V(),_c=V(),_d=V(),_e=V(),_f=V(),_g=V(),_h=V(),_q=new THREE.Quaternion(),_q2=new THREE.Quaternion(),_m4=new THREE.Matrix4();
+const _w=V(),_fd=V(),_xh=V(),_yh=V(),_zh=V(),_zw=V(),_pole=V();
 function ik2(o,t,l1,l2,pole,qa,qb){
   const d=_e.subVectors(t,o); let L=d.length(); L=clamp(L,abs(l1-l2)+.002,l1+l2-.002); d.normalize();
   const a=(l1*l1-l2*l2+L*L)/(2*L), h=sqrt(max(0,l1*l1-a*a));
@@ -1149,6 +1159,25 @@ const mantleGeo=new RoundedBoxGeometry(.3,.55,.04,1,.018).translate(0,-.275,0); 
 const bladeGeo=(len,wid)=>{const k='b'+len+wid;if(geoCache[k])return geoCache[k];const s=new THREE.Shape();s.moveTo(-wid*.5,0);s.lineTo(wid*.5,0);s.lineTo(wid*.5,len*.72);s.quadraticCurveTo(wid*.44,len*.93,-wid*.36,len+.16);s.lineTo(-wid*.5,len*.9);s.closePath();
   return geoCache[k]=new THREE.ExtrudeGeometry(s,{depth:.004,bevelEnabled:true,bevelThickness:.005,bevelSize:.014,bevelSegments:1,curveSegments:6}).translate(0,0,-.002);};
 const BAKED=new Map();
+// lofted shell: rings [y, rx, rz, cx, cz] stacked along Y, each a superellipse (ex 2 = ellipse, higher = boxier), closed at both ends.
+// This is what gives the characters smooth, sculpted shells instead of boxes and tubes.
+const loft=(rings,seg=14,ex=2.4)=>{const key='L'+seg+ex+rings.join('|');if(geoCache[key])return geoCache[key];
+  const n=rings.length,pos=[],uv=[],idx=[],W=seg+1,up=rings[n-1][0]>rings[0][0],pw=2/ex;
+  for(let j=0;j<n;j++){const [y,rx,rz,cx=0,cz=0]=rings[j];for(let i=0;i<=seg;i++){const a=i/seg*TAU,c=cos(a),s=sin(a);
+    pos.push(cx+rx*Math.sign(c)*pow(abs(c),pw),y,cz+rz*Math.sign(s)*pow(abs(s),pw));uv.push(i/seg,j/(n-1));}}
+  for(let j=0;j<n-1;j++)for(let i=0;i<seg;i++){const a=j*W+i,b=a+W;if(up)idx.push(a,b,a+1,b,b+1,a+1);else idx.push(a,a+1,b,b,a+1,b+1);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();
+  const nr=g.attributes.normal;for(let j=0;j<n;j++){const a=j*W,b=a+seg,x=nr.getX(a)+nr.getX(b),y=nr.getY(a)+nr.getY(b),z=nr.getZ(a)+nr.getZ(b),l=hypot(x,y,z)||1;nr.setXYZ(a,x/l,y/l,z/l);nr.setXYZ(b,x/l,y/l,z/l);}
+  // flat caps on their own vertices
+  const cp=[],cu=[],cn=[],ci=[];for(const [j,top] of [[0,!up],[n-1,up]]){const [y,rx,rz,cx=0,cz=0]=rings[j],o=cp.length/3;cp.push(cx,y,cz);cu.push(.5,.5);cn.push(0,top?1:-1,0);
+    for(let i=0;i<=seg;i++){const k=(j*W+i)*3;cp.push(pos[k],pos[k+1],pos[k+2]);cu.push(.5+cos(i/seg*TAU)*.5,.5+sin(i/seg*TAU)*.5);cn.push(0,top?1:-1,0);}
+    for(let i=0;i<seg;i++)top?ci.push(o,o+2+i,o+1+i):ci.push(o,o+1+i,o+2+i);}
+  const cg=new THREE.BufferGeometry();cg.setAttribute('position',new THREE.Float32BufferAttribute(cp,3));cg.setAttribute('uv',new THREE.Float32BufferAttribute(cu,2));cg.setAttribute('normal',new THREE.Float32BufferAttribute(cn,3));cg.setIndex(ci);
+  return geoCache[key]=mergeGeometries([g.toNonIndexed(),cg.toNonIndexed()],false);};
+// a ring lying flat (axis Y), or upright facing +Z when flat=0
+const ringGeo=(R,t,flat=1)=>{const k='r'+R+t+flat;if(geoCache[k])return geoCache[k];const g=new THREE.TorusGeometry(R,t,8,20);if(flat)g.rotateX(PI/2);return geoCache[k]=g;};
+// part of a ring round the Y axis: a finger curled round a grip. a0 = start angle (0 = +X, quarter turn = +Z), len = sweep
+const arcGeo=(R,t,a0,len)=>{const k='a'+R+t+a0+len;if(geoCache[k])return geoCache[k];return geoCache[k]=new THREE.TorusGeometry(R,t,6,12,len).rotateX(PI/2).rotateY(-a0);};
 // bevelled plate from a 2D outline (faces +Z): gives armour its angular silhouettes
 const plate=(pts,d=.03,bv=.012)=>{const k='p'+pts.join()+d+bv;if(geoCache[k])return geoCache[k];const s=new THREE.Shape();pts.forEach((p,i)=>i?s.lineTo(p[0],p[1]):s.moveTo(p[0],p[1]));s.closePath();
   return geoCache[k]=new THREE.ExtrudeGeometry(s,{depth:max(.001,d-bv*2),bevelEnabled:true,bevelThickness:bv,bevelSize:bv,bevelSegments:1}).translate(0,0,-max(.001,d-bv*2)/2);};
@@ -1163,11 +1192,11 @@ class Rig{
     const hips=this.hips=new THREE.Group(); hips.rotation.order='YXZ'; body.add(hips);
     const chest=this.chest=new THREE.Group(); chest.rotation.order='YXZ'; chest.position.y=.14; hips.add(chest);
     const head=this.head=new THREE.Group(); head.rotation.order='YXZ'; head.position.y=.56; chest.add(head);
-    this.arm=[];this.fore=[];this.sword=[];this.leg=[];this.shin=[];this.foot=[];
+    this.arm=[];this.fore=[];this.sword=[];this.hand=[];this.leg=[];this.shin=[];this.foot=[];this.gripD=[0,0];this.palm=[V(0,-.4,.9).normalize(),V(0,-.4,.9).normalize()];
     for(let s=0;s<2;s++){const sx=s?-1:1;
       const ua=new THREE.Group(); ua.position.set(sx*SHX,SHY,0); chest.add(ua);
       const fa=new THREE.Group(); fa.position.y=-ARM1; ua.add(fa);
-      const sw=new THREE.Group(); sw.position.y=-ARM2; fa.add(sw);
+      const sw=new THREE.Group(); sw.position.y=-ARM2; fa.add(sw); const hd=new THREE.Group(); hd.position.y=-ARM2; fa.add(hd); this.hand.push(hd);
       const ul=new THREE.Group(); body.add(ul); const ll=new THREE.Group(); ll.position.y=-LEG1; ul.add(ll); const ft=new THREE.Group(); ft.position.y=-LEG2; ll.add(ft);
       this.arm.push(ua);this.fore.push(fa);this.sword.push(sw);this.leg.push(ul);this.shin.push(ll);this.foot.push(ft);
     }
@@ -1203,50 +1232,242 @@ class Rig{
     }
   }
   buildHero(add){
-    const M=this.mats,{hips,chest,head}=this,A=M.shell,B=M.shell2;
-    // pelvis: frame block, belt, hip actuators, fauld plate, rear power pack
-    add(hips,GR,M.frame,0,-.03,0,.28,.16,.19); add(hips,plate(P_KNEE,.05),A,0,-.04,.1,1.6,1.7,1,.15); add(hips,cyl(.165,.165,.05),M.steel,0,.07,0,1,1,.72); add(hips,GR,M.brass,0,.07,.122,.07,.05,.02);
-    add(hips,GR,B,0,.01,-.105,.17,.13,.06); add(hips,GB,M.glow,0,.01,-.137,.1,.012,.006);
-    for(const sx of [-1,1]){add(hips,cyl(.035,.035,.34),M.brass,0,-.05,0,1,1,1,0,0,PI/2);}
-    // torso: narrow bellows waist, rib frame, V-shaped chest plate over two abdominal lames, back plate, spine, reactor
-    add(chest,cyl(.115,.105,.16),M.rubber,0,.04,0,1,1,.75); add(chest,cyl(.17,.125,.32),M.frame,0,.25,0,1,1,.72);
-    add(chest,plate(P_AB,.06),B,0,.075,.092); add(chest,plate(P_AB,.06),B,0,.155,.1,1.15,1,1); add(chest,plate(P_CHEST,.12),A,0,.335,.07,1,1,1,-.1);
-    add(chest,cyl(.045,.045,.02),M.brass,0,.345,.133,1,1,1,PI/2); add(chest,GS,M.glow,0,.345,.142,.028,.028,.012);
-    add(chest,plate(P_BACK,.09),A,0,.3,-.09,1,1,1,0,PI); for(let k=0;k<4;k++)add(chest,GR,M.steel,0,.12+k*.085,-.148,.05,.05,.04);
-    add(chest,cyl(.085,.115,.07),B,0,.465,0); add(chest,cyl(.048,.052,.1),M.rubber,0,.5,.005);
+    const M=this.mats,{hips,chest,head}=this,A=M.shell,B=M.shell2,F=M.frame,J=M.steel,R=M.rubber,GL=M.glow;
+    const sd=(rings,sx)=>rings.map(r=>[r[0],r[1],r[2],(r[3]||0)*sx,r[4]||0]);   // mirror the sideways offsets of a loft
+    this.gripD=[.07,.07];
+    // pelvis: dark frame, waist ring, a blue-grey girdle with a white centre tab, hip actuators
+    add(hips,loft([[-.13,.05,.055],[-.07,.105,.085],[0,.12,.09],[.06,.105,.082]]),F); add(hips,cyl(.098,.104,.04),J,0,.085,0,1,1,.8);
+    add(hips,loft([[-.165,.028,.03,0,.03],[-.1,.068,.05,0,.05],[-.03,.104,.058,0,.052],[.04,.116,.05,0,.04],[.072,.1,.04,0,.034]],14,3),B);
+    add(hips,loft([[-.11,.06,.04,0,-.05],[-.02,.104,.05,0,-.05],[.055,.1,.045,0,-.04]],14,3),B);
+    add(hips,plate([[-.036,.05],[.036,.05],[.028,-.06],[0,-.095],[-.028,-.06]],.022,.006),A,0,-.025,.1,1,1,1,.12); add(hips,GB,GL,0,-.02,.114,.012,.05,.006,.12);
+    for(const sx of [-1,1]){add(hips,cyl(.058,.058,.05),J,sx*.1,-.05,0,1,1,1,0,0,PI/2); add(hips,loft([[-.1,.014,.04],[-.03,.022,.07],[.05,.02,.06]],10,3),A,sx*.15,0,0,1,1,1,0,0,-sx*.12);}
+    // torso: ribbed waist with pistons, dark rib cage, a white yoke front and back, collar ring, neck
+    add(chest,loft([[-.02,.08,.066],[.05,.068,.056],[.12,.076,.062],[.18,.1,.078]]),R);
+    for(const sx of [-1,1]){add(chest,cyl(.009,.009,.2),J,sx*.078,.08,.05,1,1,1,.08,0,-sx*.06); add(chest,cyl(.009,.009,.2),J,sx*.06,.08,-.064,1,1,1,-.08,0,-sx*.05);}
+    add(chest,loft([[.14,.09,.07],[.24,.142,.1],[.34,.17,.11],[.42,.158,.098],[.47,.1,.075]]),F);
+    add(chest,loft([[.185,.035,.03,0,.072],[.25,.095,.05,0,.074],[.32,.15,.066,0,.064],[.39,.186,.076,0,.046],[.446,.192,.08,0,.02],[.478,.15,.07,0,.004]],16,3.2),A);
+    add(chest,loft([[.2,.06,.03,0,-.07],[.28,.125,.046,0,-.076],[.38,.176,.06,0,-.06],[.446,.186,.066,0,-.036],[.472,.14,.06,0,-.02]],16,3.2),A);
+    add(chest,ringGeo(.072,.017),B,0,.482,0); add(chest,cyl(.036,.044,.1),R,0,.525,0); add(chest,ringGeo(.022,.0055,0),GL,0,.365,.128,1,1,1,-.1);
+    add(chest,plate([[-.05,.03],[.05,.03],[.03,-.03],[0,-.05],[-.03,-.03]],.016,.005),B,0,.27,.123,1,1,1,-.16);
+    for(let k=0;k<5;k++)add(chest,GR,J,0,.035+k*.036,-.082,.044,.028,.03);
     for(const sx of [-1,1]){
-      add(chest,GS,M.steel,sx*SHX,SHY,0,.058,.058,.058);
-      add(chest,GR,A,sx*.265,.445,0,.17,.05,.2,0,0,-sx*.35); add(chest,GR,A,sx*.325,.385,0,.13,.042,.17,0,0,-sx*.8); add(chest,GR,B,sx*.352,.325,0,.1,.035,.14,0,0,-sx*1.15); add(chest,GR,M.brass,sx*.362,.292,0,.07,.012,.145,0,0,-sx*1.15);
-      add(chest,GR,A,sx*.095,.37,-.165,.028,.22,.12,.55,0,sx*.1); add(chest,GB,M.glow,sx*.095,.31,-.2,.012,.1,.012,.55,0,sx*.1);
-      add(chest,GR,M.steel,sx*.15,.2,.1,.04,.14,.03,0,0,sx*.22);
+      add(chest,cyl(.044,.044,.07),J,sx*.19,SHY,0,1,1,1,0,0,PI/2); add(chest,GS,F,sx*SHX,SHY,0,.05,.05,.05); add(chest,cyl(.007,.007,.1),J,sx*.03,.525,-.03,1,1,1,.12);
+      for(let k=0;k<2;k++)add(chest,GR,J,sx*.15,.235+k*.05,0,.018,.018,.15);
+      add(chest,cyl(.022,.022,.012),J,sx*.118,.41,.108,1,1,1,PI/2-.25,0,-sx*.3); add(chest,cyl(.012,.012,.016),F,sx*.118,.41,.109,1,1,1,PI/2-.25,0,-sx*.3);
+      add(chest,loft([[0,.016,.012],[.07,.03,.02],[.2,.028,.018],[.27,.01,.008]],8,3),B,sx*.085,.21,-.125,1,1,1,-.3,0,sx*.14); add(chest,GB,GL,sx*.097,.33,-.172,.01,.11,.008,-.3,0,sx*.14);
     }
-    // head: helm, face plate with a T-visor, jaw, swept crest, ear discs, antenna
-    add(head,GS,A,0,.115,0,.098,.115,.118); add(head,GR,M.frame,0,.085,.082,.135,.11,.06); add(head,GB,M.glow,0,.125,.11,.15,.022,.016); add(head,GB,M.glow,0,.085,.114,.016,.07,.012);
-    add(head,GR,A,0,.03,.08,.1,.05,.07,.25); add(head,GR,B,0,.218,-.035,.022,.085,.21,-.38); add(head,GR,M.brass,0,.245,-.022,.012,.028,.21,-.38);
-    for(const sx of [-1,1]){add(head,cyl(.035,.035,.03),M.steel,sx*.098,.11,0,1,1,1,0,0,PI/2); add(head,cyl(.012,.012,.1),M.steel,sx*.05,0,-.035); add(head,GR,B,sx*.085,.15,-.02,.02,.06,.13,-.25);}
-    add(head,cyl(.006,.006,.14),M.steel,.105,.2,-.02);
-    // tail plates: six hinged blades that swing like the skirts of a coat
-    this.addTails([.8,1.75,PI-.55,PI+.55,-1.75,-.8],plate(P_TASSET,.022,.008),B,.17,.12,.3); this.tailBase=.05;
-    this.limbs(add,M,A,B,M.steel);
+    // head: smooth white helm over a dark visor, slanted eye slits, chin guard, ear discs with swept fins
+    add(head,loft([[0,.04,.05,0,-.005],[.04,.068,.084],[.1,.082,.1],[.155,.077,.096,0,-.008],[.195,.055,.07,0,-.02],[.213,.02,.03,0,-.03]],16,2.3),A);
+    add(head,GS,M.visor||F,0,.078,.06,.066,.06,.052); add(head,loft([[-.012,.028,.03,0,.04],[.018,.05,.04,0,.05],[.044,.056,.034,0,.056]],12,2.6),B);
+    for(const sx of [-1,1]){add(head,GB,GL,sx*.03,.09,.108,.038,.009,.012,0,-sx*.25,sx*.28); add(head,cyl(.03,.03,.018),J,sx*.083,.095,-.006,1,1,1,0,0,PI/2); add(head,cyl(.014,.014,.022),F,sx*.084,.095,-.006,1,1,1,0,0,PI/2);
+      add(head,plate([[0,-.014],[.15,.03],[.19,.062],[.02,.02]],.012,.004),B,sx*.094,.1,-.01,1,1,1,0,PI/2+sx*.16,0);}
+    add(head,GB,GL,0,.172,.078,.008,.03,.012,-.5);
+    // coat tails: four slender blades hinged at the back of the belt
+    this.addTails([PI-.95,PI-.32,PI+.32,PI+.95],plate([[-.046,0],[.046,0],[.036,-.25],[0,-.35],[-.036,-.25]],.018,.006),B,.125,.1,.27); this.tailBase=.06;
+    for(let s=0;s<2;s++){const sx=s?-1:1,ua=this.arm[s],fa=this.fore[s],hd=this.hand[s],ul=this.leg[s],ll=this.shin[s],ft=this.foot[s];
+      // arm: round pauldron with a side port, sleeved upper arm, flared bracer, ball wrist
+      add(ua,limb(.034,.03,ARM1),F); add(ua,loft(sd([[.064,.02,.022,.004],[.04,.05,.054,.01],[-.01,.064,.068,.014],[-.07,.058,.062,.012],[-.118,.042,.046,.006]],sx)),A);
+      add(ua,cyl(.026,.026,.012),J,sx*.078,-.012,0,1,1,1,0,0,PI/2); add(ua,cyl(.015,.015,.016),F,sx*.079,-.012,0,1,1,1,0,0,PI/2);
+      add(ua,loft([[-.1,.038,.042],[-.16,.046,.05],[-.24,.041,.044],[-.288,.032,.035]]),B); add(ua,cyl(.008,.008,.16),J,0,-.19,-.046);
+      add(fa,cyl(.04,.04,.078),J,0,0,0,1,1,1,0,0,PI/2); add(fa,cyl(.022,.022,.084),F,0,0,0,1,1,1,0,0,PI/2); add(fa,limb(.028,.024,ARM2),F);
+      add(fa,loft(sd([[-.035,.03,.034,.004,-.004],[-.09,.048,.054,.008,-.006],[-.17,.046,.05,.006,-.004],[-.235,.036,.04,.002],[-.262,.029,.032]],sx)),A);
+      add(fa,GR,B,sx*.05,-.14,-.004,.014,.13,.05); add(fa,GB,GL,sx*.059,-.14,0,.006,.09,.012); add(fa,cyl(.03,.03,.016),J,0,-.274,0); add(fa,GS,F,0,-ARM2,0,.027,.027,.027);
+      // hand, built round the grip axis (Y): palm block behind, four fingers and a thumb wrapped round, knuckle guard in front
+      add(hd,GR,F,0,0,-.037,.056,.084,.03); add(hd,GR,A,0,-.004,.045,.05,.078,.012);
+      for(let k=0;k<4;k++)add(hd,arcGeo(.031,.0085,s?-.6:-.87,4.6),J,0,-.03+k*.02,0);
+      add(hd,arcGeo(.031,.0095,s?-.2:1.4,1.95),J,0,.052,0);
+      // leg: big smooth thigh shell, disc knee, shin shell over an open strutted calf, pointed foot with a heel spur
+      add(ul,GS,J,0,0,0,.062,.062,.062); add(ul,limb(.05,.042,LEG1),F,0,0,-.012);
+      add(ul,loft(sd([[.035,.05,.055,.01],[-.04,.086,.096,.014,.006],[-.14,.09,.1,.012,.012],[-.26,.076,.086,.005,.01],[-.37,.058,.066,0,.006],[-.43,.046,.052]],sx),16),A);
+      add(ul,loft([[-.37,.05,.03,0,.03],[-.41,.058,.036,0,.03],[-.45,.05,.03,0,.026]],12,3),B); add(ul,cyl(.011,.011,.3),J,sx*.02,-.25,-.075,1,1,1,.06);
+      add(ll,cyl(.054,.054,.128),J,0,0,0,1,1,1,0,0,PI/2); add(ll,cyl(.034,.034,.134),F,0,0,0,1,1,1,0,0,PI/2); add(ll,limb(.034,.028,LEG2),F,0,0,-.022);
+      add(ll,loft([[-.02,.044,.04,0,.02],[-.1,.06,.062,0,.024],[-.22,.052,.056,0,.016],[-.34,.04,.044,0,.008],[-.43,.031,.034]],14),A);
+      add(ll,cyl(.009,.009,.3),J,sx*.022,-.23,-.062,1,1,1,-.1); add(ll,cyl(.009,.009,.3),J,-sx*.022,-.23,-.062,1,1,1,-.1); add(ll,GR,J,0,-.1,-.06,.07,.02,.03); add(ll,GR,J,0,-.3,-.045,.06,.018,.026);
+      add(ll,GB,GL,sx*.058,-.2,.02,.006,.15,.012); add(ll,cyl(.036,.036,.02),J,0,-.44,0);
+      add(ft,cyl(.032,.032,.072),J,0,0,0,1,1,1,0,0,PI/2); add(ft,loft([[0,.03,.026],[.05,.044,.034],[.13,.04,.028],[.2,.022,.014],[.226,.008,.006]],12,2.6),A,0,-.02,-.012,1,1,1,1.875);
+      add(ft,GR,F,0,-.08,.095,.066,.016,.2); add(ft,cone(.017,.12,5),J,0,-.045,-.052,1,1,1,PI+.6); add(ft,loft([[-.03,.03,.02],[.02,.036,.026],[.06,.026,.018]],10,3),B,0,-.01,-.04);
+    }
     const grp=s=>{const o=new THREE.Group();this.sword[s].add(o);return o;};
+    // weapons are modelled with the grip at the origin and the blade (or barrel, or hammer head) along +Y
     const blade=(o,len,wid)=>{
-      add(o,cyl(.018,.018,.2),M.rubber,0,-.02,0); add(o,GS,M.brass,0,-.13,0,.026,.026,.026); add(o,GR,M.steel,0,.09,0,wid*3.4,.03,.05); add(o,cyl(.034,.034,.05),M.brass,0,.125,0,1,1,.6);
-      add(o,bladeGeo(len,wid),M.blade,0,.11,0); add(o,GB,M.glow,-wid*.12,.14+len*.4,0,.012,len*.78,.018);
+      add(o,cyl(.019,.019,.19),R,0,-.015,0); add(o,cyl(.025,.021,.03),J,0,-.125,0); add(o,GR,J,0,.092,0,wid*2.6,.022,.042); add(o,cyl(.03,.03,.03),B,0,.115,0,1,1,.6);
+      add(o,bladeGeo(len,wid),M.blade,0,.11,0); add(o,GB,GL,-wid*.12,.14+len*.4,0,.01,len*.78,.016);
     };
     for(let s=0;s<2;s++){this.wp[s][0]=grp(s); blade(this.wp[s][0],1.02,.07);}
     this.wp[1][1]=grp(1); blade(this.wp[1][1],1.34,.088);
-    const g=this.wp[0][1]=grp(0);   // pistol: barrel along +Y, grip along +Z
-    add(g,GR,M.steel,0,.14,-.012,.046,.32,.068); add(g,GR,M.frame,0,.0,.055,.04,.075,.13,.25); add(g,GR,M.brass,0,.02,.0,.05,.09,.03); add(g,GB,M.glow,0,.16,-.05,.012,.2,.008);
-    add(g,cyl(.016,.016,.05),M.frame,0,.31,-.012); add(g,cyl(.022,.022,.03),M.steel,0,.295,-.012); for(let k=0;k<3;k++)add(g,GB,M.frame,0,.2+k*.03,.024,.05,.012,.006); add(g,GR,M.steel,0,.25,.03,.012,.03,.016);
+    const g=this.wp[0][1]=grp(0);   // pistol: barrel along +Y, top of the gun toward -Z, the hand wraps the raked handle at the origin
+    add(g,GR,R,0,-.004,.014,.03,.042,.11,.2); add(g,GR,J,0,.09,-.056,.034,.27,.05); add(g,GR,F,0,.12,-.024,.028,.2,.024); add(g,cyl(.012,.012,.034),F,0,.236,-.056);
+    add(g,GR,F,0,.05,.018,.012,.012,.05); add(g,GR,F,0,.074,.0,.012,.05,.012); add(g,GB,GL,0,.09,-.083,.008,.16,.006); for(let k=0;k<3;k++)add(g,GB,F,0,.01+k*.022,-.056,.037,.008,.04);
     this.wp[0][2]=grp(0);
-    const m=this.wp[1][2]=grp(1);   // maul: shaft along +Y, head across X
-    add(m,cyl(.028,.028,1.75),M.frame,0,.45,0); add(m,cyl(.032,.032,.5),M.rubber,0,-.1,0); add(m,GS,M.brass,0,-.44,0,.05,.05,.05); add(m,cyl(.04,.04,.12),M.brass,0,.15,0); add(m,cyl(.04,.04,.12),M.brass,0,.6,0);
-    add(m,GR,M.steel,0,1.32,0,.56,.3,.3); add(m,GR,M.brass,.29,1.32,0,.04,.34,.34); add(m,GR,M.brass,-.29,1.32,0,.04,.34,.34); add(m,cyl(.07,.07,.4),M.frame,0,1.32,0,1,1,1,PI/2);
-    add(m,GB,M.glow,0,1.32,.153,.4,.03,.01); add(m,GB,M.glow,0,1.32,-.153,.4,.03,.01); add(m,GB,M.glow,0,1.473,0,.4,.01,.03); add(m,cone(.07,.24,4),M.brass,0,1.58,0);
-    add(m,cyl(.03,.03,.3),M.steel,.14,1.08,0); add(m,cyl(.03,.03,.3),M.steel,-.14,1.08,0);
+    const m=this.wp[1][2]=grp(1);   // maul: the right hand holds it at the origin, the left further down the shaft; head at +Y
+    add(m,cyl(.021,.021,1.62),F,0,.2,0); add(m,cyl(.024,.024,.22),R,0,0,0); add(m,cyl(.024,.024,.4),R,0,-.4,0); add(m,GS,J,0,-.64,0,.036,.036,.036); add(m,cyl(.03,.03,.05),J,0,.16,0); add(m,cyl(.03,.03,.05),J,0,.72,0);
+    add(m,GR,J,0,.98,0,.5,.26,.26); add(m,GR,B,.26,.98,0,.04,.3,.3); add(m,GR,B,-.26,.98,0,.04,.3,.3); add(m,cyl(.062,.062,.34),F,0,.98,0,1,1,1,PI/2);
+    add(m,GB,GL,0,.98,.132,.34,.026,.008); add(m,GB,GL,0,.98,-.132,.34,.026,.008); add(m,GB,GL,0,1.112,0,.34,.008,.026); add(m,cone(.055,.2,4),J,0,1.2,0);
+    add(m,cyl(.026,.026,.24),J,.13,.8,0); add(m,cyl(.026,.026,.24),J,-.13,.8,0);
     this.setWeapon(0);
   }
-  setWeapon(i){for(let s=0;s<2;s++)this.wp[s].forEach((o,k)=>{o.visible=k===i;});this.twoHand=i===2;this.aimHand=i===1;this.wset=i;}
+  setWeapon(i){for(let s=0;s<2;s++)this.wp[s].forEach((o,k)=>{o.visible=k===i;});this.twoHand=i===2?-.42:0;this.aimHand=i===1;this.wset=i;}
+  buildWarden(add){
+    const M=this.mats,{hips,chest,head}=this,b=1.25;
+    const A=(...a)=>{const m=add(...a);m.userData.keep=true;this.hide.push(m);return m;};          // armour shed in phase 2
+    const HOT=(...a)=>{const m=add(...a);m.userData.keep=true;m.visible=false;m.castShadow=false;this.hot.push(m);return m;};
+    add(hips,GR,M.dark,0,-.03,0,.4,.22,.3); add(hips,cyl(.22,.22,.07),M.trim,0,.09,0,1,1,.75); A(hips,GR,M.armor,0,-.1,.14,.2,.24,.08,.2);
+    add(chest,cyl(.17,.15,.22),M.rubber,0,.04,0,1,1,.8); add(chest,cyl(.26,.18,.36),M.dark,0,.27,0,1,1,.78);
+    A(chest,plate(P_CHEST,.16),M.armor,0,.33,.1,1.25,1.15,1,-.1); A(chest,plate(P_AB,.07),M.armor,0,.09,.115,1.3,1.6,1); A(chest,GR,M.armor,0,.28,-.12,.42,.34,.13); A(chest,GR,M.trim,0,.44,.14,.3,.04,.14);
+    add(chest,cyl(.07,.07,.03),M.trim,0,.3,.185,1,1,1,PI/2); add(chest,GS,M.glow,0,.3,.2,.045,.045,.02);
+    for(let k=0;k<5;k++)add(chest,GR,M.trim,0,.1+k*.08,-.2,.06,.05,.05);
+    for(const sx of [-1,1]){
+      A(chest,GR,M.armor,sx*.31,.47,0,.26,.07,.3,0,0,-sx*.3); A(chest,GR,M.armor,sx*.4,.39,0,.2,.06,.26,0,0,-sx*.8); A(chest,GR,M.trim,sx*.435,.33,0,.14,.03,.24,0,0,-sx*1.1);
+      A(chest,cone(.07,.3,5),M.trim,sx*.44,.56,0,1,1,1,0,0,-sx*.8); add(chest,GS,M.trim,sx*SHX*1.1,SHY,0,.09,.09,.09);
+      HOT(chest,GB,M.glow,sx*.1,.2,.165,.015,.3,.01,0,0,sx*.3); HOT(chest,GB,M.glow,sx*.16,.3,-.165,.015,.26,.01,0,0,-sx*.4);
+      add(chest,cyl(.02,.02,.3),M.trim,sx*.16,.2,-.17,1,1,1,.2);
+    }
+    add(chest,cyl(.1,.13,.1),M.trim,0,.49,0);
+    add(head,GS,M.armor,0,.1,0,.12,.15,.135); add(head,GB,M.glow,0,.105,.122,.15,.02,.03); add(head,GR,M.armor,0,.03,.07,.13,.09,.11); add(head,GR,M.trim,0,.16,.1,.17,.02,.08,-.3);
+    for(let k=-2;k<=2;k++)add(head,cone(.02,.17,4),M.trim,k*.045,.28-abs(k)*.018,.02,1,1,1,0,0,-k*.14);
+    for(const sx of [-1,1])add(head,cyl(.04,.04,.04),M.trim,sx*.12,.1,0,1,1,1,0,0,PI/2);
+    this.addTails([PI-1,PI-.35,PI+.35,PI+1],mantleGeo,M.cloth,.2,.15,.55);
+    for(let s=0;s<2;s++){const sx=s?-1:1,ua=this.arm[s],fa=this.fore[s],sw=this.sword[s],ul=this.leg[s],ll=this.shin[s],ft=this.foot[s];
+      add(ua,limb(.07*b,.06*b,ARM1),M.dark); A(ua,GR,M.armor,sx*.03,-.13,0,.15,.2,.16); add(ua,cyl(.016,.016,.22),M.trim,-sx*.06,-.15,-.05);
+      add(fa,cyl(.075*b,.075*b,.15),M.trim,0,0,0,1,1,1,0,0,PI/2); add(fa,limb(.08*b,.06*b,ARM2),M.armor); A(fa,cyl(.1,.09,.1),M.trim,0,-.1,0); A(fa,GR,M.armor,sx*.08,-.15,0,.03,.2,.1);
+      add(sw,GR,M.dark,0,0,0,.11,.12,.11); HOT(fa,GB,M.glow,0,-.15,.075,.012,.2,.01);
+      add(ul,limb(.11*b,.085*b,LEG1),M.dark); A(ul,GR,M.armor,sx*.03,-.2,.05,.19,.32,.17); add(ul,cyl(.018,.018,.32),M.trim,sx*.1,-.22,-.05);
+      add(ll,cyl(.085,.085,.19),M.trim,0,0,0,1,1,1,0,0,PI/2); A(ll,GR,M.armor,0,.01,.09,.14,.15,.07,-.2); add(ll,limb(.09*b,.065*b,LEG2),M.armor); add(ll,cyl(.02,.02,.3),M.trim,0,-.24,-.09);
+      add(ft,GR,M.dark,0,-.07,.07,.13,.04,.32); add(ft,GR,M.armor,0,-.03,.15,.14,.09,.16); add(ft,GR,M.armor,0,-.03,-.04,.12,.1,.1); HOT(ll,GB,M.glow,0,-.22,.075,.012,.24,.01);
+      if(s===1){add(sw,cyl(.028,.028,.34),M.rubber,0,-.04,0); add(sw,GR,M.trim,0,.13,0,.36,.05,.08); add(sw,cyl(.05,.05,.07),M.trim,0,.19,0,1,1,.6); add(sw,bladeGeo(1.62,.15),M.blade,0,.16,0); add(sw,GB,M.glow,-.02,.9,0,.03,1.4,.03);}
+    }
+  }
+  buildFoe(add){
+    const c=this.cfg,M=this.mats,brute=c.kind==='brute',stalk=c.kind==='stalker',b=brute?1.45:1,{hips,chest,head}=this,A=M.armor,T=M.trim;
+    add(hips,GR,M.frame,0,-.03,0,.3*b,.18,.22*b); add(hips,cyl(.165*b,.165*b,.05),T,0,.07,0,1,1,.75); add(hips,plate(P_KNEE,.05),A,0,-.05,.1*b,1.5*b,1.6,1,.15);
+    add(chest,cyl(.12*b,.11*b,.18),M.rubber,0,.04,0,1,1,.78); add(chest,cyl(.2*b,.14*b,.34),M.frame,0,.24,0,1,1,.8);
+    add(chest,plate(P_CHEST,.13),A,0,.32,.075*b,b*(stalk?.8:1),1,b,-.16); add(chest,plate(P_BACK,.12),A,0,.32,-.1*b,b,1,b,.2,PI); add(chest,plate(P_AB,.06),A,0,.1,.1*b,b,1.2,1);
+    add(chest,cyl(.055*b,.055*b,.03),T,0,.31,.15*b,1,1,1,PI/2); add(chest,GS,M.glow,0,.31,.16*b,.04*b,.04*b,.018);
+    if(brute){for(let k=-1;k<=1;k++)add(chest,GB,M.glow,k*.08,.12,.19,.03,.09,.01); add(chest,GR,T,0,.12,.172,.32,.13,.05); for(const sx of [-1,1]){add(chest,cyl(.045,.05,.34),T,sx*.2,.52,-.2,1,1,1,-.3);add(chest,cyl(.03,.03,.02),M.glow,sx*.2,.69,-.25,1,1,1,-.3);}}
+    else for(let k=0;k<4;k++)add(chest,cyl(.022,.028,.24+k*.04),T,(k%2?.07:-.07),.16+k*.1,-.2*b,1,1,1,-1.15-k*.1);
+    for(const sx of [-1,1]){add(chest,GS,T,sx*SHX*b,SHY,0,.062*b,.062*b,.062*b);
+      add(chest,GR,A,sx*.265*b,.445,0,.17*b,.05,.2*b,0,0,-sx*.35); add(chest,GR,A,sx*.325*b,.385,0,.13*b,.042,.17*b,0,0,-sx*.8);
+      if(!stalk)add(chest,cone(.045*b,.24,4),T,sx*.31*b,.55,0,1,1,1,0,0,-sx*.7); else add(chest,GR,A,sx*.34,.5,-.06,.02,.16,.1,-.5,0,-sx*.5);}
+    add(chest,cyl(.06*b,.08*b,.08),M.frame,0,.48,0);
+    if(brute){add(head,GS,A,0,.04,.03,.11,.1,.12); add(head,GR,M.frame,0,.03,.1,.14,.07,.06); add(head,GB,M.glow,0,.05,.133,.12,.02,.012); add(head,GR,T,0,.11,.02,.18,.03,.16);}
+    else if(stalk){add(head,GS,A,0,.1,.03,.082,.115,.16); add(head,GR,M.frame,0,.07,.12,.08,.1,.1); add(head,GB,M.glow,0,.1,.173,.018,.1,.012); add(head,GR,A,0,.2,-.12,.02,.07,.4,-.35); for(const sx of [-1,1])add(head,cone(.016,.2,4),T,sx*.06,.02,.16,1,1,1,2.2,0,sx*.2);}
+    else{add(head,GS,A,0,.1,.02,.092,.12,.125); add(head,GR,M.frame,0,.075,.09,.13,.1,.08); add(head,GB,M.glow,.045,.1,.135,.03,.016,.012); add(head,GB,M.glow,-.045,.1,.135,.03,.016,.012); add(head,GR,A,0,.02,.08,.09,.05,.08,.3);
+      for(const sx of [-1,1]){add(head,cone(.026,.3,4),T,sx*.09,.24,-.03,1,1,1,-.5,0,-sx*.45); add(head,cyl(.03,.03,.03),T,sx*.093,.1,.01,1,1,1,0,0,PI/2);}}
+    this.limbs(add,M,A,A,T,b,brute?1.9:b);
+    for(let s=0;s<2;s++){const sw=this.sword[s],fa=this.fore[s],sx=s?-1:1;
+      if(brute){add(fa,cyl(.03,.03,.24),T,sx*.13,-.13,0); add(sw,GR,A,0,-.05,0,.32,.3,.32); add(sw,GR,T,0,-.05,0,.34,.08,.34); add(sw,GB,M.glow,0,-.05,0,.4,.035,.035); add(sw,GB,M.glow,0,-.05,0,.035,.035,.4); for(const k of [-1,1])add(sw,cone(.04,.14,4),T,k*.1,-.24,0,1,1,1,PI);}
+      else if(s===1||stalk){add(sw,GR,T,0,.06,0,.14,.04,.06); add(sw,bladeGeo(.95,.1),M.blade,0,.07,0); add(sw,GB,M.glow,-.012,.48,0,.012,.8,.02);}
+      else{for(let k=-1;k<=1;k++){add(sw,cone(.018,.22,4),T,k*.035,.14,0,1,1,1,0,0,-k*.2); add(sw,cyl(.012,.012,.08),M.frame,k*.035,.03,0);}}
+    }
+  }
+  // merge each bone's loose parts into one mesh per material (a hero drops from ~170 draw calls to ~45) and
+  // scale UVs by part size so the armour texture has an even grain everywhere
+  bake(){
+    const groups=[];this.root.traverse(o=>{if(!o.isMesh)groups.push(o);});let n=0;const M=this.mats,names=new Map(Object.keys(M).map(k=>[M[k],k]));
+    for(let gi=0;gi<groups.length;gi++){const g=groups[gi];
+      const by=new Map();
+      for(const c of g.children){if(!c.isMesh||c.userData.keep)continue;let l=by.get(c.material);if(!l)by.set(c.material,l=[]);l.push(c);}
+      for(const [mat,list] of by){
+        const key=this.cfg.kind+'|'+gi+'|'+names.get(mat);let geo=BAKED.get(key);
+        if(geo){for(const c of list)g.remove(c);}else{
+        const t=mat.userData.tile,geos=list.map(c=>{c.updateMatrix();const q=c.geometry.index?c.geometry.toNonIndexed():c.geometry.clone();q.applyMatrix4(c.matrix);
+          if(t){q.computeBoundingBox();const s=q.boundingBox.getSize(_a),k=max(s.x,s.y,s.z)/t,uv=q.attributes.uv,ou=(++n*.37)%1,ov=(n*.61)%1;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*k+ou,uv.getY(i)*k+ov);}
+          g.remove(c);return q;});
+        geo=mergeGeometries(geos,false);BAKED.set(key,geo);for(const q of geos)q.dispose();}
+        const m=new THREE.Mesh(geo,mat);m.castShadow=!mat.isMeshBasicMaterial;g.add(m);
+      }
+    }
+  }
+  play(clip,blend=.08,force=false){
+    if(this.clip===clip&&!force)return; this.from.set(this.cur);
+    this.from[I.rot]=wrapA(this.from[I.rot]); this.from[I.rot+1]=wrapA(this.from[I.rot+1]); this.from[I.rot+2]=wrapA(this.from[I.rot+2]);
+    this.clip=clip;this.t=0;this.bt=0;this.bd=blend;
+  }
+  update(dt){
+    this.t+=dt*this.speed;this.bt+=dt;const tmp=this.tmp,cur=this.cur;
+    this.clip.fn(this.t,tmp,this);
+    if(this.air>.01&&!this.clip.noAir){const a=this.air;tmp[I.fl+1]+=.34*a;tmp[I.fl+2]+=.1*a;tmp[I.fr+1]+=.14*a;tmp[I.fr+2]-=.08*a;}
+    if(this.post)this.post(tmp,this.clip);
+    if(this.bt<this.bd){const k=smooth(this.bt/this.bd),f=this.from;for(let i=0;i<PN;i++)cur[i]=f[i]+(tmp[i]-f[i])*k;}else cur.set(tmp);
+    if(dt>0&&dt<.1){const x=this.spx,v=this.spv;if(!this.spOn){this.spOn=true;for(const i of SPR)x[i]=cur[i];}
+      for(let j=0;j<SPR.length;j++){const i=SPR[j],w=j<3?26:17,z=j<3?.5:.38;v[i]+=((cur[i]-x[i])*w*w-v[i]*2*z*w)*dt;x[i]+=v[i]*dt;cur[i]=x[i];}}
+    this.apply(dt);
+  }
+  apply(dt){
+    const p=this.cur,{body,hips,chest,head}=this;
+    body.rotation.set(p[1],p[2],p[3]); _a.set(0,PIV,0).applyQuaternion(body.quaternion); body.position.set(-_a.x,p[0]+PIV-_a.y,-_a.z);
+    hips.position.set(0,HIPH+p[4],p[5]); hips.rotation.set(p[6],p[7],p[8]); chest.rotation.set(p[9],p[10],p[11]); head.rotation.set(p[12],p[13],p[14]);
+    for(let s=0;s<2;s++){const sx=s?-1:1;
+      // arm
+      _a.set(sx*SHX,SHY,0); const hi=I.hl+s*3; _b.set(p[hi],p[hi+1],p[hi+2]);
+      const bi=I.sl+s*3,bl=_c.set(p[bi],p[bi+1],p[bi+2]); if(bl.lengthSq()<1e-6)bl.set(0,-1,0); bl.normalize();
+      if(s===0){
+        if(this.twoHand){   // the left hand slides along the shaft to wherever it can actually reach
+          _d.set(p[I.sr],p[I.sr+1],p[I.sr+2]).normalize(); _e.set(p[I.hr],p[I.hr+1],p[I.hr+2]); _w.subVectors(_e,_a);
+          const ad=_w.dot(_d),mr=ARM1+ARM2+this.gripD[0]-.03,disc=ad*ad-(_w.lengthSq()-mr*mr); let u=this.twoHand;
+          if(disc>0){const q=sqrt(disc),lo=max(-ad-q,-.58),hi=min(-ad+q,-.24);u=lo>hi?(-ad-q>-.24?-.24:-.58):clamp(u,lo,hi);}else u=clamp(-ad,-.58,-.24);
+          _b.copy(_e).addScaledVector(_d,u); bl.copy(_d);}
+        else if(this.aimW>.001){_q.copy(hips.quaternion).multiply(chest.quaternion).invert(); _d.copy(this.aimDir).applyQuaternion(_q).normalize();
+          _e.copy(_a).addScaledVector(_d,.56); _b.lerp(_e,this.aimW); bl.lerp(_d,this.aimW).normalize();}
+      }
+      // weapon frame: X = cutting edge (follows the swing), Y = blade, Z = flat
+      const ed=this.edge[s],pistol=s===0&&this.aimHand;
+      if(pistol){ed.crossVectors(bl,DOWN); if(ed.lengthSq()<.02)ed.set(1,0,0);}
+      let swung=pistol;
+      if(!pistol){const tip=_d.copy(_b).addScaledVector(bl,1.1),vel=_e.subVectors(tip,this.tipPrev[s]); this.tipPrev[s].copy(tip);
+        if(vel.lengthSq()>4e-5){swung=true;vel.addScaledVector(bl,-vel.dot(bl));if(vel.lengthSq()>1e-6){vel.normalize();if(vel.dot(ed)<0)vel.negate();ed.lerp(vel,.4);}}}
+      ed.addScaledVector(bl,-ed.dot(bl)); if(ed.lengthSq()<1e-6)ed.set(1,0,0).addScaledVector(bl,-bl.x); ed.normalize(); _zw.crossVectors(ed,bl);
+      const ua=this.arm[s],fa=this.fore[s],gd=this.gripD[s],sw=this.sword[s]; _pole.set(sx*.5,-.8,-.45);
+      if(gd>0){
+        // The pose gives where the grip is. The wrist is a ball joint a palm's length behind it, on the side the forearm comes
+        // from, so the hand always wraps the grip with its heel toward the arm, whatever angle the weapon is at.
+        const hp=this.palm[s],hd=this.hand[s];
+        _w.copy(_b).addScaledVector(hp,-gd); ik2(_a,_w,ARM1,ARM2,_pole,ua.quaternion,fa.quaternion);
+        _q2.copy(ua.quaternion).multiply(fa.quaternion); _fd.set(0,-1,0).applyQuaternion(_q2);
+        if(pistol){_yh.copy(_zw).negate(); _zh.copy(bl);}
+        else{_yh.copy(bl); _zh.copy(_fd).addScaledVector(bl,-_fd.dot(bl)); if(_zh.lengthSq()<.03){_zh.copy(hp).addScaledVector(bl,-hp.dot(bl)); if(_zh.lengthSq()<1e-4)_zh.copy(ed);} _zh.normalize();}
+        const c=clamp(_fd.dot(_yh),-.45,.45); _w.copy(_zh).multiplyScalar(sqrt(1-c*c)).addScaledVector(_yh,c);
+        if(dt>0&&!pistol){hp.lerp(_w,1-exp(-45*dt)).normalize(); _zh.copy(hp).addScaledVector(_yh,-hp.dot(_yh)); if(_zh.lengthSq()<1e-4)_zh.copy(ed); _zh.normalize();} else hp.copy(_w);
+        _w.copy(_b).addScaledVector(hp,-gd); ik2(_a,_w,ARM1,ARM2,_pole,ua.quaternion,fa.quaternion);
+        _q2.copy(ua.quaternion).multiply(fa.quaternion).invert();
+        _xh.crossVectors(_yh,_zh); _m4.makeBasis(_xh,_yh,_zh); _q.setFromRotationMatrix(_m4); hd.quaternion.copy(_q2).multiply(_q);
+        _w.copy(hp).multiplyScalar(gd).applyQuaternion(_q2); _w.y-=ARM2; hd.position.copy(_w); sw.position.copy(_w);
+        if(!swung){   // at rest the edge settles toward the knuckles, as a held blade would sit
+          const an=atan2(_e.crossVectors(ed,_zh).dot(bl),ed.dot(_zh)),st=dt>0?min(abs(an),9*dt):abs(an);
+          if(st>1e-4){_q.setFromAxisAngle(bl,an<0?-st:st); ed.applyQuaternion(_q).normalize(); _zw.crossVectors(ed,bl);}}
+      }else{ik2(_a,_b,ARM1,ARM2,_pole,ua.quaternion,fa.quaternion); _q2.copy(ua.quaternion).multiply(fa.quaternion).invert();}
+      _m4.makeBasis(ed,bl,_zw); _q.setFromRotationMatrix(_m4); sw.quaternion.copy(_q2).multiply(_q);
+      // leg: big smooth thigh shell, disc knee, shin shell over an open strutted calf, pointed foot with a heel spur
+      add(ul,GS,J,0,0,0,.062,.062,.062); add(ul,limb(.05,.042,LEG1),F,0,0,-.012);
+      add(ul,loft(sd([[.035,.05,.055,.01],[-.04,.086,.096,.014,.006],[-.14,.09,.1,.012,.012],[-.26,.076,.086,.005,.01],[-.37,.058,.066,0,.006],[-.43,.046,.052]],sx),16),A);
+      add(ul,loft([[-.37,.05,.03,0,.03],[-.41,.058,.036,0,.03],[-.45,.05,.03,0,.026]],12,3),B); add(ul,cyl(.011,.011,.3),J,sx*.02,-.25,-.075,1,1,1,.06);
+      add(ll,cyl(.054,.054,.128),J,0,0,0,1,1,1,0,0,PI/2); add(ll,cyl(.034,.034,.134),F,0,0,0,1,1,1,0,0,PI/2); add(ll,limb(.034,.028,LEG2),F,0,0,-.022);
+      add(ll,loft([[-.02,.044,.04,0,.02],[-.1,.06,.062,0,.024],[-.22,.052,.056,0,.016],[-.34,.04,.044,0,.008],[-.43,.031,.034]],14),A);
+      add(ll,cyl(.009,.009,.3),J,sx*.022,-.23,-.062,1,1,1,-.1); add(ll,cyl(.009,.009,.3),J,-sx*.022,-.23,-.062,1,1,1,-.1); add(ll,GR,J,0,-.1,-.06,.07,.02,.03); add(ll,GR,J,0,-.3,-.045,.06,.018,.026);
+      add(ll,GB,GL,sx*.058,-.2,.02,.006,.15,.012); add(ll,cyl(.036,.036,.02),J,0,-.44,0);
+      add(ft,cyl(.032,.032,.072),J,0,0,0,1,1,1,0,0,PI/2); add(ft,loft([[0,.03,.026],[.05,.044,.034],[.13,.04,.028],[.2,.022,.014],[.226,.008,.006]],12,2.6),A,0,-.02,-.012,1,1,1,1.875);
+      add(ft,GR,F,0,-.08,.095,.066,.016,.2); add(ft,cone(.017,.12,5),J,0,-.045,-.052,1,1,1,PI+.6); add(ft,loft([[-.03,.03,.02],[.02,.036,.026],[.06,.026,.018]],10,3),B,0,-.01,-.04);
+    }
+    const grp=s=>{const o=new THREE.Group();this.sword[s].add(o);return o;};
+    // weapons are modelled with the grip at the origin and the blade (or barrel, or hammer head) along +Y
+    const blade=(o,len,wid)=>{
+      add(o,cyl(.019,.019,.19),R,0,-.015,0); add(o,cyl(.025,.021,.03),J,0,-.125,0); add(o,GR,J,0,.092,0,wid*2.6,.022,.042); add(o,cyl(.03,.03,.03),B,0,.115,0,1,1,.6);
+      add(o,bladeGeo(len,wid),M.blade,0,.11,0); add(o,GB,GL,-wid*.12,.14+len*.4,0,.01,len*.78,.016);
+    };
+    for(let s=0;s<2;s++){this.wp[s][0]=grp(s); blade(this.wp[s][0],1.02,.07);}
+    this.wp[1][1]=grp(1); blade(this.wp[1][1],1.34,.088);
+    const g=this.wp[0][1]=grp(0);   // pistol: barrel along +Y, top of the gun toward -Z, the hand wraps the raked handle at the origin
+    add(g,GR,R,0,-.004,.014,.03,.042,.11,.2); add(g,GR,J,0,.09,-.056,.034,.27,.05); add(g,GR,F,0,.12,-.024,.028,.2,.024); add(g,cyl(.012,.012,.034),F,0,.236,-.056);
+    add(g,GR,F,0,.05,.018,.012,.012,.05); add(g,GR,F,0,.074,.0,.012,.05,.012); add(g,GB,GL,0,.09,-.083,.008,.16,.006); for(let k=0;k<3;k++)add(g,GB,F,0,.01+k*.022,-.056,.037,.008,.04);
+    this.wp[0][2]=grp(0);
+    const m=this.wp[1][2]=grp(1);   // maul: the right hand holds it at the origin, the left further down the shaft; head at +Y
+    add(m,cyl(.021,.021,1.62),F,0,.2,0); add(m,cyl(.024,.024,.22),R,0,0,0); add(m,cyl(.024,.024,.4),R,0,-.4,0); add(m,GS,J,0,-.64,0,.036,.036,.036); add(m,cyl(.03,.03,.05),J,0,.16,0); add(m,cyl(.03,.03,.05),J,0,.72,0);
+    add(m,GR,J,0,.98,0,.5,.26,.26); add(m,GR,B,.26,.98,0,.04,.3,.3); add(m,GR,B,-.26,.98,0,.04,.3,.3); add(m,cyl(.062,.062,.34),F,0,.98,0,1,1,1,PI/2);
+    add(m,GB,GL,0,.98,.132,.34,.026,.008); add(m,GB,GL,0,.98,-.132,.34,.026,.008); add(m,GB,GL,0,1.112,0,.34,.008,.026); add(m,cone(.055,.2,4),J,0,1.2,0);
+    add(m,cyl(.026,.026,.24),J,.13,.8,0); add(m,cyl(.026,.026,.24),J,-.13,.8,0);
+    this.setWeapon(0);
+  }
+  setWeapon(i){for(let s=0;s<2;s++)this.wp[s].forEach((o,k)=>{o.visible=k===i;});this.twoHand=i===2?-.42:0;this.aimHand=i===1;this.wset=i;}
   buildWarden(add){
     const M=this.mats,{hips,chest,head}=this,b=1.25;
     const A=(...a)=>{const m=add(...a);m.userData.keep=true;this.hide.push(m);return m;};          // armour shed in phase 2
@@ -1382,16 +1603,16 @@ const mirK=keys=>keys.map(k=>[k[0],mir(k[1]),k[2]]);
 
 // ----- hero -----
 const IDLE=P({by:0,rot:[0,0,0],hy:-.05,hz:0,hip:[.04,-.38,0],ch:[.06,-.12,0],hd:[-.04,.48,0],
-  ...AL([.25,-.6,.75],.46,[.2,.45,.85]),...AR([-.35,-.85,-.3],.52,[-.35,-.5,-.8]),fl:[.2,0,.26],fr:[-.2,0,-.24]});
+  hl:[.25,.1,.32],sl:nrm([.12,.5,.85]),hr:[-.3,-.12,-.05],sr:nrm([-.25,-.45,-.86]),fl:[.2,0,.26],fr:[-.2,0,-.24]});
 const ATK=P({hy:-.14,hip:[.1,0,0],ch:[.06,0,0],hd:[-.1,0,0],...AL([.3,-.6,.6],.45,[.1,.3,.9]),...AR([-.3,-.6,.6],.45,[-.1,.3,.9]),fl:[.2,0,.32],fr:[-.2,0,-.32]});
-CL.idle={loco:true,fn(t,o){o.set(IDLE);const b=sin(t*2.2);o[I.hy]+=b*.012;o[I.ch]+=b*.015;o[I.hl+1]+=b*.012;o[I.hr+1]+=b*.01;}};
+CL.idle={loco:'idle',fn(t,o){o.set(IDLE);const b=sin(t*2.2);o[I.hy]+=b*.012;o[I.ch]+=b*.015;o[I.hl+1]+=b*.012;o[I.hr+1]+=b*.01;}};
 const RUNB=P({hy:-.1,hip:[.32,0,0],ch:[.12,0,0],hd:[-.32,0,0],...AL([.45,-.55,-.7],.5,[.22,-.12,-1]),...AR([-.45,-.55,-.7],.5,[-.22,-.12,-1])});
-CL.run={loco:true,fn(t,o,r){o.set(RUNB);const ph=r.phase;
+CL.run={loco:'run',fn(t,o,r){o.set(RUNB);const ph=r.phase;
   for(let s=0;s<2;s++){const f=ph+(s?PI:0),sn=sin(f),cs=cos(f),i=I.fl+s*3;o[i]=(s?-1:1)*.13;o[i+2]=sn*.5-.04;o[i+1]=max(0,cs)*.3+(sn<-.6?(-sn-.6)*.3:0);}
   o[I.hy]=-.11+cos(ph*2)*.035;o[I.hip+1]=-sin(ph)*.18;o[I.ch+1]=sin(ph)*.28;o[I.hl+1]+=sin(ph*2)*.02;o[I.hr+1]+=sin(ph*2+1)*.02;o[I.hl+2]+=sin(ph)*.06;o[I.hr+2]-=sin(ph)*.06;}};
 const AIRUP=P({hy:0,hip:[.1,0,0],ch:[.02,0,0],hd:[-.1,0,0],...AL([.8,-.35,-.2],.5,[.5,-.2,-.85]),...AR([-.8,-.35,-.2],.5,[-.5,-.2,-.85]),fl:[.14,.42,.22],fr:[-.14,.22,-.14]});
 const AIRDN=P({hy:0,hip:[.04,0,0],ch:[0,0,0],hd:[-.2,0,0],...AL([.85,.1,-.1],.52,[.6,.4,-.7]),...AR([-.85,.1,-.1],.52,[-.6,.4,-.7]),fl:[.15,.16,.1],fr:[-.15,.05,-.06]});
-CL.air={noAir:true,loco:true,fn(t,o,r){const k=smooth(sat(.5-r.vy*.07));for(let j=0;j<PN;j++)o[j]=AIRUP[j]+(AIRDN[j]-AIRUP[j])*k;}};
+CL.air={noAir:true,loco:'air',fn(t,o,r){const k=smooth(sat(.5-r.vy*.07));for(let j=0;j<PN;j++)o[j]=AIRUP[j]+(AIRDN[j]-AIRUP[j])*k;}};
 {
   const d0={hy:-.34,hip:[.7,0,0],ch:[.2,0,0],hd:[-.7,0,0],...AL([.5,-.25,-.85],.56),...AR([-.5,-.25,-.85],.56)};
   CL.dash=K([[0,P({...d0,fl:[.16,0,.55],fr:[-.16,.12,-.65]})],[.2,P({...d0,hy:-.3,fl:[.16,.1,-.3],fr:[-.16,0,.5]})],[.36,P({hy:-.2,hip:[.3,0,0],fl:[.2,0,.3],fr:[-.2,0,-.3]},IDLE),'out']]);
@@ -1521,8 +1742,26 @@ const mirClip=c=>({dur:c.dur,noAir:c.noAir,fn(t,o,r){c.fn(t,o,r);o.set(mir(o));}
   const RO=P({hy:-.1,hip:[-.2,0,0],ch:[-.45,0,0],hd:[-.4,0,0],...AL([.8,.5,-.2],.58),...AR([-.8,.5,-.2],.58,[-.6,.7,-.3]),fl:[.3,0,.1],fr:[-.3,0,-.1]},E_IDLE);
   CL.roar={fn(t,o){o.set(RO);const w=sin(t*38);o[I.ch]+=w*.02;o[I.hl]+=w*.01;o[I.hr]-=w*.01;}};
 }
-// how the hero carries each weapon set while idle, running or airborne
-const CARRY=[null,AL([.35,-.85,.25],.5,[.15,-.8,.55]),AR([-.05,-.6,.5],.38,[-.3,.78,-.5])];
+// How the hero holds each weapon set while standing, running or airborne. Positions are where the grip is, in chest space
+// (+X the hero's left, +Z forward); directions are where the blade, barrel or hammer head points. null = leave the clip's own.
+const HOLD=(hl,sl,hr,sr)=>{const o={};if(hl){o.hl=hl;o.sl=nrm(sl);}if(hr){o.hr=hr;o.sr=nrm(sr);}return o;};
+const STANCE=[
+  // twin fangs: lead blade up in a guard, rear blade low and trailing; both swept back on the run
+  {idle:HOLD([.25,.1,.32],[.12,.5,.85],[-.3,-.12,-.05],[-.25,-.45,-.86]),
+   run:HOLD([.34,.02,-.2],[.35,.14,-.93],[-.34,.02,-.2],[-.35,.14,-.93])},
+  // blade & pistol: gun forward at the low ready, sword low behind
+  {idle:HOLD([.2,.12,.36],[-.1,-.3,.95],[-.3,-.12,-.05],[-.25,-.45,-.86]),
+   run:HOLD([.28,-.02,.12],[.1,-.8,.6],[-.34,.02,-.2],[-.35,.14,-.93]),
+   air:HOLD([.3,.1,.2],[.1,-.5,.85],[-.5,.1,-.1],[-.6,.3,-.75])},
+  // great maul (the left hand follows the shaft): carried across the body with the head high at the right shoulder, trailed low on the run
+  {idle:HOLD(null,null,[-.2,.3,.2],[-.55,.75,-.35]),
+   run:HOLD(null,null,[-.3,0,-.05],[-.2,-.25,-.95]),
+   air:HOLD(null,null,[-.3,.25,.1],[-.3,.8,-.5])}];
+function stance(o,kind,set,r){
+  const st=STANCE[set][kind];if(st)wr(o,st);
+  if(kind==='idle'){const b=sin(r.t*2.2);o[I.hl+1]+=b*.012;o[I.hr+1]+=b*.01;}
+  else if(kind==='run'){const ph=r.phase,sn=sin(ph);o[I.hl+2]+=sn*.07;o[I.hr+2]-=sn*.07;o[I.hl+1]+=sin(ph*2)*.02;o[I.hr+1]+=sin(ph*2+1)*.02;}
+}
 
 // ===================== INPUT =====================
 const keys={},held={},pad={x:0,y:0,prev:[]};
@@ -1572,12 +1811,14 @@ function pollPad(dt){
 }
 
 // ===================== COMBAT DATA =====================
-// The hero: pale ceramic plate over a dark frame, brass fittings, teal power. Foes: dark iron lit amber (or violet for stalkers).
+// The hero: white lacquered shell over a dark mechanical core, slate-blue secondary plates, teal power.
+// Foes: dark iron lit amber (or violet for stalkers).
 const heroMats={
-  shell:pbr('armor',{color:0xdfe2e8,roughness:.9,envMapIntensity:1}),
-  shell2:pbr('armor',{color:0x46546a,envMapIntensity:1}),
-  frame:pbr('plate',{color:0xaab0bc,envMapIntensity:.7}),
-  steel:pbr('steel',{color:0x9aa2ae,envMapIntensity:1}),
+  shell:pbr('shell',{color:0xe8eaf0,envMapIntensity:.9}),
+  shell2:pbr('shell',{color:0x4d5e80,envMapIntensity:.9}),
+  frame:pbr('plate',{color:0x9aa0ac,envMapIntensity:.6}),
+  steel:pbr('steel',{color:0x8d95a2,envMapIntensity:1}),
+  visor:pbr('steel',{color:0x161a20,roughness:.6,envMapIntensity:1.4}),
   brass:pbr('steel',{color:0xc9964a,envMapIntensity:1}),
   rubber:pbr('rubber',{envMapIntensity:.3}),
   blade:pbr('steel',{color:0xdcefff,roughness:.5,envMapIntensity:1.8}),
@@ -1602,7 +1843,7 @@ const wardenMats=()=>({
 const WEAPONS=[
   {name:'TWIN FANGS',light:'L1',heavy:'LAUNCH',airHeavy:'SLAM',rush:'RUSH',trail:[[.5,1.28],[.5,1.28]],col:0x45d4ff},
   {name:'BLADE & PISTOL',light:'S1',heavy:null,airHeavy:null,rush:'SLAUNCH',trail:[null,[.55,1.62]],col:0x45d4ff},
-  {name:'GREAT MAUL',light:'M1',heavy:'MCH',airHeavy:'MPOUND',rush:'RUSH',trail:[null,[1.0,1.62]],col:0xffb060}];
+  {name:'GREAT MAUL',light:'M1',heavy:'MCH',airHeavy:'MPOUND',rush:'RUSH',trail:[null,[.72,1.22]],col:0xffb060}];
 const launchHit={t:.155,dmg:10,arc:2.5,kb:.6,launch:12.6,stop:.09,shake:.32,pts:16,big:true,h:3.6};
 const MOVES={
   L1:{clip:CL.L1,dur:.44,cancel:.2,free:.3,lunge:[.02,.14,3.2],trail:[.04,.24,2],sw:[.07],next:'L2',airNext:'L2',
@@ -2256,7 +2497,7 @@ class Player{
     this.invuln=0;this.dodgeCd=0;this.airActs=0;this.airDash=false;this.dj=false;this.stepI=0;this.trailOn=0;this.trAcc=0;this.move=null;this.target=null;
     this.set=0;this.wantSet=0;this.gunCd=0;this.aimT=0;this.aimP=V();this.gunAir=0;this.charge=0;this.smash=0;this.ready=false;
     this.rig=new Rig({kind:'hero',mats:heroMats});scene.add(this.rig.root);this.rig.play(CL.idle,0);
-    this.rig.post=(o,clip)=>{if(clip.loco&&CARRY[this.set])wr(o,CARRY[this.set]);};
+    this.rig.post=(o,clip)=>{if(clip.loco)stance(o,clip.loco,this.set,this.rig);};
     this.trails=[new Trail(20,0x45d4ff),new Trail(20,0x45d4ff)];
     this.light=new THREE.PointLight(0x58d8ff,3.2,8,2);scene.add(this.light);
   }
@@ -2299,7 +2540,7 @@ class Player{
     if(orb&&(!tg||od<6)){aim.copy(orb.pos);hit=1;}else if(tg){aim.set(tg.pos.x,tg.cy(),tg.pos.z);hit=2;}
     else aim.set(this.pos.x+sin(this.yaw)*30,this.pos.y+1.3,this.pos.z+cos(this.yaw)*30);
     const a=atan2(aim.x-this.pos.x,aim.z-this.pos.z);if(abs(wrapA(a-this.yaw))>1.5&&(this.state==='move'||this.state==='air'))this.yaw=a;
-    _c.set(0,.32,-.01);this.rig.sword[0].localToWorld(_c);if(_c.distanceTo(this.pos)>3)_c.set(this.pos.x,this.pos.y+1.4,this.pos.z);
+    _c.set(0,.26,-.056);this.rig.sword[0].localToWorld(_c);if(_c.distanceTo(this.pos)>3)_c.set(this.pos.x,this.pos.y+1.4,this.pos.z);
     fx.tracer(_c,aim);fx.flares.spawn(_c,0xfff0c0,5,.07,.3,.3,1.6,.05,rand(3));fx.flash(_c,0xffe0a0,26,.07);sfx.gun();cam.shake(.05);
     if(hit===1){orbs.kill(orb);G.gunScore();}
     else if(hit===2&&tg.gunHit()){fx.sparks(aim,0,.4,0,6,[3,2.4,1.2],5,.8);fx.glows.spawn(aim,0xffe0a0,2,.08,.2,.2,.9,.9);G.gunScore();}
@@ -2340,7 +2581,7 @@ class Player{
     const fwx=sin(this.yaw),fwz=cos(this.yaw),e14=exp(-14*dt);
     if(m.charge){   // maul: hold to charge, release to smash
       this.vel.x*=e14;this.vel.z*=e14;this.charge=sat(t/1);
-      _a.set(0,1.32,0);this.rig.sword[1].localToWorld(_a);
+      _a.set(0,.98,0);this.rig.sword[1].localToWorld(_a);
       if(random()<dt*(20+this.charge*60)){const a=rand(TAU),r=rand(.8,1.6);fx.parts.spawn(_a.x+cos(a)*r,_a.y+rand(-.8,.8),_a.z+sin(a)*r,-cos(a)*r*3,0,-sin(a)*r*3,3.2,1.8,.6,rand(.05,.12),.33);}
       if(this.charge>=1&&!this.ready){this.ready=true;sfx.ready();fx.flares.spawn(_a,0xffc070,6,.3,.4,.4,4.5,.05,.4);fx.flares.spawn(_a,0xffc070,6,.3,.4,.4,3.4,.05,2);fx.flash(_a,0xffb060,60,.2);}
       if(this.dodgeCd<=0&&input.take('dodge')){this.dodge(mv);return 0;}
@@ -2694,10 +2935,10 @@ const HX={cam:null,stage:null,orbit:null,frames:0,calls:0,tris:0,
   show(kind,o={}){
     this.begin();this.hud(false);for(const d of ENCS)d.done=true;G.resetCombat();
     const cx=0,cz=109,p=G.player;this.tp(cx,0,kind==='hero'?cz:cz-30,0);G.ts=0;
-    if(!this.lights){this.lights=[[3,4.2,-4,0xfff2e0,95],[-4.5,2.6,-1.5,0x45d4ff,60],[3.5,3.4,4.5,0xff8a3a,55]].map(([x,y,z,c,i])=>{const L=new THREE.PointLight(c,i,16,2);L.position.set(cx+x,y,cz+z);scene.add(L);return L;});}
+    if(!this.lights){this.lights=[[3,4.2,-4,0xfff2e0,46],[-4.5,2.6,-1.5,0x45d4ff,30],[3.5,3.4,4.5,0xff8a3a,28]].map(([x,y,z,c,i])=>{const L=new THREE.PointLight(c,i,16,2);L.position.set(cx+x,y,cz+z);scene.add(L);return L;});}
     let root=null,h=1.1,d=4.2,upd=null;const enc={gy:0,ar:inset(AREA.hall,1),ceil:16};
     if(this.stage){this.stage.remove&&this.stage.remove();this.stage=null;}
-    if(kind==='hero'){root=p.rig.root;root.position.set(cx,0,cz);root.rotation.y=PI;root.visible=true;const c=o.clip&&CL[o.clip];if(c)p.rig.play(c,0,true);if(o.set!==undefined)p.rig.setWeapon(+o.set);upd=dt=>{p.rig.update(dt);};}
+    if(kind==='hero'){root=p.rig.root;root.position.set(cx,0,cz);root.rotation.y=PI;root.visible=true;const c=o.clip&&CL[o.clip];if(c)p.rig.play(c,0,true);if(o.set!==undefined){p.set=p.wantSet=+o.set;p.rig.setWeapon(+o.set);}upd=dt=>{p.rig.update(dt);};}
     else if(kind==='mats'){root=new THREE.Group();scene.add(root);const ks=['floor','wall','plate','armor','steel','rubber','hazard'];
       ks.forEach((k,i)=>{const m=pbr(k),t=TILE[k],g=new THREE.PlaneGeometry(1.6,1.6),s=new THREE.SphereGeometry(.42,32,20);for(const q of [g,s]){const uv=q.attributes.uv;for(let j=0;j<uv.count;j++)uv.setXY(j,uv.getX(j)*1.6/t,uv.getY(j)*1.6/t);}
         const a=new THREE.Mesh(g,m),b=new THREE.Mesh(s,m);a.position.set((i-3)*1.75,1.2,0);b.position.set((i-3)*1.75,2.75,0);root.add(a,b);});

@@ -31,5 +31,23 @@ const mirClip=c=>({dur:c.dur,noAir:c.noAir,fn(t,o,r){c.fn(t,o,r);o.set(mir(o));}
   const RO=P({hy:-.1,hip:[-.2,0,0],ch:[-.45,0,0],hd:[-.4,0,0],...AL([.8,.5,-.2],.58),...AR([-.8,.5,-.2],.58,[-.6,.7,-.3]),fl:[.3,0,.1],fr:[-.3,0,-.1]},E_IDLE);
   CL.roar={fn(t,o){o.set(RO);const w=sin(t*38);o[I.ch]+=w*.02;o[I.hl]+=w*.01;o[I.hr]-=w*.01;}};
 }
-// how the hero carries each weapon set while idle, running or airborne
-const CARRY=[null,AL([.35,-.85,.25],.5,[.15,-.8,.55]),AR([-.05,-.6,.5],.38,[-.3,.78,-.5])];
+// How the hero holds each weapon set while standing, running or airborne. Positions are where the grip is, in chest space
+// (+X the hero's left, +Z forward); directions are where the blade, barrel or hammer head points. null = leave the clip's own.
+const HOLD=(hl,sl,hr,sr)=>{const o={};if(hl){o.hl=hl;o.sl=nrm(sl);}if(hr){o.hr=hr;o.sr=nrm(sr);}return o;};
+const STANCE=[
+  // twin fangs: lead blade up in a guard, rear blade low and trailing; both swept back on the run
+  {idle:HOLD([.25,.1,.32],[.12,.5,.85],[-.3,-.12,-.05],[-.25,-.45,-.86]),
+   run:HOLD([.34,.02,-.2],[.35,.14,-.93],[-.34,.02,-.2],[-.35,.14,-.93])},
+  // blade & pistol: gun forward at the low ready, sword low behind
+  {idle:HOLD([.2,.12,.36],[-.1,-.3,.95],[-.3,-.12,-.05],[-.25,-.45,-.86]),
+   run:HOLD([.28,-.02,.12],[.1,-.8,.6],[-.34,.02,-.2],[-.35,.14,-.93]),
+   air:HOLD([.3,.1,.2],[.1,-.5,.85],[-.5,.1,-.1],[-.6,.3,-.75])},
+  // great maul (the left hand follows the shaft): carried across the body with the head high at the right shoulder, trailed low on the run
+  {idle:HOLD(null,null,[-.2,.3,.2],[-.55,.75,-.35]),
+   run:HOLD(null,null,[-.3,0,-.05],[-.2,-.25,-.95]),
+   air:HOLD(null,null,[-.3,.25,.1],[-.3,.8,-.5])}];
+function stance(o,kind,set,r){
+  const st=STANCE[set][kind];if(st)wr(o,st);
+  if(kind==='idle'){const b=sin(r.t*2.2);o[I.hl+1]+=b*.012;o[I.hr+1]+=b*.01;}
+  else if(kind==='run'){const ph=r.phase,sn=sin(ph);o[I.hl+2]+=sn*.07;o[I.hr+2]-=sn*.07;o[I.hl+1]+=sin(ph*2)*.02;o[I.hr+1]+=sin(ph*2+1)*.02;}
+}
