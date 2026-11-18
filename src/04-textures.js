@@ -74,18 +74,31 @@ plate:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out f
   al=mix(al,vec3(.015),(1.-gap)*.9);
   ro=clamp(.44+(n2-.5)*.35+(brush-.5)*.15-chip*.18+(1.-gap)*.3,.1,1.);
   me=mix(.8,1.,chip);ao=mix(.5,1.,gap);}`,
-// armour shell (neutral, tinted per character): satin coating, bare-metal chips and scratches, forge mottling
+// painted armour (neutral, tinted per character): a matte coat over metal, so a foe keeps its own colour under coloured light.
+// The shells are mapped every which way, so nothing here has a direction or a pattern: soft mottling, an orange-peel grain,
+// a few chips down to bare metal, broad patches rubbed thin. Panel lines are real gaps in the geometry (see shell in 07-rig).
 armor:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out float ao){
-  float n1=fbm(uv,vec2(3.),5),n2=fbm(uv+4.2,vec2(14.),4),n3=fbm(uv+9.1,vec2(64.),3);
-  vec3 v=vor(uv,22.);float chip=smoothstep(.1,.02,v.y)*smoothstep(.56,.76,n2*.65+n1*.35);
-  float pit=smoothstep(.16,.06,vor(uv+.31,40.).x)*step(.72,n3+n2*.3);
-  float sc=scr(uv,vec2(4.,64.),.1,.5)+scr(uv.yx+.6,vec2(3.,52.),.09,.45)+scr(uv+uv.yx*.0+.13,vec2(7.,120.),.14,.3)*.6;
-  h=.5+(n2-.5)*.06+(n3-.5)*.04-chip*.08-pit*.1-sc*.05;
-  al=vec3(.5)*(.82+.36*n1)*(.9+.2*n3);
-  al=mix(al,vec3(.86,.87,.9),chip*.8+sc*.45);
-  al*=1.-pit*.6;
-  ro=clamp(.4+(n2-.5)*.3-chip*.16-sc*.1+pit*.3,.12,1.);
-  me=mix(.72,1.,max(chip,sc));ao=1.-pit*.5-chip*.1;}`,
+  float n1=fbm(uv,vec2(3.),5),n2=fbm(uv+4.2,vec2(11.),4),n3=fbm(uv+9.1,vec2(72.),3);
+  vec3 v=vor(uv,13.);float chip=smoothstep(.055,.012,v.y)*smoothstep(.66,.8,n2*.6+n1*.4);
+  float rub=smoothstep(.6,.9,n1*.65+n2*.35);
+  h=.5+(n3-.5)*.018-chip*.06;
+  al=vec3(.8)*(.93+.12*n1);al=mix(al,al*vec3(.8,.78,.75),smoothstep(.45,.85,n2)*.35);al=mix(al,vec3(.66,.67,.7),chip);
+  ro=clamp(.58+(n2-.5)*.14-rub*.14-chip*.32,.12,1.);me=max(chip,.06+rub*.08);ao=1.-chip*.15;}`,
+// frame: dark gunmetal for struts, hinges and everything under the plates. Machined, faintly oiled, edges knocked bright.
+frame:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out float ao){
+  float n1=fbm(uv,vec2(4.),4),n2=fbm(uv+2.7,vec2(26.),3),br=vn(uv*vec2(8.,160.),vec2(8.,160.));
+  vec3 v=vor(uv,24.);float chip=smoothstep(.05,.01,v.y)*smoothstep(.6,.78,n2);
+  h=.5+(n2-.5)*.03+(br-.5)*.015-chip*.04;
+  al=vec3(.36,.37,.4)*(.85+.3*n1);al=mix(al,vec3(.7),chip*.7);
+  ro=clamp(.36+(n2-.5)*.16+(br-.5)*.08-chip*.1,.1,1.);me=.92;ao=1.;}`,
+// forged plate (the bosses): bare steel armour, mottled by hammer and heat, shallow dents, scuffs rubbed bright. No direction.
+iron:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out float ao){
+  float n1=fbm(uv,vec2(3.),5),n2=fbm(uv+4.2,vec2(12.),4),n3=fbm(uv+9.1,vec2(64.),3);
+  vec3 v=vor(uv,16.);float chip=smoothstep(.06,.015,v.y)*smoothstep(.6,.78,n2*.6+n1*.4);
+  float dent=smoothstep(.3,0.,vor(uv+.37,7.).x)*.5;
+  h=.5+(n2-.5)*.05+(n3-.5)*.02-dent*.08-chip*.03;
+  al=vec3(.62,.63,.66)*(.8+.3*n1)*(1.-.25*smoothstep(.4,.8,n2));al=mix(al,vec3(.85),chip*.6);
+  ro=clamp(.44+(n2-.5)*.22+(n3-.5)*.08-chip*.15,.12,1.);me=.95;ao=1.-dent*.2;}`,
 // painted composite shell (tinted per character): smooth satin lacquer, not metal; sparse chips down to the alloy, faint grime
 shell:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out float ao){
   float n1=fbm(uv,vec2(3.),5),n2=fbm(uv+4.2,vec2(14.),4),n3=fbm(uv+9.1,vec2(64.),3);
@@ -95,15 +108,15 @@ shell:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out f
   h=.5+(n3-.5)*.012-chip*.07-sc*.03;
   al=vec3(.88)*(.94+.08*n1);al=mix(al,al*vec3(.74,.72,.68),dirt*.45);al=mix(al,vec3(.6),sc*.25);al=mix(al,vec3(.22,.23,.25),chip);
   ro=clamp(.3+(n2-.5)*.12+dirt*.2+sc*.1-chip*.05,.12,1.);me=chip;ao=1.-chip*.2;}`,
-// bright machined steel: brushed along u, fine scratches, oil staining
+// bright machined steel: a faint brushed grain (kept faint: on a turned part a strong one reads as wood), fine scratches, oil staining
 steel:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out float ao){
   float br=vn(uv*vec2(4.,300.),vec2(4.,300.))*.6+vn(uv*vec2(9.,140.),vec2(9.,140.))*.4;
   float n1=fbm(uv,vec2(4.),4),n2=fbm(uv+2.7,vec2(22.),3);
   float sc=scr(uv,vec2(5.,90.),.12,.5)+scr(uv.yx+.4,vec2(6.,70.),.1,.25);
   float stain=smoothstep(.55,.8,n1*.6+n2*.4);
-  h=.5+(br-.5)*.05-sc*.05+(n2-.5)*.02;
-  al=vec3(.6,.61,.63)*(.82+.3*br)*(1.-stain*.45);al=mix(al,vec3(.9),sc*.4);
-  ro=clamp(.26+(br-.5)*.22+stain*.25-sc*.08,.08,1.);me=1.;ao=1.-stain*.15;}`,
+  h=.5+(br-.5)*.016-sc*.04+(n2-.5)*.02;
+  al=vec3(.6,.61,.63)*(.93+.1*br)*(1.-stain*.35);al=mix(al,vec3(.9),sc*.3);
+  ro=clamp(.28+(br-.5)*.08+stain*.22-sc*.06,.08,1.);me=1.;ao=1.-stain*.15;}`,
 // ribbed rubber for joints, bellows and cable
 rubber:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out float ao){
   float r=.5+.5*cos(uv.y*6.2832*8.),n=fbm(uv,vec2(16.),4);
@@ -116,8 +129,8 @@ hazard:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out 
   h=.5-chip*.08+(n2-.5)*.04;ro=clamp(.5-chip*.15+(n2-.5)*.3,.15,1.);me=mix(.3,1.,chip);ao=1.;}`
 };
 // tile size in metres, bake size in pixels, normal strength
-const TILE={floor:4,wall:4,plate:2,armor:.7,shell:.7,steel:1,rubber:.3,hazard:1};
-const BAKE={floor:[1024,3.2],wall:[1024,3],plate:[512,1.6],armor:[512,1.5],shell:[512,1.2],steel:[512,1],rubber:[256,2.2],hazard:[512,1.2]};
+const TILE={floor:4,wall:4,plate:2,armor:.7,frame:.7,iron:.9,shell:.7,steel:1,rubber:.3,hazard:1};
+const BAKE={floor:[1024,3.2],wall:[1024,3],plate:[512,1.6],armor:[512,1.2],frame:[512,1.2],iron:[512,1.4],shell:[512,1.2],steel:[512,1],rubber:[256,2.2],hazard:[512,1.2]};
 const TEX={};
 {
   const cam=new THREE.OrthographicCamera(-1,1,1,-1,0,1),sc=new THREE.Scene(),quad=new THREE.Mesh(new THREE.PlaneGeometry(2,2));quad.frustumCulled=false;sc.add(quad);
@@ -152,6 +165,21 @@ function pbr(set,o={}){
   const t=TEX[set],ns=o.ns??1;delete o.ns;
   const m=new MSM(Object.assign({map:t.map,normalMap:t.nrm,roughnessMap:t.orm,metalnessMap:t.orm,aoMap:t.orm,roughness:1,metalness:1,envMapIntensity:.8},o));
   m.normalScale.set(ns,ns);m.userData.tile=TILE[set];m.onBeforeCompile=guardOut;m.customProgramCacheKey=()=>'pbr';return m;
+}
+// Character materials add two things to the standard shading:
+//  - a tell or a hit flash (the material's emissive colour, raised by the enemy code) gathers on the silhouette instead of painting
+//    the whole body one flat colour: the lit surface stays readable while its rim burns, white-hot at the peak of a hit;
+//  - an optional rim light (o.rim = colour, o.rimK = strength, o.rimY = 1 from above, -1 from below) that lifts a figure off a dark room.
+function charMat(set,o={}){
+  const c=new THREE.Color(o.rim||0).multiplyScalar(o.rimK??1),rim=new THREE.Vector4(c.r,c.g,c.b,o.rimY??1);delete o.rim;delete o.rimK;delete o.rimY;
+  const m=pbr(set,o);
+  m.onBeforeCompile=s=>{guardOut(s);s.uniforms.uRim={value:rim};
+    s.fragmentShader=s.fragmentShader.replace('#include <common>','#include <common>\nuniform vec4 uRim;').replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
+      {vec3 cV=vViewPosition*inversesqrt(max(dot(vViewPosition,vViewPosition),1e-12));float cF=1.-clamp(abs(dot(cV,normal)),0.,1.),cF3=cF*cF*cF;
+      float cE=max(totalEmissiveRadiance.r,max(totalEmissiveRadiance.g,totalEmissiveRadiance.b));
+      totalEmissiveRadiance=mix(totalEmissiveRadiance,vec3(cE),smoothstep(1.3,1.8,cE)*.85)*(.1+2.4*cF3);
+      totalEmissiveRadiance+=uRim.rgb*cF3*clamp(.5+uRim.a*normal.y*.7,0.,1.);}`);};
+  m.customProgramCacheKey=()=>'char';return m;
 }
 // World surfaces get large-scale variation from world position (hides tiling), and optional rain: standing water in
 // the low spots with expanding rings, everything else damp. wet = 0 (dry interior) or 1 (the roof).
