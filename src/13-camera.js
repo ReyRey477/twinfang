@@ -28,6 +28,6 @@ const cam={yaw:0,pitch:.2,dist:5.3,cd:5.3,ad:5.3,focus:V(0,1.4,7),trauma:0,fovKi
     const sx=(sin(t*1.3)+sin(t*2.7+1))*.5*s*.3,sy=(sin(t*1.7+2)+sin(t*3.1))*.5*s*.3;
     camera.position.set(x+sx*cos(this.yaw),y+sy,z-sx*sin(this.yaw));camera.lookAt(this.focus.x,this.focus.y+this.up+sy*.4,this.focus.z);camera.rotateZ(sin(t*2.1)*s*.035);
     this.fovKick=damp(this.fovKick,0,6,dt);this.zoom=damp(this.zoom,0,2.5,dt);const fov=58+this.fovKick-this.zoom*5+(boss?4:0);if(abs(camera.fov-fov)>.01){camera.fov=damp(camera.fov,fov,8,dt);camera.updateProjectionMatrix();}
-    this.ab=damp(this.ab,0,9,dt);
+    this.ab=max(0,this.ab-dt*.14);   // gone within 100 ms
     moon.position.set(p.pos.x+3,p.pos.y+18,p.pos.z-7);moon.target.position.set(p.pos.x,p.pos.y,p.pos.z+2);
   }};

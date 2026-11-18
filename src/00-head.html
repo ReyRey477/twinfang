@@ -4,103 +4,185 @@
 <meta charset="utf-8">
 <title>TWINFANG</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;800&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Rajdhani','Segoe UI',sans-serif;color:#e8f4ff;user-select:none;-webkit-user-select:none}
-#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+/* Two faces: Cinzel for names and ranks, Rajdhani for everything read at a glance. Every piece of HUD sits on its own dark plate
+   or carries a hard shadow, so the scene cannot eat it. Orange is the enemy's colour, cyan the hero's, red means danger. */
+:root{--ser:'Cinzel','Palatino Linotype','Book Antiqua',Georgia,serif;--ink:rgba(3,5,9,.95)}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Rajdhani','Bahnschrift','Segoe UI',sans-serif;color:#e8f4ff;user-select:none;-webkit-user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;transition:filter .6s}
 #hud{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .8s}
 #hud.on{opacity:1}
-#hpw{position:absolute;left:46px;top:38px;width:340px}
-.lbl{font-size:12px;letter-spacing:.42em;opacity:.7;margin-bottom:7px}
-#hpb{position:relative;height:10px;background:rgba(10,16,22,.7);border:1px solid rgba(160,220,255,.35);transform:skewX(-24deg);overflow:hidden}
+#hin{position:absolute;inset:0;transition:opacity .25s}
+body.cine #hin{opacity:0}   /* nothing but the banner while the letterbox bars are in */
+/* vitality */
+#hpw{position:absolute;left:44px;top:32px;width:340px}
+.lbl{display:flex;justify-content:space-between;align-items:flex-end;font-size:12px;font-weight:600;letter-spacing:.42em;margin:0 6px 5px 2px;text-shadow:1px 1px 0 var(--ink)}
+#hpn{font-size:19px;font-weight:700;letter-spacing:.04em;line-height:.9;color:#bfefff}
+#hpb{position:relative;height:14px;background:rgba(6,10,16,.85);border:1px solid rgba(190,230,255,.6);box-shadow:0 0 0 1px rgba(0,0,0,.7);transform:skewX(-24deg);overflow:hidden}
 #hpb i{position:absolute;left:0;top:0;bottom:0;width:100%;transform-origin:left}
 #hpl{background:#ff5a2a;transition:transform .6s .25s}
-#hpf{background:linear-gradient(90deg,#39d7ff,#c9f6ff);box-shadow:0 0 12px #39d7ff;transition:transform .12s}
-#style{position:absolute;right:56px;top:22%;text-align:right;opacity:0;transition:opacity .35s;--rc:#8fa3b5}
+#hpf{background:linear-gradient(90deg,#149fd0,#8fe6ff 93%,#fff 98%);transition:transform .12s}
+#hpt{background:repeating-linear-gradient(90deg,transparent 0,transparent calc(10% - 1.5px),rgba(4,8,12,.8) calc(10% - 1.5px),rgba(4,8,12,.8) 10%)}
+#hpw.low #hpf{background:linear-gradient(90deg,#a80a22,#ff4250 93%,#fff 98%)}
+#hpw.low #hpb{border-color:#ff5a66;animation:lowp .667s ease-in-out infinite}
+#hpw.low #hpn{color:#ff6470}
+@keyframes lowp{50%{box-shadow:0 0 0 1px rgba(0,0,0,.7),0 0 16px 2px rgba(255,40,60,.85)}}
+/* style rank: the loudest thing on the HUD, and louder with every rank */
+#style{position:absolute;right:0;top:18%;width:292px;padding:8px 36px 12px 0;text-align:right;opacity:0;transition:opacity .3s;--rc:#8fa3b5;--rd:#3d4b59;--rs:72px}
 #style.on{opacity:1}
-#rank{font-family:'Cinzel',serif;font-weight:800;font-size:124px;line-height:.9;font-style:italic;color:#fff;text-shadow:0 0 26px var(--rc),0 0 4px #fff}
-#rank.pop{animation:pop .35s cubic-bezier(.2,1.6,.4,1)}
-@keyframes pop{0%{transform:scale(2.3) rotate(-8deg);opacity:0}100%{transform:none;opacity:1}}
-#rword{font-size:20px;font-weight:700;letter-spacing:.5em;margin-right:-.5em;color:var(--rc)}
-#sm{margin:10px 0 0 auto;width:180px;height:4px;background:rgba(255,255,255,.15);transform:skewX(-24deg)}
-#smf{display:block;height:100%;width:0;background:var(--rc);box-shadow:0 0 10px var(--rc)}
-#combo{margin-top:14px;font-size:28px;font-weight:700;letter-spacing:.12em;min-height:32px}
-#combo small{font-size:14px;letter-spacing:.3em;opacity:.7;margin-left:6px}
-#msg{position:absolute;left:0;right:0;top:27%;text-align:center;font-family:'Cinzel',serif;font-size:56px;letter-spacing:.3em;opacity:0;transition:opacity .5s,letter-spacing 2s;text-shadow:0 0 30px rgba(255,140,60,.85)}
-#msg.on{opacity:1;letter-spacing:.5em}
-#sub{position:absolute;left:0;right:0;top:calc(27% + 78px);text-align:center;font-size:18px;letter-spacing:.5em;opacity:0;transition:opacity .5s;color:#bfe9ff}
-#sub.on{opacity:.9}
+#style::before{content:'';position:absolute;inset:0 -30px 0 0;z-index:-1;background:linear-gradient(270deg,rgba(5,8,14,.84) 0,rgba(5,8,14,.62) 55%,rgba(5,8,14,0) 100%);transform:skewX(-12deg)}
+#style::after{content:'';position:absolute;right:14px;top:10px;bottom:10px;width:4px;background:var(--rc);box-shadow:0 0 14px var(--rc);transform:skewX(-12deg)}
+#rank{display:inline-block;font-family:var(--ser);font-weight:800;font-style:italic;font-size:var(--rs);line-height:1;padding:0 10px 0 6px;transition:font-size .16s;
+  background:linear-gradient(180deg,#fff 0,#fff 24%,var(--rc) 58%,var(--rd) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  transform:rotate(-6deg);transform-origin:right center;filter:drop-shadow(2px 2px 0 var(--ink)) drop-shadow(0 0 10px var(--rc))}
+#rank.pop{animation:rpop .16s cubic-bezier(.2,1.5,.4,1)}
+@keyframes rpop{0%{transform:rotate(-6deg) scale(1.6)}100%{transform:rotate(-6deg) scale(1)}}
+#rank.drop{animation:rdrop .24s ease-out}
+@keyframes rdrop{0%{transform:rotate(-6deg) translateY(-9px);filter:grayscale(1) brightness(.6)}100%{transform:rotate(-6deg);filter:grayscale(1) brightness(.9)}}
+#style.r3 #rank,#style.r4 #rank{filter:drop-shadow(2px 2px 0 var(--ink)) drop-shadow(0 0 18px var(--rc))}
+#style.r4 #rank{animation:sglow 1s ease-in-out infinite}
+@keyframes sglow{50%{filter:drop-shadow(2px 2px 0 var(--ink)) drop-shadow(0 0 30px var(--rc)) brightness(1.2)}}
+#style.r4 #rank.pop{animation:rpop .16s cubic-bezier(.2,1.5,.4,1)}
+#swipe{position:absolute;left:-60px;right:0;top:44%;height:3px;background:linear-gradient(90deg,transparent,var(--rc) 30%,#fff 80%,#fff);opacity:0;transform-origin:right}
+#style.up #swipe{animation:wipe .32s ease-out}
+@keyframes wipe{0%{opacity:1;transform:scaleX(0)}55%{opacity:1;transform:scaleX(1)}100%{opacity:0;transform:scaleX(1) translateX(-40px)}}
+#rword{font-size:20px;font-weight:700;letter-spacing:.42em;margin:2px -.42em 0 0;color:var(--rc);text-shadow:2px 2px 0 var(--ink)}
+#sm{position:relative;margin:8px 0 0 auto;width:196px;height:6px;background:rgba(255,255,255,.16);box-shadow:0 0 0 1px rgba(0,0,0,.75);transform:skewX(-24deg)}
+#smf{position:relative;display:block;height:100%;width:0;background:linear-gradient(90deg,var(--rd),var(--rc))}
+#smf::after{content:'';position:absolute;right:-1px;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 8px #fff}
+#sm::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(20% - 2px),rgba(4,8,12,.9) calc(20% - 2px),rgba(4,8,12,.9) 20%)}
+#combo{margin-top:8px;font-size:44px;font-weight:700;line-height:1;min-height:44px;text-shadow:2px 2px 0 var(--ink);transform-origin:right center}
+#combo small{font-size:14px;letter-spacing:.3em;margin-left:8px;opacity:.85}
+#combo.hit{animation:punch .12s ease-out}
+@keyframes punch{0%{transform:scale(1.25)}100%{transform:none}}
+/* callouts (PERFECT DODGE, ARMOUR BROKEN ...): a strip above the style block, never over the fight */
+#call{position:absolute;right:0;top:calc(18% - 50px);padding:3px 44px 3px 30px;font-size:28px;font-weight:700;letter-spacing:.12em;line-height:1.2;white-space:nowrap;color:#fff;text-shadow:2px 2px 0 var(--ink);
+  background:linear-gradient(270deg,rgba(5,8,14,.88),rgba(5,8,14,.72) 70%,rgba(5,8,14,0));border-right:4px solid #7fe3ff;transform:skewX(-12deg) translateX(40px);opacity:0;transition:opacity .14s,transform .14s}
+#call.on{opacity:1;transform:skewX(-12deg)}
+/* banners (SEALED, boss names): high in the frame, clear of the fight */
+#msg{position:absolute;left:0;right:0;top:14%;text-align:center;font-family:var(--ser);font-size:46px;letter-spacing:.3em;opacity:0;transition:opacity .4s,letter-spacing 1.6s;text-shadow:0 2px 0 var(--ink),0 0 26px rgba(255,140,60,.8)}
+#msg.on{opacity:1;letter-spacing:.46em}
+#sub{position:absolute;left:0;right:0;top:calc(14% + 64px);text-align:center;font-size:19px;font-weight:700;letter-spacing:.46em;opacity:0;transition:opacity .4s;color:#e2f4ff;text-shadow:1px 2px 0 var(--ink),0 0 10px #000}
+#sub.on{opacity:1}
+/* lock-on */
 #ret{position:absolute;left:0;top:0;width:54px;height:54px;margin:-27px 0 0 -27px;opacity:0;transition:opacity .2s}
 #ret.on{opacity:1}
-#ret i{position:absolute;inset:0;border:2px solid rgba(255,120,50,.9);border-radius:50%;clip-path:polygon(0 0,38% 0,38% 100%,0 100%,0 0,62% 0,100% 0,100% 100%,62% 100%,62% 0);animation:spin 3s linear infinite;box-shadow:0 0 10px rgba(255,90,30,.8)}
-#ret.hard i{border-color:#fff}
+#ret i{position:absolute;inset:0;border:2px solid rgba(235,245,255,.85);border-radius:50%;clip-path:polygon(0 0,38% 0,38% 100%,0 100%,0 0,62% 0,100% 0,100% 100%,62% 100%,62% 0);animation:spin 3s linear infinite;box-shadow:0 0 8px rgba(0,0,0,.8)}
+#ret.hard i{border-color:#7fe3ff;box-shadow:0 0 10px rgba(60,200,255,.9)}
 @keyframes spin{to{transform:rotate(360deg)}}
-#ret b{position:absolute;left:-13px;right:-13px;top:-14px;height:4px;background:rgba(0,0,0,.6)}
-#thp{display:block;height:100%;width:100%;background:#ff6a2a;box-shadow:0 0 8px #ff6a2a}
-#hint{position:absolute;left:0;right:0;bottom:26px;text-align:center;font-size:14px;letter-spacing:.24em;opacity:.55}
+#ret b{position:absolute;left:-14px;right:-14px;top:-15px;height:5px;background:rgba(6,6,8,.85);border:1px solid rgba(0,0,0,.8)}
+#thp{display:block;height:100%;width:100%;background:linear-gradient(90deg,#d8380f,#ff8a3a)}
+#hint{position:absolute;left:0;right:0;bottom:24px;text-align:center;font-size:14px;font-weight:600;letter-spacing:.22em;opacity:.8;transition:opacity 1.2s;text-shadow:1px 1px 0 var(--ink)}
 #hint b{color:#7fe3ff;font-weight:700}
+#hint.gone,#hud.boss #hint{opacity:0}
+/* weapon sets: three slanted chips with key caps */
+#wsel{position:absolute;left:44px;bottom:54px;display:flex;flex-direction:column;align-items:flex-start;gap:6px;font-size:13px;font-weight:700;letter-spacing:.18em}
+#wsel span{display:flex;align-items:center;gap:9px;padding:4px 16px 4px 6px;background:rgba(5,8,14,.74);border:1px solid rgba(160,220,255,.2);transform:skewX(-14deg);opacity:.55;transition:opacity .15s,border-color .15s,box-shadow .15s}
+#wsel span b{min-width:19px;height:19px;line-height:19px;text-align:center;letter-spacing:0;border:1px solid rgba(190,230,255,.55);border-radius:3px;background:rgba(160,220,255,.12)}
+#wsel span.on{opacity:1;color:#e4f8ff;border-color:#7fe3ff;box-shadow:inset 3px 0 0 #7fe3ff,0 0 14px rgba(60,200,255,.3)}
+#wsel span.on b{background:#7fe3ff;border-color:#7fe3ff;color:#04121a}
+/* boss: bottom centre, well away from vitality */
+#boss{position:absolute;left:50%;bottom:40px;width:56%;transform:translateX(-50%);opacity:0;transition:opacity .6s}
+#boss.on{opacity:1}
+#bossN{font-family:var(--ser);font-size:18px;letter-spacing:.4em;margin:0 0 6px 6px;text-align:left;text-shadow:1px 2px 0 var(--ink),0 0 12px rgba(0,0,0,.9)}
+#bossB{height:12px;background:rgba(10,6,6,.88);border:1px solid rgba(255,196,150,.65);box-shadow:0 0 0 1px rgba(0,0,0,.7);transform:skewX(-24deg);overflow:hidden}
+#bossF{display:block;height:100%;width:100%;background:linear-gradient(90deg,#b8240c,#ff7a3a 94%,#fff 99%);transition:width .15s}
+#bossAB{height:4px;margin-top:3px;transform:skewX(-24deg);background:rgba(10,6,6,.8);box-shadow:0 0 0 1px rgba(0,0,0,.6)}
+#bossA{display:block;height:100%;width:0;background:#ffe0a0;transition:width .15s}
+/* letterbox: eased for a boss arriving, snapped in for a finisher */
 .bar{position:fixed;left:0;right:0;height:0;background:#000;transition:height .5s}
 #bt{top:0}#bb{bottom:0}
 body.cine .bar{height:11vh}
-.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding-left:8vw;background:linear-gradient(90deg,rgba(2,4,8,.92) 0%,rgba(2,4,8,.55) 42%,rgba(2,4,8,0) 70%);transition:opacity .9s}
+body.fin .bar{transition:height .12s}
+#fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none}
+/* title: logo, tagline and one call to action over a staged shot of the hero; the controls live in their own panel */
+.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding-left:8vw;background:linear-gradient(90deg,rgba(4,6,12,.85) 0,rgba(4,6,12,.7) 24%,rgba(4,6,12,0) 46%);transition:opacity .9s}
 .ov.off{opacity:0;pointer-events:none}
-.ov h1{font-family:'Cinzel',serif;font-weight:800;font-size:clamp(54px,8.5vw,128px);letter-spacing:.14em;margin:0;line-height:1;background:linear-gradient(180deg,#fff 20%,#7fe3ff 75%,#2a8bb0);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 28px rgba(60,200,255,.45))}
-.ov h2{font-size:17px;letter-spacing:.7em;font-weight:500;opacity:.75;margin:10px 0 44px 6px}
-.keys{display:grid;grid-template-columns:auto auto;gap:7px 26px;font-size:16px;letter-spacing:.12em;margin-left:6px}
-.keys b{color:#7fe3ff;font-weight:700;letter-spacing:.18em}
-.keys span{opacity:.8}
-.go{margin:46px 0 0 6px;font-size:20px;letter-spacing:.6em;animation:pulse 1.6s ease-in-out infinite}
-@keyframes pulse{50%{opacity:.3}}
-#end{align-items:center;padding:0;background:radial-gradient(ellipse at center,rgba(2,4,8,.72),rgba(2,4,8,.95))}
+.ov h1{font-family:var(--ser);font-weight:800;font-size:clamp(48px,7.2vw,116px);letter-spacing:.12em;margin:0;line-height:1;
+  background:linear-gradient(100deg,rgba(255,255,255,0) 42%,#fff 50%,rgba(255,255,255,0) 58%) no-repeat 160% 0/260% 100%,linear-gradient(180deg,#fff 20%,#7fe3ff 75%,#2a8bb0);
+  -webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 28px rgba(60,200,255,.45));animation:sweep 6s ease-in-out infinite}
+@keyframes sweep{0%,35%{background-position:160% 0,0 0}75%,100%{background-position:-60% 0,0 0}}
+.rule{width:min(41vw,560px);height:1px;margin:16px 0 14px 6px;background:linear-gradient(90deg,#7fe3ff,rgba(127,227,255,.5) 60%,rgba(127,227,255,0))}
+.ov h2{font-size:17px;letter-spacing:.7em;font-weight:500;opacity:.85;margin:0 0 56px 6px}
+.go{display:flex;align-items:center;gap:20px;margin:0 0 0 6px;font-size:21px;font-weight:600;letter-spacing:.6em;animation:pulse 1s ease-in-out infinite}
+.go i{display:block;width:52px;height:1px;background:#e8f4ff}
+.go kbd,#khint kbd,.keys kbd{display:inline-block;min-width:1.5em;padding:1px 5px;margin:0 .35em 0 .1em;border:1px solid rgba(232,244,255,.8);border-radius:4px;font:inherit;letter-spacing:0;text-align:center;background:rgba(232,244,255,.1)}
+@keyframes pulse{50%{opacity:.55}}
+#khint{margin:34px 0 0 6px;font-size:14px;font-weight:600;letter-spacing:.3em;opacity:.7}
+#title>div:last-child{opacity:.4!important}
+/* controls panel: C on the title, hold C in play */
+#keys{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(880px,86vw);padding:26px 34px 28px;background:rgba(5,8,14,.93);border-top:1px solid rgba(127,227,255,.7);border-bottom:1px solid rgba(127,227,255,.7);box-shadow:0 0 60px rgba(0,0,0,.8);transition:opacity .2s;z-index:5}
+#keys.off{opacity:0;pointer-events:none}
+#keys h3{margin:0 0 16px;font-family:var(--ser);font-weight:500;font-size:20px;letter-spacing:.5em}
+.keys{display:grid;grid-template-columns:1fr 1fr;gap:9px 40px;font-size:16px;letter-spacing:.06em}
+.keys div{display:flex;gap:14px;align-items:baseline}
+.keys b{flex:0 0 132px;color:#7fe3ff;font-weight:700;letter-spacing:.12em}
+.keys span{opacity:.9}
+#keys p{margin:18px 0 0;padding-top:14px;border-top:1px solid rgba(160,220,255,.2);font-size:15px;letter-spacing:.06em;opacity:.8}
+/* defeat and results */
+#end{align-items:center;padding:0;background:radial-gradient(ellipse at center,rgba(2,4,8,.2),rgba(2,4,8,.75))}
 #end h1{font-size:clamp(40px,6vw,84px)}
-#end .big{font-family:'Cinzel',serif;font-weight:800;font-style:italic;font-size:170px;line-height:1;text-shadow:0 0 40px #ff8a3a;margin:8px 0 14px}
-#end .keys{margin:0}
-#wsel{position:absolute;left:46px;bottom:60px;display:flex;flex-direction:column;gap:5px;font-size:14px;font-weight:700;letter-spacing:.22em}
-#wsel span{opacity:.32;padding-left:10px;border-left:2px solid transparent;transition:opacity .15s,border-color .15s,color .15s}
-#wsel span.on{opacity:1;color:#7fe3ff;border-left-color:#7fe3ff;text-shadow:0 0 12px rgba(80,210,255,.7)}
-#boss{position:absolute;left:50%;top:34px;width:min(620px,56vw);transform:translateX(-50%);text-align:center;opacity:0;transition:opacity .6s}
-#boss.on{opacity:1}
-@media (max-width:1150px){#boss{top:74px}}
-#bossN{font-family:'Cinzel',serif;font-size:19px;letter-spacing:.5em;margin-right:-.5em;margin-bottom:7px;text-shadow:0 0 14px rgba(255,120,50,.8)}
-#bossB{height:9px;background:rgba(10,8,8,.75);border:1px solid rgba(255,150,90,.4);transform:skewX(-24deg);overflow:hidden}
-#bossF{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ff3d14,#ffb060);box-shadow:0 0 12px #ff5a1a;transition:width .15s}
-#bossAB{height:3px;margin-top:3px;transform:skewX(-24deg);background:rgba(255,255,255,.08)}
-#bossA{display:block;height:100%;width:0;background:#ffe0a0;box-shadow:0 0 8px #ffd080;transition:width .15s}
-.keys{max-width:min(760px,62vw)}
+#end .go{margin:40px 0 0;font-size:18px;letter-spacing:.4em;opacity:.7;animation:none}
+body.dead #c{filter:grayscale(1) blur(3px) brightness(.4)}
+body.done #c{filter:blur(6px) brightness(.3)}
+#end.dead{background:radial-gradient(ellipse at center,rgba(8,0,2,.1) 30%,rgba(110,0,12,.6) 100%)}
+#end.dead h1{background:linear-gradient(180deg,#ff3040,#7a0010);-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 0 26px rgba(255,30,50,.4));animation:spread 1.2s cubic-bezier(.2,.7,.2,1) both}
+@keyframes spread{from{letter-spacing:.1em;margin-right:-.1em}to{letter-spacing:.35em;margin-right:-.35em}}
+#end.dead #endP{display:none}
+#endP{display:flex;align-items:center;gap:54px;margin-top:26px;padding:22px 44px 22px 40px;background:rgba(5,8,14,.86);border-top:1px solid rgba(127,227,255,.6);border-bottom:1px solid rgba(127,227,255,.6)}
+#endS{display:grid;grid-template-columns:auto auto auto;gap:9px 28px;align-items:baseline;font-size:22px;font-weight:600}
+#endS b{font-weight:600;letter-spacing:.2em;opacity:.8}
+#endS span{text-align:right;font-variant-numeric:tabular-nums;letter-spacing:.04em;min-width:96px}
+#endS em{font-family:var(--ser);font-style:italic;font-weight:800;font-size:24px;width:26px;text-align:center;text-shadow:2px 2px 0 var(--ink)}
+#endR{font-family:var(--ser);font-weight:800;font-style:italic;font-size:180px;line-height:.95;padding:0 18px 0 4px;background:linear-gradient(180deg,#fff 0,#fff 22%,var(--rc,#ff6a2a) 60%,var(--rd,#a02a00));-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(3px 3px 0 var(--ink)) drop-shadow(0 0 30px var(--rc,#ff6a2a));animation:slash .4s .9s cubic-bezier(.3,.8,.3,1) both}
+@keyframes slash{0%{clip-path:polygon(-40% -40%,-40% -40%,-90% 140%,-90% 140%)}100%{clip-path:polygon(-40% -40%,190% -40%,140% 140%,-90% 140%)}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="hud">
-  <div id="hpw"><div class="lbl">VITALITY</div><div id="hpb"><i id="hpl"></i><i id="hpf"></i></div></div>
-  <div id="style"><div id="rank">D</div><div id="rword">DULL</div><div id="sm"><i id="smf"></i></div><div id="combo"></div></div>
+  <div id="hin">
+    <div id="hpw"><div class="lbl"><span>VITALITY</span><b id="hpn">100</b></div><div id="hpb"><i id="hpl"></i><i id="hpf"></i><i id="hpt"></i></div></div>
+    <div id="style"><i id="swipe"></i><div id="rank">D</div><div id="rword">DULL</div><div id="sm"><i id="smf"></i></div><div id="combo"></div></div>
+    <div id="call"></div>
+    <div id="ret"><i></i><b><u id="thp"></u></b></div>
+    <div id="hint"><b>LMB</b> attack &nbsp; <b>RMB</b> heavy / pistol &nbsp; <b>E</b> special &nbsp; <b>1 2 3</b> weapon &nbsp; <b>SPACE</b> jump &nbsp; <b>SHIFT</b> dodge &nbsp; <b>Q</b> lock-on &nbsp; <b>C</b> controls</div>
+    <div id="wsel"><span><b>1</b>TWIN FANGS</span><span><b>2</b>BLADE &amp; PISTOL</span><span><b>3</b>GREAT MAUL</span></div>
+    <div id="boss"><div id="bossN"></div><div id="bossB"><i id="bossF"></i></div><div id="bossAB"><i id="bossA"></i></div></div>
+  </div>
   <div id="msg"></div><div id="sub"></div>
-  <div id="ret"><i></i><b><u id="thp"></u></b></div>
-  <div id="hint"><b>LMB</b> attack &nbsp; <b>RMB</b> heavy / pistol &nbsp; <b>E</b> special &nbsp; <b>1 2 3</b> weapon &nbsp; <b>SPACE</b> jump &nbsp; <b>SHIFT</b> dodge &nbsp; <b>Q</b> lock-on</div>
-  <div id="wsel"><span>1 &nbsp;TWIN FANGS</span><span>2 &nbsp;BLADE &amp; PISTOL</span><span>3 &nbsp;GREAT MAUL</span></div>
-  <div id="boss"><div id="bossN"></div><div id="bossB"><i id="bossF"></i></div><div id="bossAB"><i id="bossA"></i></div></div>
 </div>
 <div class="bar" id="bt"></div><div class="bar" id="bb"></div>
+<div id="fade"></div>
 <div class="ov" id="title">
   <h1>TWINFANG</h1>
+  <div class="rule"></div>
   <h2>CLIMB TO THE STORM</h2>
+  <div class="go"><i></i>CLICK TO BEGIN<i></i></div>
+  <div id="khint"><kbd>C</kbd>CONTROLS</div>
+</div>
+<div id="keys" class="off">
+  <h3>CONTROLS</h3>
   <div class="keys">
-    <b>W A S D &middot; MOUSE</b><span>Move &middot; camera</span>
-    <b>1 2 3 &middot; F &middot; WHEEL</b><span>Switch weapon set, even mid-combo</span>
-    <b>LEFT CLICK / J</b><span>Attack chain</span>
-    <b>RIGHT CLICK / K</b><span>Fangs: launcher &middot; Pistol: fire (hold) &middot; Maul: hold to charge a smash</span>
-    <b>E</b><span>Fangs and maul: rush thrust &middot; Blade: launcher</span>
-    <b>SPACE &middot; SHIFT</b><span>Jump, double jump &middot; dodge (dodge late to slow time)</span>
-    <b>Q</b><span>Lock-on</span>
-    <b>TIPS</b><span>Pistol interrupts attacks and holds enemies in the air &middot; a full maul charge breaks armour &middot; slash glowing orbs to send them back</span>
+    <div><b>W A S D</b><span>Move</span></div>
+    <div><b>MOUSE</b><span>Camera</span></div>
+    <div><b>LEFT CLICK / J</b><span>Attack chain</span></div>
+    <div><b>SPACE</b><span>Jump, double jump</span></div>
+    <div><b>RIGHT CLICK / K</b><span>Heavy: launcher, pistol fire (hold), or hold to charge the maul</span></div>
+    <div><b>SHIFT / L</b><span>Dodge; dodge late to slow time</span></div>
+    <div><b>E</b><span>Special: rush thrust, or the blade's launcher</span></div>
+    <div><b>Q</b><span>Lock-on</span></div>
+    <div><b>1 2 3 &middot; F &middot; WHEEL</b><span>Switch weapon set, even mid-combo</span></div>
+    <div><b>R</b><span>Retry after a defeat</span></div>
   </div>
-  <div class="go">CLICK TO BEGIN</div>
+  <p>The pistol interrupts attacks and holds enemies in the air &middot; a full maul charge breaks armour &middot; slash an orb to send it back</p>
 </div>
 <div class="ov off" id="end">
-  <h1 id="endT">CORRIDOR CLEARED</h1>
-  <div class="big" id="endR">S</div>
-  <div class="keys" id="endS"></div>
-  <div class="go" id="endGo">PRESS R TO PLAY AGAIN</div>
+  <h1 id="endT"></h1>
+  <div id="endP"><div id="endS"></div><div id="endR">S</div></div>
+  <div class="go" id="endGo"></div>
 </div>
 <script type="module">

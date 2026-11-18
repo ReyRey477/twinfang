@@ -135,15 +135,21 @@ function groundAt(x,z){const a=areaAt(x,z);return a?areaH(a,x,z):null;}
 function walkable(x,z){if(!areaAt(x,z))return false;for(const b of BLOCKERS)if(hypot(x-b.x,z-b.z)<b.r)return false;return true;}
 
 // ---------- barriers ----------
-const barrierMat=()=>new THREE.ShaderMaterial({uniforms:{uT:{value:0},uA:{value:0}},
-  vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-  fragmentShader:`uniform float uT,uA;varying vec2 vUv;void main(){vec2 p=vUv*vec2(13.,10.5);
+// A surface, not a flood: half the old brightness, brightest along the floor line and thinning quickly upward, with a faint dark
+// tint behind the light (its own alpha). It fades out within about 3 m of the camera and whenever the camera is on the other side
+// of it from the hero (uPl), so it never veils the picture.
+const barrierMat=()=>new THREE.ShaderMaterial({uniforms:{uT:{value:0},uA:{value:0},uPl:{value:new THREE.Vector3()}},
+  vertexShader:`uniform vec3 uPl;varying vec2 vUv;varying vec3 vW;varying float vF;void main(){vUv=uv;vec4 w=modelMatrix*vec4(position,1.);vW=w.xyz;
+    vec3 n=mat3(modelMatrix)*vec3(0.,0.,1.),o=modelMatrix[3].xyz;float sp=dot(uPl-o,n),sc=dot(cameraPosition-o,n);vF=smoothstep(-.25,.35,(sp<0.?-1.:1.)*sc);
+    gl_Position=projectionMatrix*viewMatrix*w;}`,
+  fragmentShader:`uniform float uT,uA;varying vec2 vUv;varying vec3 vW;varying float vF;void main(){vec2 p=vUv*vec2(13.,10.5);
     float l=abs(fract(p.x*1.5+sin(p.y*2.+uT*1.3)*.1)-.5);float ln=smoothstep(.07,0.,l);
-    float sc=.5+.5*sin(p.y*7.-uT*5.);float e=pow(clamp(1.-vUv.y,0.001,1.),2.5)*2.+.2;
+    float sc=.5+.5*sin(p.y*7.-uT*5.),f=clamp(1.-vUv.y,0.,1.),e=f*f*f*f*f*1.5+.035;
     float hz=smoothstep(.04,0.,abs(fract(p.y*.7-uT*.25)-.5))*.5;
     vec2 hx=vec2(p.x*1.5,p.y*1.3+floor(p.x*1.5)*.5);float cell=smoothstep(.5,.42,max(abs(fract(hx.x)-.5),abs(fract(hx.y)-.5)))*.12;
-    vec3 c=vec3(1.,.36,.08)*(ln*(.35+sc*.65)+hz+.05+cell)*e;gl_FragColor=vec4(c*uA*1.6,1.);}`,
-  blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,transparent:true});
+    vec3 dv=vW-cameraPosition;float a=uA*vF*smoothstep(1.2,3.4,sqrt(max(dot(dv,dv),0.)));
+    vec3 c=vec3(1.,.36,.08)*((ln*(.35+sc*.65)+hz+.05+cell)*e+smoothstep(.03,0.,vUv.y)*2.4)*.8;gl_FragColor=vec4(c*a,a*(.1+.16*f));}`,
+  blending:THREE.CustomBlending,blendSrc:THREE.OneFactor,blendDst:THREE.OneMinusSrcAlphaFactor,depthWrite:false,side:THREE.DoubleSide,transparent:true});
 const barriers=[];
 function makeBarrier(x,y,z,len,h,alongX=true){
   const m=new THREE.Mesh(new THREE.PlaneGeometry(len,h),barrierMat()); m.position.set(x,y+h/2,z); if(!alongX)m.rotation.y=PI/2; m.visible=false; scene.add(m);

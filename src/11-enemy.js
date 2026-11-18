@@ -9,7 +9,7 @@ class Enemy{
     this.flash=0;this.hang=0;this.chain=0;this.token=false;this.dead=false;this.gone=false;this.spiked=false;this.struck=false;this.dodged=false;this.shield=null;this.poise=120;this.gunPoise=0;
     this.mats=enemyMats(kind);this.baseEm=S?0xa050ff:0xff6a2a;this.rig=new Rig({kind,scale:this.scale,mats:this.mats});scene.add(this.rig.root);
     this.rig.play(S?CL.sHang:CL.eIdle,0);this.trail=B?null:new Trail(14,S?0xa050ff:0xff4a12);
-    if(!S){fx.rings.spawn(x,this.gy+.05,z,0xff5a1a,3,.3,2.2*this.scale,.9);sfx.spawn();}
+    if(!S){fx.spawnIn(x,this.gy,z,this.scale,1.1);sfx.spawn();}
   }
   get ghost(){return this.state==='spawn'||this.state==='drop';}
   get air(){return this.pos.y>this.gy+.05;}
@@ -63,20 +63,19 @@ class Enemy{
       if(T>=0&&T<.75){
         if(!this.mark){this.mark=true;this.dodged=false;
           this.tx=clamp(pl.pos.x,ar.x0+.5,ar.x1-.5);this.tz=clamp(pl.pos.z,ar.z0+.5,ar.z1-.5);
-          sfx.telegraph(false);fx.rings.spawn(this.tx,gy+.07,this.tz,0xa050ff,4,2.6,.4,.78);
-          _a.set(this.pos.x,this.pos.y+1,this.pos.z);fx.flares.spawn(_a,0xa050ff,6,.5,.3,.3,4.5,.05,0);fx.flares.spawn(_a,0xa050ff,6,.5,.3,.3,3.2,.05,PI/2);}
+          sfx.telegraph(false);fx.disc(this.tx,gy,this.tz,2.3,.98,0);fx.warn(this,0,.98,1);}
         this.pos.x=damp(this.pos.x,this.tx,7,dt);this.pos.z=damp(this.pos.z,this.tz,7,dt);
         if(T>.5)r.play(CL.sDive,.2);
       }else if(T>=.75){
         this.pos.y-=36*dt;
         if(this.pos.y<=gy){this.pos.y=gy;const x=this.pos.x,z=this.pos.z;
-          fx.rings.spawn(x,gy+.06,z,0xa050ff,4,.4,3,.4);fx.puff(x,z,22,1.2,gy);_a.set(x,gy+.4,z);fx.sparks(_a,0,1,0,22,[1.6,.6,3.2],9);fx.flash(_a,0xa050ff,80,.2);
+          fx.slam(x,gy,z,3,0xa050ff,false);_a.set(x,gy+.4,z);fx.flash(_a,0xa050ff,60,.16);
           cam.shake(.35);sfx.land(.9);sfx.hit(.6);
           if(hypot(pl.pos.x-x,pl.pos.z-z)<2.3&&pl.pos.y<gy+1.3)pl.takeHit(13,this);
           this.set('land');}
       }
     }else if(S==='spawn'){
-      if(random()<dt*45)fx.parts.spawn(this.pos.x+rand(-.6,.6),gy+.1,this.pos.z+rand(-.6,.6),0,rand(2,5),0,3,.9,.2,rand(.06,.14),rand(.4,.9),-1,1);
+      if(random()<dt*45)fx.parts.spawn(this.pos.x+rand(-.6,.6),gy+.1,this.pos.z+rand(-.6,.6),0,rand(2,5),0,1.3,.5,3,rand(.06,.14),rand(.4,.9),-1,1);
       this.yaw=toP;if(this.t>1.1)this.set('idle');
     }else if(S==='idle'){
       this.yaw=turnTo(this.yaw,toP,5*dt);this.atkCd-=dt;this.strafeT-=dt;if(this.strafeT<0){this.strafeT=rand(1.5,3.5);this.strafe=-this.strafe;}
@@ -85,7 +84,7 @@ class Enemy{
       this.vel.x=damp(this.vel.x,mx,6,dt);this.vel.z=damp(this.vel.z,mz,6,dt);
       if(this.atkCd<=0&&dist<(B?4.2:St?11:3.8)&&G.tokens<G.maxTokens&&pl.state!=='dead'&&G.state==='play'){
         this.token=true;G.tokens++;this.atkCd=B?rand(1.6,3.2):St?rand(1.4,2.6):rand(.9,2);this.gunPoise=0;this.chain=0;this.set('windup');sfx.telegraph(B);
-        _a.set(this.pos.x,this.pos.y+1.75*this.scale,this.pos.z);const gc=St?0xa050ff:0xff5a1a;fx.flares.spawn(_a,gc,5,.45,.3,.3,3.4,.04,0);fx.flares.spawn(_a,gc,5,.45,.3,.3,2.4,.04,PI/2);
+        fx.warn(this,B?1:0,B?.95:St?.5:.55,2.15*this.scale,B?[1.8,2.9]:null);
       }
     }else if(S==='windup'){
       const w=B?.95:this.chain?(St?.36:.3):St?.5:.55;fr(8);if(this.t<w-(St?.1:.16))this.yaw=turnTo(this.yaw,toP,(this.chain?18:St?10:6)*dt);
@@ -97,8 +96,8 @@ class Enemy{
         if(random()<dt*120)fx.parts.spawn(this.pos.x,gy+rand(.3,1.5),this.pos.z,0,0,0,1.6,.6,3.2,rand(.08,.18),.35);
       }else if(B){
         if(this.t>=.1&&!this.struck){this.struck=true;const cx=this.pos.x+sin(this.yaw)*1.8,cz=this.pos.z+cos(this.yaw)*1.8;
-          fx.rings.spawn(cx,gy+.06,cz,0xff5a1a,4,.4,3.4,.45);fx.puff(cx,cz,26,1.3,gy);cam.shake(.55);sfx.hit(1);sfx.land(1);
-          _a.set(cx,gy+.4,cz);fx.sparks(_a,0,1,0,26,[3,1.1,.3],9);fx.flash(_a,0xff6a2a,80,.2);
+          fx.slam(cx,gy,cz,3.4,0xff6a2a,true);cam.shake(.55);sfx.hit(1);sfx.land(1);
+          _a.set(cx,gy+.4,cz);fx.flash(_a,0xff6a2a,60,.16);
           if(hypot(pl.pos.x-cx,pl.pos.z-cz)<2.9&&pl.pos.y<gy+1.1)pl.takeHit(24,this);
           if(this.hp<this.maxHp*.55)waves.ring(cx,gy,cz,8.5,7,10,this,0xff6a2a,1);}   // enraged: the slam throws a shockwave to jump or dodge
       }else if(this.t>=.04&&this.t<=.18&&!this.struck){
@@ -107,7 +106,7 @@ class Enemy{
       if(this.t>=(B||St?.3:.24)){
         // husks and stalkers sometimes chain a second, faster attack (announced again), so one dodge is not always enough
         if(!B&&!this.chain&&pl.state!=='dead'&&dist<(St?12:5)&&random()<(St?.4:.45)){this.chain=1;this.set('windup');sfx.telegraph(false);
-          _a.set(this.pos.x,this.pos.y+1.75*this.scale,this.pos.z);fx.flares.spawn(_a,St?0xa050ff:0xff5a1a,5,.3,.3,.3,2.6,.04,PI/4);}
+          fx.warn(this,0,St?.36:.3,2.15*this.scale);}
         else this.set('recover');}
     }else if(S==='recover'){fr(8);if(this.t>=(B?1.1:St?.6:.55))this.set('idle');}
     else if(S==='stagger'){fr(6);if(this.t>=.55)this.set('idle');}
@@ -129,15 +128,14 @@ class Enemy{
     if(S==='idle')r.phase+=hypot(this.vel.x,this.vel.z)*dt*2.4;
     r.root.position.copy(this.pos);if(S==='spawn')r.root.position.y=lerp(gy-2.3*this.scale,gy,smooth(min(1,this.t/.9)));
     r.root.rotation.y=this.yaw;r.update(dt);
-    const m=this.mats.armor;m.emissive.setHex(this.shield?0x9fd0ff:this.baseEm);
-    m.emissiveIntensity=this.flash*this.flash*1.8+(S==='windup'?sat(this.t/.5)*.9:0)+(S==='dead'?this.t*9:0)+(this.shield?.5+.2*sin(G.rt*9):0)+(B&&this.hp<this.maxHp*.55&&S!=='dead'?.22+.14*sin(G.rt*7):0);
-    if(this.trail){r.root.updateMatrixWorld(true);const sw=r.sword[1];_a.set(0,.12,0);sw.localToWorld(_a);_b.set(0,1.05,0);sw.localToWorld(_b);this.trail.sample(_a,_b,S==='strike'&&this.t<(St?.34:.2)||S==='drop'&&this.t>this.delay+.7);}
+    // rim only, the surface is never repainted: white on a hit, the warning colour on a wind-up, a cool flicker when staggered
+    const hot=S==='dead'?min(3.5,this.t*8):this.shield?1+.4*sin(G.rt*9):B&&this.hp<this.maxHp*.55?.8+.4*sin(G.rt*7):0;
+    fx.rim(this,this.mats,this.flash,S==='windup'?sat(this.t/(B?.9:.45)):0,B?1:0,S==='stagger'||S==='broken',hot,S!=='dead'&&this.shield?0x9fd0ff:this.baseEm);
+    if(this.trail){r.root.updateMatrixWorld(true);const sw=r.sword[1];_a.set(0,.12,0);sw.localToWorld(_a);_b.set(0,1.05,0);sw.localToWorld(_b);this.trail.sample(_a,_b,S==='strike'&&this.t<(St?.34:.2)||S==='drop'&&this.t>this.delay+.7,dt);}
     if(S==='dead'){
       r.root.scale.setScalar(this.scale*(1+this.t*.3));
       if(this.t>.42&&!this.gone){this.gone=true;const y=this.pos.y+1.1*this.scale;
-        fx.embers(this.pos.x,y,this.pos.z,B?140:70,St?[1.6,.6,3.2]:[3.2,1,.25],.5*this.scale);fx.embers(this.pos.x,y,this.pos.z,30,[.6,.7,.9],.4);
-        _a.set(this.pos.x,y,this.pos.z);fx.glows.spawn(_a,0xff7a3a,5,.3,.5,.5,5*this.scale,5*this.scale);fx.flash(_a,0xff6a2a,120,.3);
-        fx.rings.spawn(this.pos.x,gy+.06,this.pos.z,0xff5a1a,3,.3,3*this.scale,.5);fx.debris(this.pos.x,y,this.pos.z,B?16:9,this.scale,gy);sfx.death();this.remove();}
+        fx.burst(this.pos.x,y,this.pos.z,this.scale,St?[1.6,.6,3.2]:[3.2,1,.25],this.baseEm,gy,B?16:9,this.mats.armor.color.getHex());sfx.death();this.remove();}
     }
   }
 }

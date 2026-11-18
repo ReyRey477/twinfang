@@ -34,7 +34,7 @@ class Warden{
   onPerfect(){if(this.phase===3&&!this.dead&&this.state!=='stun'&&this.state!=='shift')this.stun(2.6);}
   die(){this.dead=true;this.hp=0;this.set('dead',CL.wDead,.2);G.onKill(this);}
   slamFx(x,z,r){
-    const gy=this.gy;fx.rings.spawn(x,gy+.06,z,0xff5a1a,4,.5,r,.5);fx.puff(x,z,40,1.6,gy);_a.set(x,gy+.5,z);fx.sparks(_a,0,1,0,40,[3,1.1,.3],12);fx.flash(_a,0xff6a2a,160,.25);
+    const gy=this.gy;fx.slam(x,gy,z,r,0xff5a1a,true);_a.set(x,gy+.5,z);fx.flash(_a,0xff6a2a,140,.2,8);
     cam.shake(.7);sfx.hit(1);sfx.land(1);
   }
   update(dt){
@@ -47,13 +47,13 @@ class Warden{
     if(!this.dead&&want>ph&&S!=='shift'&&S!=='dash'&&S!=='dive'&&S!=='cling'&&S!=='leap'&&P.y<=gy+.01){
       this.phase=want;this.armor=0;this.vel.set(0,0,0);this.set('shift',CL.roar,.2);sfx.roar();cam.shake(.7);
       for(const m of r.hide)m.visible=false;for(const m of r.hot)m.visible=true;
-      fx.rings.spawn(P.x,gy+.1,P.z,0xff5a1a,5,.5,14,.8);fx.embers(P.x,gy+2.4,P.z,120,[3.2,1,.25],1.4);
+      fx.rings.spawn(P.x,gy+.1,P.z,0xff5a1a,5,.5,14,.55);fx.embers(P.x,gy+2.4,P.z,120,[3.2,1,.25],1.4);
       G.msg('',want===2?'THE ARMOUR FALLS':'IT WILL NOT YIELD',2.2);
     }
     const sweep=()=>{const w=this.phase===3?.5:.9;this.wind=w;this.left=!this.left;this.set('windup',this.left?CL.eWindM:CL.eWind,.1,.4/(.65*w));sfx.telegraph(true);
-      _a.set(P.x,gy+4.6,P.z);fx.flares.spawn(_a,0xff5a1a,6,.5,.5,.5,6,.06,0);fx.flares.spawn(_a,0xff5a1a,6,.5,.5,.5,4.5,.06,PI/2);};
+      fx.warn(this,1,w,5.6);};
     const slam=()=>{const w=this.phase===3?.7:1.1;this.wind=w;this.set('swind',CL.bWind,.12,.6/(.7*w));sfx.telegraph(true);
-      _a.set(P.x,gy+4.6,P.z);fx.flares.spawn(_a,0xffb040,7,.6,.5,.5,7,.07,0);fx.flares.spawn(_a,0xffb040,7,.6,.5,.5,7,.07,PI/2);};
+      fx.warn(this,1,w,5.6,[3.6,4.2]);};
     if(S==='intro'){if(t>1.2&&r.clip!==CL.eIdle)r.play(CL.eIdle,.9);if(t>2.4){this.set('walk');this.cd=.6;}}
     else if(S==='shift'){fr(8);glow=1;if(random()<dt*40)fx.parts.spawn(P.x+rand(-1.5,1.5),gy+rand(.5,4.5),P.z+rand(-1.5,1.5),0,rand(2,6),0,3,1,.25,rand(.08,.2),.7,-1,1);
       if(t>1.6){if(this.phase===2){this.set('leap',CL.sWind,.15);}else{r.speed=1;r.play(CL.eIdle,.3,true);this.set('walk');this.cd=.3;}}}
@@ -65,7 +65,7 @@ class Warden{
       if(this.cd<=0&&live){
         if(ph===1){if(dist<6.4){if(random()<.6)sweep();else slam();}else if(this.farT>2.5){this.farT=0;slam();}}
         else if(ph===2){if(dist<6&&random()<.4){this.combo=1;sweep();}else this.set('leap',CL.sWind,.15);}
-        else{if(dist>9&&random()<.5)this.set('volley',CL.bWind,.15,.9);else if(dist<8){this.combo=3;sweep();}}
+        else{if(dist>9&&random()<.5){this.set('volley',CL.bWind,.15,.9);fx.warn(this,1,.7,5.6);}else if(dist<8){this.combo=3;sweep();}}
       }
     }
     else if(S==='windup'){fr(8);glow=sat(t/this.wind);if(t<this.wind-.2)face(4);
@@ -87,16 +87,16 @@ class Warden{
     else if(S==='recover'){fr(8);if(t>=this.rec){
       if(ph===2&&this.dashes>0)this.set('dwind',CL.sWind,.12,.8);else{this.set('walk');this.cd=ph===1?.8:ph===2?1.1:.45;}}}
     else if(S==='leap'){fr(10);if(t>.45){P.y=lerp(gy,this.hangY,smooth(sat((t-.45)/.45)));if(r.clip!==CL.sHang)r.play(CL.sHang,.2);}
-      if(t>=.9){P.y=this.hangY;this.set('cling');sfx.telegraph(true);}}
+      if(t>=.9){P.y=this.hangY;this.set('cling');sfx.telegraph(true);fx.warn(this,1,1.8,2.4);}}
     else if(S==='cling'){glow=.5+.5*sin(t*12);this.yaw=toP;
       if(t<1.05){P.x=damp(P.x,clamp(pl.pos.x,ar.x0+2,ar.x1-2),2.6,dt);P.z=damp(P.z,clamp(pl.pos.z,ar.z0+2,ar.z1-2),2.6,dt);}
-      else if(!this.marked){this.marked=true;this.tx=P.x;this.tz=P.z;fx.disc(P.x,gy,P.z,4.6,.75);fx.rings.spawn(P.x,gy+.07,P.z,0xff5a1a,4,4.6,.5,.75);r.play(CL.sDive,.25);}
+      else if(!this.marked){this.marked=true;this.tx=P.x;this.tz=P.z;fx.disc(P.x,gy,P.z,4.6,.75+.2);r.play(CL.sDive,.25);}
       if(t>=1.8)this.set('dive');}
     else if(S==='dive'){P.y-=46*dt;trail=true;
       if(P.y<=gy){P.y=gy;this.slamFx(P.x,P.z,7);if(dist<4.6&&pl.pos.y<gy+1.3)pl.takeHit(22,this);waves.ring(P.x,gy,P.z,13,18,12,this);
         this.dashes=2;this.rec=.9;this.set('recover',CL.sLand,.1);}}
     else if(S==='dwind'){fr(10);glow=sat(t/.75);
-      if(t<.3)face(9);else if(!this.marked){this.marked=true;fx.line(P.x+fx_*20,gy,P.z+fz*20,this.yaw,40,3.4,.5);sfx.telegraph(false);}
+      if(t<.3)face(9);else if(!this.marked){this.marked=true;fx.line(P.x+fx_*20,gy,P.z+fz*20,this.yaw,40,3.4,.5);fx.warn(this,1,.78-t,5.6);sfx.telegraph(false);}
       if(t>=.78){this.set('dash',CL.sDash,.04);this.vel.x=fx_*34;this.vel.z=fz*34;sfx.whoosh(1.2,1.6);}}
     else if(S==='dash'){trail=true;
       if(!this.struck&&dist<2.7&&pl.pos.y-gy<2.2){this.struck=true;pl.takeHit(16,this);}
@@ -109,13 +109,15 @@ class Warden{
       if(t>=this.stunT){if(ph===1)this.armor=this.maxArmor;this.dashes=0;this.set('walk');this.cd=.7;}}
     else if(S==='dead'){fr(8);glow=t;
       if(random()<dt*50)fx.parts.spawn(P.x+rand(-1.4,1.4),gy+rand(.3,3),P.z+rand(-1.4,1.4),0,rand(2,6),0,3.2,1,.25,rand(.08,.2),.8,-1,1);
-      if(t>2.3&&!this.gone){this.gone=true;fx.embers(P.x,gy+2,P.z,260,[3.2,1,.25],1.6);fx.embers(P.x,gy+2,P.z,80,[.6,.7,.9],1.2);
-        _a.set(P.x,gy+2,P.z);fx.glows.spawn(_a,0xff7a3a,6,.4,1,1,14,14);fx.flash(_a,0xff6a2a,300,.4);fx.rings.spawn(P.x,gy+.06,P.z,0xff5a1a,4,.5,12,.7);sfx.death();sfx.boom();cam.shake(.8);this.remove();return;}}
+      if(t>2.3&&!this.gone){this.gone=true;fx.embers(P.x,gy+2,P.z,200,[3.2,1,.25],1.6);fx.burst(P.x,gy+2.2,P.z,2.6,[3.2,1,.25],0xff5a1a,gy,30,this.mats.armor.color.getHex());
+        _a.set(P.x,gy+2,P.z);fx.flash(_a,0xff6a2a,300,.4);fx.rings.spawn(P.x,gy+.06,P.z,0xff5a1a,4,.5,12,.5);sfx.death();sfx.boom();cam.shake(.8);this.remove();return;}}
     P.x+=this.vel.x*dt;P.z+=this.vel.z*dt;P.x=clamp(P.x,ar.x0,ar.x1);P.z=clamp(P.z,ar.z0,ar.z1);
     r.root.position.copy(P);r.root.rotation.y=this.yaw;
     const cy=cos(this.yaw),sy=sin(this.yaw);r.lv.set((this.vel.x*cy-this.vel.z*sy)/this.scale,0,(this.vel.x*sy+this.vel.z*cy)/this.scale);
     r.update(dt);
-    const M=this.mats;M.armor.emissiveIntensity=this.flash*this.flash*1.5+glow*.7;M.dark.emissiveIntensity=(ph>1?.5+.25*sin(G.rt*5):0)+glow*.5+this.flash*.6;
+    // rim only (see fx.rim): the armour is never painted over, so its steel and gold stay visible through the whole fight
+    const wind=S==='windup'||S==='swind'||S==='dwind'||S==='cling'||S==='volley';
+    fx.rim(this,this.mats,this.flash,wind?glow:0,1,S==='stun',S==='dead'?min(4,t*1.6):S==='shift'?1.8:ph>1?.6+.25*sin(G.rt*5):0,0xff5a14);
     r.root.updateMatrixWorld(true);const sw=r.sword[1];_a.set(0,.3,0);sw.localToWorld(_a);_b.set(0,1.95,0);sw.localToWorld(_b);this.trail.sample(_a,_b,trail);
   }
 }

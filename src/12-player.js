@@ -22,7 +22,7 @@ class Player{
   switchSet(i){
     this.set=i;this.rig.setWeapon(i);this.trails[1].mesh.material.uniforms.uC.value.setHex(WEAPONS[i].col);
     _a.set(0,.5,0);this.rig.sword[1].localToWorld(_a);if(_a.distanceTo(this.pos)>4)_a.copy(this.pos).setY(this.pos.y+1.2);
-    fx.flares.spawn(_a,WEAPONS[i].col,4,.2,.3,.3,3,.04,.5);fx.flares.spawn(_a,WEAPONS[i].col,4,.2,.3,.3,2.2,.04,2.1);sfx.swap();
+    fx.glint(_a,WEAPONS[i].col,3,1.2,.16);sfx.swap();
   }
   jump(){this.vel.y=11.8;this.grounded=false;this.pos.y=this.gy+.02;this.state='air';this.t=0;sfx.jump();fx.puff(this.pos.x,this.pos.z,6,.5,this.gy);}
   heavyIn(){if(this.set===1){if(held.heavy||input.peek('heavy')){input.take('heavy');this.shoot();}return false;}return input.take('heavy');}
@@ -37,8 +37,10 @@ class Player{
     else{this.ddx=-sin(this.yaw);this.ddz=-cos(this.yaw);this.rig.play(CL.back,.05,true);}
     if(!this.grounded)this.vel.y=2;else fx.puff(this.pos.x,this.pos.z,8,.6,this.gy);
     sfx.dodge();cam.fovKick=7;
-    // thruster burst from the back vanes, opposite the dodge
-    _a.set(this.pos.x-this.ddx*.25,this.pos.y+1.35,this.pos.z-this.ddz*.25);fx.sparks(_a,-this.ddx,.05,-this.ddz,14,[.6,2.4,3.4],7,.35);fx.flares.spawn(_a,0x58d8ff,4,.16,.3,.3,2.6,.05,atan2(this.ddx,this.ddz)+PI/2);fx.flash(_a,0x58d8ff,40,.12);
+    // an afterimage where the hero stood, and a short thruster streak from each back vane, opposite the dodge
+    this.gN=1;fx.ghost(this.rig.root,0x58d8ff);
+    for(const s of [-.16,.16]){_a.set(this.pos.x-this.ddx*.55+this.ddz*s,this.pos.y+1.32,this.pos.z-this.ddz*.55-this.ddx*s);fx.lens(_a,-this.ddx,.04,-this.ddz,.4,1.5,.085,.02,[.5,2.2,3],.13,.9);}
+    fx.sparks(_a,-this.ddx,.05,-this.ddz,8,[.6,2.4,3.4],8,.3);fx.flash(_a,0x58d8ff,24,.1);
   }
   shoot(){
     if(this.gunCd>0)return;this.gunCd=.17;this.aimT=.45;
@@ -49,9 +51,9 @@ class Player{
     else aim.set(this.pos.x+sin(this.yaw)*30,this.pos.y+1.3,this.pos.z+cos(this.yaw)*30);
     const a=atan2(aim.x-this.pos.x,aim.z-this.pos.z);if(abs(wrapA(a-this.yaw))>1.5&&(this.state==='move'||this.state==='air'))this.yaw=a;
     _c.set(0,.26,-.056);this.rig.sword[0].localToWorld(_c);if(_c.distanceTo(this.pos)>3)_c.set(this.pos.x,this.pos.y+1.4,this.pos.z);
-    fx.tracer(_c,aim);fx.flares.spawn(_c,0xfff0c0,5,.07,.3,.3,1.6,.05,rand(3));fx.flash(_c,0xffe0a0,26,.07);sfx.gun();cam.shake(.05);
+    fx.tracer(_c,aim,hit===2);sfx.gun();cam.shake(.05);
     if(hit===1){orbs.kill(orb);G.gunScore();}
-    else if(hit===2&&tg.gunHit()){fx.sparks(aim,0,.4,0,6,[3,2.4,1.2],5,.8);fx.glows.spawn(aim,0xffe0a0,2,.08,.2,.2,.9,.9);G.gunScore();}
+    else if(hit===2&&tg.gunHit())G.gunScore();
     if(!this.grounded&&this.gunAir<10){this.gunAir++;this.vel.y=max(this.vel.y,1.6);}
   }
   startMove(id){
@@ -69,8 +71,7 @@ class Player{
     this.airActs=0;this.airDash=false;this.dj=false;this.gunAir=0;const gy=this.gy;
     if(this.state==='attack'&&this.move.dive){
       const maul=this.move.land==='MPOUNDLAND',c=maul?0xffb060:0x6fe0ff;
-      this.startMove(this.move.land);fx.rings.spawn(this.pos.x,gy+.06,this.pos.z,c,4,.4,maul?5:4,.4);fx.rings.spawn(this.pos.x,gy+.08,this.pos.z,0xffffff,3,.2,2.4,.25);
-      fx.puff(this.pos.x,this.pos.z,34,1.4,gy);_a.set(this.pos.x,gy+.3,this.pos.z);fx.sparks(_a,0,1,0,30,maul?[3.2,2,1]:[1.4,2.6,3.2],10);fx.flash(_a,c,120,.2);sfx.land(1);cam.shake(.4);
+      this.startMove(this.move.land);fx.slam(this.pos.x,gy,this.pos.z,maul?5:4,c,maul);_a.set(this.pos.x,gy+.3,this.pos.z);fx.flash(_a,c,90,.16);sfx.land(1);cam.shake(.4);
     }else if(this.state==='air'){this.state='move';sfx.land(.2);fx.puff(this.pos.x,this.pos.z,6,.5,gy);}
   }
   takeHit(dmg,e){
@@ -78,7 +79,7 @@ class Player{
     if(this.state==='dodge'&&this.t<.3){if(!e.dodged){e.dodged=true;G.perfectDodge(e);}return false;}
     if(this.invuln>0)return false;
     this.hp=max(0,this.hp-dmg);G.dmgTaken+=dmg;this.invuln=1.1;const a=atan2(this.pos.x-e.pos.x,this.pos.z-e.pos.z);this.vel.x=sin(a)*8;this.vel.z=cos(a)*8;this.yaw=a+PI;
-    cam.shake(.5);G.dmgFx=1;sfx.hurt();G.style.m=max(0,G.style.m-200);G.combo=0;_a.copy(this.pos);_a.y+=1.1;fx.sparks(_a,sin(a),.3,cos(a),14,[3,.8,.3],7);
+    cam.shake(.5);G.hurtFx(e.pos);sfx.hurt();G.style.m=max(0,G.style.m-200);G.combo=0;_a.copy(this.pos);_a.y+=1.1;fx.hit(_a,sin(a),cos(a),false,null,0xff3a28);
     if(this.hp<=0){this.state='dead';this.t=0;this.rig.play(CL.dead,.06,true);G.onDeath();}
     else{this.state='hurt';this.t=0;this.rig.play(CL.hurt,.04,true);}
     return true;
@@ -91,7 +92,7 @@ class Player{
       this.vel.x*=e14;this.vel.z*=e14;this.charge=sat(t/1);
       _a.set(0,.98,0);this.rig.sword[1].localToWorld(_a);
       if(random()<dt*(20+this.charge*60)){const a=rand(TAU),r=rand(.8,1.6);fx.parts.spawn(_a.x+cos(a)*r,_a.y+rand(-.8,.8),_a.z+sin(a)*r,-cos(a)*r*3,0,-sin(a)*r*3,3.2,1.8,.6,rand(.05,.12),.33);}
-      if(this.charge>=1&&!this.ready){this.ready=true;sfx.ready();fx.flares.spawn(_a,0xffc070,6,.3,.4,.4,4.5,.05,.4);fx.flares.spawn(_a,0xffc070,6,.3,.4,.4,3.4,.05,2);fx.flash(_a,0xffb060,60,.2);}
+      if(this.charge>=1&&!this.ready){this.ready=true;sfx.ready();fx.glint(_a,0xffc070,4,1.7,.2);fx.flash(_a,0xffb060,45,.16);}
       if(this.dodgeCd<=0&&input.take('dodge')){this.dodge(mv);return 0;}
       if((!held.heavy&&t>.1)||t>2.4){this.smash=this.charge;this.startMove('MSMASH');}
       return 0;
@@ -107,13 +108,13 @@ class Player{
     while(!m.rush&&this.hitIdx<m.hits.length&&t>=m.hits[this.hitIdx].t){
       let h=m.hits[this.hitIdx++];const full=m.id==='MSMASH'&&this.smash>=1;
       if(m.id==='MSMASH')h=Object.assign({},h,{dmg:20+34*this.smash,breaker:full,range:full?4.4:3.6,arc:full?7:2.6,pts:full?30:20});
-      if(h.ring){const x=this.pos.x+fwx*2,z=this.pos.z+fwz*2,gy=this.gy;fx.rings.spawn(x,gy+.06,z,0xffb060,4,.4,full?6:3.6,.4);fx.puff(x,z,full?40:20,full?1.6:1.1,gy);
-        _a.set(x,gy+.3,z);fx.sparks(_a,0,1,0,full?40:18,[3.2,2,1],10);fx.flash(_a,0xffb060,full?180:80,.2);sfx.land(full?1:.7);cam.shake(full?.5:.25);if(full)sfx.boom();}
+      if(h.ring){const x=this.pos.x+fwx*2,z=this.pos.z+fwz*2,gy=this.gy;fx.slam(x,gy,z,full?6:3.6,0xffb060,true);
+        _a.set(x,gy+.3,z);fx.flash(_a,0xffb060,full?120:70,.16);sfx.land(full?1:.7);cam.shake(full?.5:.25);if(full)sfx.boom();}
       if(G.playerHit(m,h))this.hitAny=true;
     }
     while(m.sw&&this.swIdx<m.sw.length&&t>=m.sw[this.swIdx]){sfx.whoosh((m.pitch||1)*rand(.92,1.12),m.big?1.3:1);this.swIdx++;}
     if(m.rise&&!this.rose&&t>=.19&&this.hitAny&&held[m.rise]){this.rose=true;this.vel.y=12.6;this.grounded=false;this.pos.y=this.gy+.02;}
-    if(m.pauseAt&&!this.glint&&t>=m.pauseAt){this.glint=true;sfx.glint();_a.set(0,1.2,0);this.rig.sword[0].localToWorld(_a);fx.flares.spawn(_a,0xbfefff,4,.25,.2,.2,1.8,.03,.4);fx.flares.spawn(_a,0xbfefff,4,.25,.2,.2,1.3,.03,2);}
+    if(m.pauseAt&&!this.glint&&t>=m.pauseAt){this.glint=true;sfx.glint();_a.set(0,1.2,0);this.rig.sword[0].localToWorld(_a);fx.glint(_a,0xbfefff,3,.9,.2,.05);}
     const tr=(t>=m.trail[0]&&t<=m.trail[1])?m.trail[2]:0;
     if(!m.dive){
       if(t>=m.cancel){
@@ -134,8 +135,8 @@ class Player{
     return tr;
   }
   sampleTrails(dt){
-    this.trAcc+=dt;if(this.trAcc<.009)return;this.trAcc=0;const W=WEAPONS[this.set];
-    for(let s=0;s<2;s++){const sw=this.rig.sword[s],tp=W.trail[s]||[.1,.2];_a.set(0,tp[0],0);sw.localToWorld(_a);_b.set(0,tp[1],0);sw.localToWorld(_b);this.trails[s].sample(_a,_b,!!W.trail[s]&&!!(this.trailOn&(s?2:1)));}
+    this.trAcc+=dt;if(this.trAcc<.009)return;const W=WEAPONS[this.set],td=this.trAcc;this.trAcc=0;
+    for(let s=0;s<2;s++){const sw=this.rig.sword[s],tp=W.trail[s]||[.1,.2];_a.set(0,tp[0],0);sw.localToWorld(_a);_b.set(0,tp[1],0);sw.localToWorld(_b);this.trails[s].sample(_a,_b,!!W.trail[s]&&!!(this.trailOn&(s?2:1)),td);}
   }
   update(dt){
     this.t+=dt;this.invuln-=dt;this.dodgeCd-=dt;this.gunCd-=dt;const rig=this.rig,mv=input.move();this.prev.copy(this.pos);this.pyaw=this.yaw;let trail=0;
@@ -162,7 +163,7 @@ class Player{
     }else if(st==='attack'){trail=this.updAttack(dt,mv);}
     else if(st==='dodge'){
       const sp=lerp(18,5,sat(this.t/.36));this.vel.x=this.ddx*sp;this.vel.z=this.ddz*sp;
-      if(random()<dt*90)fx.parts.spawn(this.pos.x+rand(-.3,.3),this.pos.y+rand(.3,1.6),this.pos.z+rand(-.3,.3),0,0,0,.4,1.6,2.2,rand(.08,.2),.3);
+      if(this.gN<3&&this.t>=this.gN*.07){this.gN++;fx.ghost(this.rig.root,0x58d8ff);}
       if(this.t>=.2){if(input.take('light'))this.startMove(W.light);else if(this.heavyIn())this.heavy(mv);else if(this.grounded&&input.take('rush'))this.startMove(W.rush);}
       if(this.state==='dodge'&&this.t>=.36)this.state=this.grounded?'move':'air';
     }else if(st==='hurt'){this.vel.x=damp(this.vel.x,0,7,dt);this.vel.z=damp(this.vel.z,0,7,dt);if(this.t>=.45)this.state=this.grounded?'move':'air';}
@@ -179,6 +180,7 @@ class Player{
     const n=(this.state==='attack'||this.trailOn||trail)?3:1;this.trailOn=trail;
     for(let i=1;i<=n;i++){const k=i/n;rig.root.position.lerpVectors(this.prev,this.pos,k);rig.root.rotation.y=this.pyaw+wrapA(this.yaw-this.pyaw)*k;rig.update(dt/n);rig.root.updateMatrixWorld(true);this.sampleTrails(dt/n);}
     this.light.position.set(this.pos.x+sy*.9,this.pos.y+2.1,this.pos.z+cy*.9);
-    rig.root.visible=!(this.hp>0&&this.invuln>0&&floor(this.invuln*22)%2===1);
+    // hurt and invulnerable: a white rim flash, then a rim flicker. The hero is never hidden (it used to blink out of sight).
+    fx.rim(this,this.rimM||(this.rimM=Object.fromEntries(Object.entries(heroMats).filter(([k])=>k!=='glow'))),this.invuln>1.04?1:0,0,0,this.hp>0&&this.invuln>0&&this.state!=='dodge',G.dark>.001?2.5:0,0x9fe8ff);   // and rim-lit through the dark frames that open a finisher
   }
 }
