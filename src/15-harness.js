@@ -26,7 +26,7 @@ const HX={cam:null,stage:null,orbit:null,frames:0,calls:0,tris:0,
       for(const [k,x,z] of [['husk',-1.8,.2],['stalker',1.8,.2],['brute',-4.4,1],['lantern',4.2,.8],['warden',0,5]]){
         const e=k==='lantern'?new Lantern(cx+x,cz+z,enc):k==='warden'?new Warden(enc):new Enemy(k,cx+x,cz+z,enc),r=e.rig?e.rig.root:e.root;
         r.position.set(cx+x,k==='lantern'?2:0,cz+z);r.rotation.y=PI;r.visible=true;if(e.rig){r.scale.setScalar(e.scale);e.rig.play(CL.eIdle,0,true);}list.push(e);}
-      G.enc=null;this.stage={remove(){for(const e of list)e.remove();}};upd=dt=>{p.rig.update(dt);for(const e of list)if(e.rig)e.rig.update(dt);};h=1.9;d=10;}
+      G.enc=null;this.stage={remove(){for(const e of list)e.remove();}};upd=dt=>{p.rig.update(dt);for(const e of list)if(e.rig)e.rig.update(dt);};h=1.7;d=7.6;}
     else if(kind==='mats'){root=new THREE.Group();scene.add(root);const ks=['floor','wall','plate','armor','steel','rubber','hazard'];
       ks.forEach((k,i)=>{const m=pbr(k),t=TILE[k],g=new THREE.PlaneGeometry(1.6,1.6),s=new THREE.SphereGeometry(.42,32,20);for(const q of [g,s]){const uv=q.attributes.uv;for(let j=0;j<uv.count;j++)uv.setXY(j,uv.getX(j)*1.6/t,uv.getY(j)*1.6/t);}
         const a=new THREE.Mesh(g,m),b=new THREE.Mesh(s,m);a.position.set((i-3)*1.75,1.2,0);b.position.set((i-3)*1.75,2.75,0);root.add(a,b);});

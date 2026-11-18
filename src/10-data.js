@@ -2,7 +2,7 @@
 // The hero: white lacquered shell over a dark mechanical core, slate-blue secondary plates, teal power.
 // Foes: dark iron lit amber (or violet for stalkers).
 const heroMats={
-  shell:pbr('shell',{color:0xe8eaf0,envMapIntensity:.9}),
+  shell:pbr('shell',{color:0xdde0e7,envMapIntensity:.9}),
   shell2:pbr('shell',{color:0x4d5e80,envMapIntensity:.9}),
   frame:pbr('plate',{color:0x9aa0ac,envMapIntensity:.6}),
   steel:pbr('steel',{color:0x8d95a2,envMapIntensity:1}),
