@@ -155,7 +155,7 @@ class Stormvane{
     return true;
   }
   orbHit(){
-    if(this.dead||this.shieldOn)return;this.hp-=60;this.flash=1;fx.hit(this.pos,0,0,true,0);cam.shake(.3);G.addStyle('ORB',30);
+    if(this.dead||this.shieldOn)return;this.hp-=60;this.flash=1;fx.hit(this.pos,0,0,true,null);cam.shake(.3);G.addStyle('ORB',30);
     if(this.hp<=0)return this.die();
     if(this.phase===1&&++this.orbN%3===0&&(this.state==='circle'||this.state==='volley'))this.crash();
   }
@@ -164,7 +164,7 @@ class Stormvane{
     const d=hypot(x-C.x,z-C.z);if(d<7){const a=d>.1?atan2(x-C.x,z-C.z):0;x=C.x+sin(a)*7;z=C.z+cos(a)*7;}this.spot.set(x,this.gy+2.1,z);sfx.roar();G.onBreak(this);}
   die(){this.dead=true;this.hp=0;this.shieldOn=false;this.go('dead');G.onKill(this);}
   head(o){this.hd.updateWorldMatrix(true,false);return o.set(0,0,1.6).applyMatrix4(this.hd.matrixWorld);}
-  landFx(big){const P=this.pos,gy=this.gy;fx.rings.spawn(P.x,gy+.06,P.z,0x9fc8ff,4,.6,big?10:7,.6);fx.puff(P.x,P.z,50,1.8,gy);_a.set(P.x,gy+.5,P.z);fx.sparks(_a,0,1,0,40,[1.6,2.2,3.4],12);cam.shake(big?.8:.5);sfx.land(1);if(big)sfx.hit(1);}
+  landFx(big){const P=this.pos,gy=this.gy;fx.slam(P.x,gy,P.z,big?10:7,0x9fc8ff,true);cam.shake(big?.8:.5);sfx.land(1);if(big)sfx.hit(1);}
   flyTo(x,y,z,k,dt,faceMove=true){const P=this.pos,ox=P.x,oz=P.z;P.x=damp(P.x,x,k,dt);P.y=damp(P.y,y,k,dt);P.z=damp(P.z,z,k,dt);
     const vx=P.x-ox,vz=P.z-oz;if(faceMove&&hypot(vx,vz)>.02)this.yaw=turnTo(this.yaw,atan2(vx,vz),4*dt);}
   update(dt){
@@ -190,7 +190,7 @@ class Stormvane{
     else if(S==='dpre'){
       const dur=this.phase===3?.8:1.1;
       if(!this.marked){this.marked=true;let ux=dx/(dist||1),uz=dz/(dist||1);if(dist<2){ux=sin(this.yaw);uz=cos(this.yaw);}
-        this.ld.set(ux,0,uz);this.ls.set(pl.pos.x-ux*32,gy+7,pl.pos.z-uz*32);fx.line(pl.pos.x,gy,pl.pos.z,atan2(ux,uz),64,13.6,dur,0x9fc8ff);sfx.telegraph(true);}
+        this.ld.set(ux,0,uz);this.ls.set(pl.pos.x-ux*32,gy+7,pl.pos.z-uz*32);fx.line(pl.pos.x,gy,pl.pos.z,atan2(ux,uz),64,13.6,dur);fx.warn(this,1,dur,0);sfx.telegraph(true);}
       this.flyTo(this.ls.x,this.ls.y,this.ls.z,5.3,dt,false);this.yaw=turnTo(this.yaw,atan2(this.ld.x,this.ld.z),5*dt);tp=.25;
       if(t>=dur){this.go('dpass');this.lt=0;P.copy(this.ls);sfx.whoosh(.4,2);}}
     else if(S==='dpass'){flap=false;T.wrL=T.wrR=.25;T.wf=.55;T.np=-.1;kJ=14;
@@ -233,7 +233,7 @@ class Stormvane{
       if(this.cd<=0&&live){const ang=abs(wrapA(toP-this.yaw));
         if(this.phase===3&&this.groundT>6.5){this.passes=2;this.go('dpre');}
         else if(dist<10&&ang>1.9)this.go('tail');else if(dist>11||ang>1.1)this.go('bite');else this.go((this.side^=1)?'wsw':'bite');
-        if(this.state!=='gidle'&&this.state!=='dpre'){sfx.telegraph(true);this.head(_b);fx.flares.spawn(_b,0x9fc8ff,6,.5,.5,.5,7,.06,0);fx.flares.spawn(_b,0x9fc8ff,6,.5,.5,.5,5,.06,PI/2);}}}
+        if(this.state!=='gidle'&&this.state!=='dpre'){sfx.telegraph(true);fx.warn(this,1,this.state==='tail'?.55:this.state==='bite'?.66:.8,1.6);}}}
     else if(S==='wsw'){flap=false;this.yaw=turnTo(this.yaw,toP,1.2*dt);T.wrL=T.wrR=.3;T.we=-.3;T.wf=.2;T.np=.5;if(this.side)T.wrR=1.05;else T.wrL=1.05;if(this.side)T.wsR=-.5;else T.wsL=-.5;
       if(t>=.8){this.go('wsws');sfx.whoosh(.3,2);}}
     else if(S==='wsws'){flap=false;kJ=22;T.wrL=T.wrR=.3;T.we=-.1;T.wf=0;if(this.side){T.wsR=1.5;T.wrR=-.05;}else{T.wsL=1.5;T.wrL=-.05;}
@@ -305,6 +305,7 @@ class Stormvane{
       for(let j=0;j<4;j++){const g=Lp.stand[j]+(Lp.crouch[j]-Lp.stand[j])*cr+Lp.lift[j]*lift;(j===0?L.a:j===1?L.b:j===2?L.c:L.f).rotation.x=lg<=1?lerp(g,Lp.tuck[j],lg):lerp(Lp.tuck[j],Lp.strike[j],lg-1);}}
     const sh=this.shieldOn;this.coreM.color.setHex(sh?0x6fffe0:this.phase===2&&this.armor>0?0xffc070:0xbfe4ff).multiplyScalar(coreK*(1+.2*sin(G.rt*8)));
     this.core.scale.set(.68,.62,.78).multiplyScalar(1+min(.6,(coreK-2.5)*.05));
-    this.iron.emissiveIntensity=.04+this.flash*this.flash*1.4;
+    this.iron.emissiveIntensity=.04;   // a faint constant glow so the dark hull never vanishes into the night; hits and tells are the rim's job
+    fx.rim(this,this.rimM||(this.rimM={m:this.iron}),this.flash,S==='wsw'?sat(t/.8):S==='tail'?sat(t/.55):S==='bite'?sat(t/.66):0,1,S==='stun',0);
   }
 }

@@ -507,8 +507,6 @@ class Rig{
     if(this.bt<this.bd){const k=smooth(this.bt/this.bd),f=this.from;for(let i=0;i<PN;i++)cur[i]=f[i]+(tmp[i]-f[i])*k;slerp3(cur,I.sl,f,tmp,k);slerp3(cur,I.sr,f,tmp,k);}else cur.set(tmp);
     if(dt>0&&dt<.1){const x=this.spx,v=this.spv;if(!this.spOn){this.spOn=true;for(const i of SPR)x[i]=cur[i];}
       for(let j=0;j<SPR.length;j++){const i=SPR[j],w=j<3?26:17,z=j<3?.5:.38;v[i]+=((cur[i]-x[i])*w*w-v[i]*2*z*w)*dt;x[i]+=v[i]*dt;cur[i]=x[i];}}
-    // a foe's tell and hit flash run through its own lights: eyes, core and weapon strip flare with the armour's emissive level
-    const am=this.mats.armor,gm=this.mats.glow;if(am&&gm&&am.emissive)gm.color.copy(gm.userData.base||(gm.userData.base=gm.color.clone())).multiplyScalar(1+min(1.2,am.emissiveIntensity)*2.2);
     this.apply(dt);
   }
   apply(dt){
