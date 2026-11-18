@@ -6,11 +6,14 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 const here = path.dirname(fileURLToPath(import.meta.url));
 let chromium;
-try { ({ chromium } = await import('playwright')); } catch { ({ chromium } = createRequire(process.env.PW_MODULES || '/opt/npm-tools/node_modules/')('playwright-core')); }
+try { ({ chromium } = await import('playwright')); } catch { try { ({ chromium } = await import('playwright-core')); } catch { ({ chromium } = createRequire(process.env.PW_MODULES || '/opt/npm-tools/node_modules/')('playwright-core')); } }
+// with playwright-core there is no bundled browser: fall back to an installed Edge or Chrome
+const BROWSERS = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe', '/usr/bin/google-chrome', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'];
+const EXE = process.env.CHROME_PATH || (() => { try { const p = chromium.executablePath(); if (p && fs.existsSync(p)) return undefined; } catch {} return BROWSERS.find(p => fs.existsSync(p)); })();
 
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
@@ -29,7 +32,7 @@ await new Promise(r => server.listen(0, '127.0.0.1', r));
 const port = server.address().port;
 
 const browser = await chromium.launch({
-  executablePath: process.env.CHROME_PATH || undefined, headless: true,
+  executablePath: EXE, headless: true,
   args: [...(process.env.SOFTWARE === '1' ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] : ['--enable-gpu']), '--ignore-gpu-blocklist', '--enable-webgl', '--autoplay-policy=no-user-gesture-required', '--mute-audio']
 });
 const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
@@ -52,7 +55,7 @@ let code = 0;
 try {
   await page.waitForFunction(() => window.G && window.step, null, { timeout: 120000 });
   log('ready in', Date.now() - t0, 'ms');
-  const scen = (await import(path.resolve(args[0]))).default;
+  const scen = (await import(pathToFileURL(path.resolve(args[0])).href)).default;
   await scen({ page, shot, ev, log });
 } catch (e) { console.log('SCENARIO FAILED:', String(e.stack || e).slice(0, 1500)); code = 1; }
 const uniq = [...new Set(errors)].filter(e => !/GPU stall due to ReadPixels/.test(e));
