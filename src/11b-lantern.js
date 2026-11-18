@@ -44,7 +44,7 @@ class Lantern{
     this.pos=V(x,this.gy+4.2,z);this.vel=V();this.state='spawn';this.t=0;this.low=0;this.lowT=0;this.fireCd=rand(1.6,3.2);this.linkCd=1.2;this.link=o.link||null;this.forced=!!o.link;
     this.flash=0;this.dead=false;this.gone=false;this.strafe=random()<.5?-1:1;this.strafeT=rand(2,4);this.seed=rand(10);
     const root=this.root=new THREE.Group(); scene.add(root);
-    this.metal=new MSM({color:0x16181d,metalness:.85,roughness:.35,emissive:0x9fd0ff,emissiveIntensity:0,envMapIntensity:1});
+    this.metal=pbr('plate',{color:0xb4bac6,emissive:0x9fd0ff,emissiveIntensity:0,envMapIntensity:1});
     this.cage=new THREE.Group(); root.add(this.cage);
     for(const r of [[0,0,0],[PI/2,0,0],[0,PI/2,0]]){const m=new THREE.Mesh(lanternGeo.ring,this.metal);m.rotation.set(r[0],r[1],r[2]);m.castShadow=true;this.cage.add(m);}
     const top=new THREE.Mesh(lanternGeo.cap,this.metal);top.position.y=.8;root.add(top);

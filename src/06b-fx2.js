@@ -17,11 +17,23 @@ Object.assign(fx,{
   lines:Array.from({length:3},()=>({m:addMesh(new THREE.PlaneGeometry(1,1),0xff5a1a,1.4),t:0,life:0})),li2:0,
   line(x,y,z,yaw,len,w,life,hex=0xff5a1a){const d=this.lines[this.li2=(this.li2+1)%3];d.m.rotation.order='YXZ';d.m.rotation.set(-PI/2,yaw,0);d.m.position.set(x,y+.06,z);d.m.scale.set(w,len,1);d.m.material.color.setHex(hex).multiplyScalar(1.4);d.m.visible=true;d.t=0;d.life=life;return d;},
   update2(gdt,rdt){
+    this.updateDeb(gdt);
     for(const t of this.tracers){if(t.life>0){t.life-=rdt;if(t.life<=0)t.m.visible=false;}}
     for(const b of this.bolts){if(b.life>0){b.life-=rdt;b.g.visible=b.life>0&&(b.life>.1||random()<.6);}}
     for(const d of this.discs.concat(this.lines)){if(!d.m.visible)continue;d.t+=gdt;if(d.t>=d.life){d.m.visible=false;continue;}const k=d.t/d.life;d.m.material.opacity=.12+.3*k+.12*sin(d.t*30)*k;}
   },
-  clearMarks(){for(const d of this.discs.concat(this.lines))d.m.visible=false;}
+  clearMarks(){for(const d of this.discs.concat(this.lines))d.m.visible=false;},
+  // wreckage: instanced plates with gravity, one bounce and a spin; they cool from glowing to dark as they settle
+  deb:(()=>{const n=120,m=new THREE.InstancedMesh(new RoundedBoxGeometry(1,1,1,1,.1),pbr('armor',{color:0x5a606c,emissive:0xff5a14,emissiveIntensity:.0}),n);m.castShadow=true;m.frustumCulled=false;m.count=n;scene.add(m);
+    const it=Array.from({length:n},()=>({p:V(0,-999,0),v:V(),r:new THREE.Euler(),w:V(),s:V(1,1,1),life:0,gy:0}));const o=new THREE.Object3D();
+    for(let i=0;i<n;i++){o.position.set(0,-999,0);o.updateMatrix();m.setMatrixAt(i,o.matrix);}
+    return {m,it,o,i:0};})(),
+  debris(x,y,z,n,sc=1,gy=0){const D=this.deb;for(let k=0;k<n;k++){const d=D.it[D.i=(D.i+1)%D.it.length],a=rand(TAU),sp=rand(2,8);
+    d.p.set(x+rand(-.3,.3)*sc,y+rand(-.5,.5)*sc,z+rand(-.3,.3)*sc);d.v.set(cos(a)*sp,rand(3,9),sin(a)*sp);d.w.set(rand(-12,12),rand(-12,12),rand(-12,12));d.s.set(rand(.08,.3)*sc,rand(.03,.1)*sc,rand(.08,.26)*sc);d.life=rand(2.2,3.6);d.gy=gy;}},
+  updateDeb(dt){const D=this.deb,o=D.o;let any=false;for(let i=0;i<D.it.length;i++){const d=D.it[i];if(d.life<=0)continue;any=true;d.life-=dt;d.v.y-=22*dt;d.p.addScaledVector(d.v,dt);
+      if(d.p.y<d.gy+d.s.y*.5){d.p.y=d.gy+d.s.y*.5;if(abs(d.v.y)>1.5){d.v.y*=-.35;d.v.x*=.6;d.v.z*=.6;d.w.multiplyScalar(.5);}else{d.v.set(0,0,0);d.w.set(0,0,0);}}
+      d.r.x+=d.w.x*dt;d.r.y+=d.w.y*dt;d.r.z+=d.w.z*dt;o.position.copy(d.p);o.rotation.copy(d.r);const k=clamp(d.life*2.5,.05,1);o.scale.set(d.s.x*k,d.s.y*k,d.s.z*k);if(d.life<=0)o.position.y=-999;o.updateMatrix();D.m.setMatrixAt(i,o.matrix);}
+    if(any||D.dirty){D.m.instanceMatrix.needsUpdate=true;D.dirty=any;}}
 });
 function makeBeam(hex){
   const m=addMesh(new THREE.CylinderGeometry(1,1,1,6,1,true).rotateX(PI/2),hex,1.1);

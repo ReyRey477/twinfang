@@ -37,6 +37,8 @@ class Player{
     else{this.ddx=-sin(this.yaw);this.ddz=-cos(this.yaw);this.rig.play(CL.back,.05,true);}
     if(!this.grounded)this.vel.y=2;else fx.puff(this.pos.x,this.pos.z,8,.6,this.gy);
     sfx.dodge();cam.fovKick=7;
+    // thruster burst from the back vanes, opposite the dodge
+    _a.set(this.pos.x-this.ddx*.25,this.pos.y+1.35,this.pos.z-this.ddz*.25);fx.sparks(_a,-this.ddx,.05,-this.ddz,14,[.6,2.4,3.4],7,.35);fx.flares.spawn(_a,0x58d8ff,4,.16,.3,.3,2.6,.05,atan2(this.ddx,this.ddz)+PI/2);fx.flash(_a,0x58d8ff,40,.12);
   }
   shoot(){
     if(this.gunCd>0)return;this.gunCd=.17;this.aimT=.45;

@@ -140,8 +140,8 @@ const G={
     const st=this.storm,out=P.z>258;rain.m.visible=out;st.flash=max(0,st.flash-rdt*2.4);
     if(out){rain.update(rdt,camera.position.x,AREA.roof.y-1,camera.position.z);st.next-=rdt;
       if(st.next<=0){st.next=rand(4,9);st.flash=max(st.flash,rand(.5,1));sfx.thunder(.45);}}
-    sky.material.uniforms.uT.value=this.rt;sky.material.uniforms.uF.value=st.flash;moon.intensity=1.7+st.flash*5;hemi.intensity=.55+st.flash*1.3;
-    updateLights(P.x,P.y,P.z);fx.parts.floor=p.gy;
+    sky.material.uniforms.uT.value=this.rt;sky.material.uniforms.uF.value=st.flash;moon.intensity=2.1+st.flash*5;hemi.intensity=.75+st.flash*1.3;
+    updateLights(P.x,P.y,P.z);fx.parts.floor=p.gy;TIMEU.value=this.rt;for(const s of spinners)s.g.rotation.x+=s.speed*rdt;
     dust.position.set(Math.round(P.x/10)*10+sin(this.rt*.13)*.4,p.gy+sin(this.rt*.2)*.3,Math.round(P.z/10)*10);
   },
   updateHud(dt){

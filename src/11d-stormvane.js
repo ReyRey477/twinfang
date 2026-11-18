@@ -14,8 +14,8 @@ class Stormvane{
     this.build();
   }
   build(){
-    const iron=this.iron=new MSM({color:0x16181d,metalness:.85,roughness:.35,emissive:0x9fc8ff,emissiveIntensity:0,envMapIntensity:1}),
-      trim=new MSM({color:0x3a3f49,metalness:1,roughness:.3,envMapIntensity:1.2}),glass=new THREE.MeshBasicMaterial({color:hdr(0x8fd0ff,1.4)});
+    const iron=this.iron=pbr('plate',{color:0xb0b6c4,emissive:0x9fc8ff,emissiveIntensity:0,envMapIntensity:1}),
+      trim=pbr('steel',{color:0x8c93a4,envMapIntensity:1.2}),glass=new THREE.MeshBasicMaterial({color:hdr(0x8fd0ff,1.4)});
     this.coreM=new THREE.MeshBasicMaterial({color:hdr(0xbfe4ff,2.5)});
     const root=this.root=new THREE.Group(); root.rotation.order='YXZ'; scene.add(root);
     const add=(par,geo,mat,x=0,y=0,z=0,sx=1,sy=1,sz=1,rx=0,ry=0,rz=0)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.rotation.set(rx,ry,rz);m.castShadow=true;par.add(m);return m;};

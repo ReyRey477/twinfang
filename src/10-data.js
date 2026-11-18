@@ -1,28 +1,28 @@
 // ===================== COMBAT DATA =====================
+// The hero: pale ceramic plate over a dark frame, brass fittings, teal power. Foes: dark iron lit amber (or violet for stalkers).
 const heroMats={
-  coat:new MSM({color:0x15171c,roughness:.6,metalness:.15,side:THREE.DoubleSide,envMapIntensity:.5}),
-  lining:new MSM({color:0x9a6a2a,roughness:.65,metalness:.3,envMapIntensity:.5}),
-  shirt:new MSM({color:0x767c86,roughness:.8,metalness:.05,envMapIntensity:.3}),
-  skin:new MSM({color:0xd29a78,roughness:.65,metalness:0,envMapIntensity:.3}),
-  hair:new MSM({color:0x17110e,roughness:.5,metalness:.2,envMapIntensity:.6}),
-  shade:new MSM({color:0x050607,roughness:.08,metalness:1,envMapIntensity:2}),
-  pants:new MSM({color:0x1c1e24,roughness:.8,metalness:.05,envMapIntensity:.3}),
-  boot:new MSM({color:0x0c0c0e,roughness:.45,metalness:.4,envMapIntensity:.6}),
-  dark:new MSM({color:0x14171c,roughness:.65,metalness:.35,envMapIntensity:.5}),
-  trim:new MSM({color:0x9c7f48,metalness:1,roughness:.5,envMapIntensity:.6}),
-  gun:new MSM({color:0x6f757e,metalness:1,roughness:.42,envMapIntensity:.8}),
-  blade:new MSM({color:0xdcefff,metalness:1,roughness:.12,envMapIntensity:1.8}),
+  shell:pbr('armor',{color:0xdfe2e8,roughness:.9,envMapIntensity:1}),
+  shell2:pbr('armor',{color:0x46546a,envMapIntensity:1}),
+  frame:pbr('plate',{color:0xaab0bc,envMapIntensity:.7}),
+  steel:pbr('steel',{color:0x9aa2ae,envMapIntensity:1}),
+  brass:pbr('steel',{color:0xc9964a,envMapIntensity:1}),
+  rubber:pbr('rubber',{envMapIntensity:.3}),
+  blade:pbr('steel',{color:0xdcefff,roughness:.5,envMapIntensity:1.8}),
   glow:new THREE.MeshBasicMaterial({color:hdr(0x45d4ff,2.6)})};
 const enemyMats=k=>{const B=k==='brute',S=k==='stalker';return {
-  armor:new MSM({color:B?0x1c1512:S?0x15121f:0x181a1f,metalness:.65,roughness:.42,emissive:S?0xa050ff:0xff6a2a,emissiveIntensity:0,envMapIntensity:.7}),
-  trim:new MSM({color:B?0x4a3020:S?0x2c2440:0x33282a,metalness:.8,roughness:.4,envMapIntensity:.6}),
+  armor:pbr('armor',{color:B?0x6a4a38:S?0x4c4470:0x565c68,emissive:S?0xa050ff:0xff6a2a,emissiveIntensity:0,envMapIntensity:.9}),
+  frame:pbr('plate',{color:0x9098a4,envMapIntensity:.6}),
+  trim:pbr('steel',{color:B?0x8a6a4a:S?0x6c648c:0x767c88,envMapIntensity:.9}),
+  rubber:pbr('rubber',{envMapIntensity:.3}),
+  blade:pbr('steel',{color:0xb8bcc6,roughness:.6,envMapIntensity:1.4}),
   glow:new THREE.MeshBasicMaterial({color:hdr(S?0xa040ff:0xff4d14,3.4)})};};
 const wardenMats=()=>({
-  armor:new MSM({color:0x25221f,metalness:.85,roughness:.36,emissive:0xff6a2a,emissiveIntensity:0,envMapIntensity:1}),
-  dark:new MSM({color:0x100f10,metalness:.5,roughness:.6,emissive:0xff4a14,emissiveIntensity:0,envMapIntensity:.5}),
-  trim:new MSM({color:0x7a5527,metalness:1,roughness:.35,envMapIntensity:1}),
-  cloth:new MSM({color:0x2d0b0e,roughness:.9,metalness:0,side:THREE.DoubleSide,envMapIntensity:.2}),
-  blade:new MSM({color:0x3d4048,metalness:1,roughness:.2,envMapIntensity:1.5}),
+  armor:pbr('armor',{color:0x6e645a,emissive:0xff6a2a,emissiveIntensity:0,envMapIntensity:1.1}),
+  dark:pbr('plate',{color:0x8a8a90,emissive:0xff4a14,emissiveIntensity:0,envMapIntensity:.6}),
+  trim:pbr('steel',{color:0xb8843c,envMapIntensity:1.1}),
+  cloth:pbr('armor',{color:0x6a1c20,envMapIntensity:.7}),
+  rubber:pbr('rubber',{envMapIntensity:.3}),
+  blade:pbr('steel',{color:0x8a8e98,roughness:.6,envMapIntensity:1.5}),
   glow:new THREE.MeshBasicMaterial({color:hdr(0xff5a14,3.6)})});
 
 // Each weapon set maps the attack buttons to moves. `heavy:null` means the pistol.

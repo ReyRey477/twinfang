@@ -6,7 +6,7 @@ class Enemy{
     const B=this.B=kind==='brute',S=this.S=kind==='stalker';this.kind=kind;this.scale=B?1.5:S?1:1.04;this.radius=B?.9:.5;this.hp=this.maxHp=B?480:S?74:78;
     this.gy=o.gy||0;this.ar=o.ar;this.delay=o.delay||0;this.mark=false;this.tx=x;this.tz=z;
     this.pos=V(x,this.gy+(S?min(8.4,(o.ceil||10.5)-2.15):0),z);this.vel=V();this.yaw=PI;this.state=S?'drop':'spawn';this.t=0;this.atkCd=S?rand(.6,1.6):rand(.5,2);this.strafe=random()<.5?-1:1;this.strafeT=rand(1,3);
-    this.flash=0;this.hang=0;this.token=false;this.dead=false;this.gone=false;this.spiked=false;this.struck=false;this.dodged=false;this.shield=null;this.poise=120;this.gunPoise=0;
+    this.flash=0;this.hang=0;this.chain=0;this.token=false;this.dead=false;this.gone=false;this.spiked=false;this.struck=false;this.dodged=false;this.shield=null;this.poise=120;this.gunPoise=0;
     this.mats=enemyMats(kind);this.baseEm=S?0xa050ff:0xff6a2a;this.rig=new Rig({kind,scale:this.scale,mats:this.mats});scene.add(this.rig.root);
     this.rig.play(S?CL.sHang:CL.eIdle,0);this.trail=B?null:new Trail(14,S?0xa050ff:0xff4a12);
     if(!S){fx.rings.spawn(x,this.gy+.05,z,0xff5a1a,3,.3,2.2*this.scale,.9);sfx.noise({f0:200,f1:1300,dur:.8,q:2,g:.3,a:.4});}
@@ -84,11 +84,11 @@ class Enemy{
       if(dist>R+(St?1:.5)){mx=ux*sp;mz=uz*sp;}else if(dist<R-(St?1.8:.8)){mx=-ux*sp*(St?.8:.6);mz=-uz*sp*(St?.8:.6);}else{mx=-uz*this.strafe*ss;mz=ux*this.strafe*ss;}
       this.vel.x=damp(this.vel.x,mx,6,dt);this.vel.z=damp(this.vel.z,mz,6,dt);
       if(this.atkCd<=0&&dist<(B?4.2:St?11:3.8)&&G.tokens<G.maxTokens&&pl.state!=='dead'&&G.state==='play'){
-        this.token=true;G.tokens++;this.atkCd=B?rand(1.6,3.2):St?rand(1.4,2.6):rand(.9,2);this.gunPoise=0;this.set('windup');sfx.telegraph(B);
+        this.token=true;G.tokens++;this.atkCd=B?rand(1.6,3.2):St?rand(1.4,2.6):rand(.9,2);this.gunPoise=0;this.chain=0;this.set('windup');sfx.telegraph(B);
         _a.set(this.pos.x,this.pos.y+1.75*this.scale,this.pos.z);const gc=St?0xa050ff:0xff5a1a;fx.flares.spawn(_a,gc,5,.45,.3,.3,3.4,.04,0);fx.flares.spawn(_a,gc,5,.45,.3,.3,2.4,.04,PI/2);
       }
     }else if(S==='windup'){
-      const w=B?.95:St?.5:.55;fr(8);if(this.t<w-(St?.1:.16))this.yaw=turnTo(this.yaw,toP,(St?10:6)*dt);
+      const w=B?.95:this.chain?(St?.36:.3):St?.5:.55;fr(8);if(this.t<w-(St?.1:.16))this.yaw=turnTo(this.yaw,toP,(this.chain?18:St?10:6)*dt);
       if(this.t>=w){this.set('strike');this.struck=false;this.dodged=false;if(!B){const v=St?26:11;this.vel.x=sin(this.yaw)*v;this.vel.z=cos(this.yaw)*v;}sfx.whoosh(B?.5:St?1.4:.72,1.1);}
     }else if(S==='strike'){
       if(!St)fr(7);
@@ -99,11 +99,16 @@ class Enemy{
         if(this.t>=.1&&!this.struck){this.struck=true;const cx=this.pos.x+sin(this.yaw)*1.8,cz=this.pos.z+cos(this.yaw)*1.8;
           fx.rings.spawn(cx,gy+.06,cz,0xff5a1a,4,.4,3.4,.45);fx.puff(cx,cz,26,1.3,gy);cam.shake(.55);sfx.hit(1);sfx.land(1);
           _a.set(cx,gy+.4,cz);fx.sparks(_a,0,1,0,26,[3,1.1,.3],9);fx.flash(_a,0xff6a2a,80,.2);
-          if(hypot(pl.pos.x-cx,pl.pos.z-cz)<2.9&&pl.pos.y<gy+1.1)pl.takeHit(24,this);}
+          if(hypot(pl.pos.x-cx,pl.pos.z-cz)<2.9&&pl.pos.y<gy+1.1)pl.takeHit(24,this);
+          if(this.hp<this.maxHp*.55)waves.ring(cx,gy,cz,8.5,7,10,this,0xff6a2a,1);}   // enraged: the slam throws a shockwave to jump or dodge
       }else if(this.t>=.04&&this.t<=.18&&!this.struck){
         if(dist<2.25&&abs(wrapA(toP-this.yaw))<1.05&&abs(pl.pos.y-this.pos.y)<1.4){this.struck=true;pl.takeHit(11,this);}
       }
-      if(this.t>=(B||St?.3:.24))this.set('recover');
+      if(this.t>=(B||St?.3:.24)){
+        // husks and stalkers sometimes chain a second, faster attack (announced again), so one dodge is not always enough
+        if(!B&&!this.chain&&pl.state!=='dead'&&dist<(St?12:5)&&random()<(St?.4:.45)){this.chain=1;this.set('windup');sfx.telegraph(false);
+          _a.set(this.pos.x,this.pos.y+1.75*this.scale,this.pos.z);fx.flares.spawn(_a,St?0xa050ff:0xff5a1a,5,.3,.3,.3,2.6,.04,PI/4);}
+        else this.set('recover');}
     }else if(S==='recover'){fr(8);if(this.t>=(B?1.1:St?.6:.55))this.set('idle');}
     else if(S==='stagger'){fr(6);if(this.t>=.55)this.set('idle');}
     else if(S==='broken'){fr(8);if(random()<dt*20)fx.parts.spawn(this.pos.x+rand(-.5,.5),gy+rand(.4,1.8),this.pos.z+rand(-.5,.5),0,rand(1,3),0,3,1.2,.3,rand(.05,.1),.5,-1,1);if(this.t>=4)this.set('idle');}
@@ -125,14 +130,14 @@ class Enemy{
     r.root.position.copy(this.pos);if(S==='spawn')r.root.position.y=lerp(gy-2.3*this.scale,gy,smooth(min(1,this.t/.9)));
     r.root.rotation.y=this.yaw;r.update(dt);
     const m=this.mats.armor;m.emissive.setHex(this.shield?0x9fd0ff:this.baseEm);
-    m.emissiveIntensity=this.flash*this.flash*1.8+(S==='windup'?sat(this.t/.5)*.9:0)+(S==='dead'?this.t*9:0)+(this.shield?.5+.2*sin(G.rt*9):0);
+    m.emissiveIntensity=this.flash*this.flash*1.8+(S==='windup'?sat(this.t/.5)*.9:0)+(S==='dead'?this.t*9:0)+(this.shield?.5+.2*sin(G.rt*9):0)+(B&&this.hp<this.maxHp*.55&&S!=='dead'?.22+.14*sin(G.rt*7):0);
     if(this.trail){r.root.updateMatrixWorld(true);const sw=r.sword[1];_a.set(0,.12,0);sw.localToWorld(_a);_b.set(0,1.05,0);sw.localToWorld(_b);this.trail.sample(_a,_b,S==='strike'&&this.t<(St?.34:.2)||S==='drop'&&this.t>this.delay+.7);}
     if(S==='dead'){
       r.root.scale.setScalar(this.scale*(1+this.t*.3));
       if(this.t>.42&&!this.gone){this.gone=true;const y=this.pos.y+1.1*this.scale;
         fx.embers(this.pos.x,y,this.pos.z,B?140:70,St?[1.6,.6,3.2]:[3.2,1,.25],.5*this.scale);fx.embers(this.pos.x,y,this.pos.z,30,[.6,.7,.9],.4);
         _a.set(this.pos.x,y,this.pos.z);fx.glows.spawn(_a,0xff7a3a,5,.3,.5,.5,5*this.scale,5*this.scale);fx.flash(_a,0xff6a2a,120,.3);
-        fx.rings.spawn(this.pos.x,gy+.06,this.pos.z,0xff5a1a,3,.3,3*this.scale,.5);sfx.death();this.remove();}
+        fx.rings.spawn(this.pos.x,gy+.06,this.pos.z,0xff5a1a,3,.3,3*this.scale,.5);fx.debris(this.pos.x,y,this.pos.z,B?16:9,this.scale,gy);sfx.death();this.remove();}
     }
   }
 }
