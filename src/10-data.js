@@ -12,9 +12,9 @@ const heroMats={
   blade:pbr('steel',{color:0xdcefff,roughness:.5,envMapIntensity:1.8}),
   glow:new THREE.MeshBasicMaterial({color:hdr(0x45d4ff,2.6)})};
 const enemyMats=k=>{const B=k==='brute',S=k==='stalker';return {
-  armor:pbr('armor',{color:B?0x6a4a38:S?0x4c4470:0x565c68,emissive:S?0xa050ff:0xff6a2a,emissiveIntensity:0,envMapIntensity:.9}),
+  armor:pbr('armor',{color:B?0x66754a:S?0x3a3654:0x9a927f,emissive:S?0xa050ff:0xff6a2a,emissiveIntensity:0,envMapIntensity:.9}),
   frame:pbr('plate',{color:0x9098a4,envMapIntensity:.6}),
-  trim:pbr('steel',{color:B?0x8a6a4a:S?0x6c648c:0x767c88,envMapIntensity:.9}),
+  trim:pbr('steel',{color:B?0x8a8672:S?0x6c648c:0x767c88,envMapIntensity:.9}),
   rubber:pbr('rubber',{envMapIntensity:.3}),
   blade:pbr('steel',{color:0xb8bcc6,roughness:.6,envMapIntensity:1.4}),
   glow:new THREE.MeshBasicMaterial({color:hdr(S?0xa040ff:0xff4d14,3.4)})};};

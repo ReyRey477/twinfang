@@ -16,6 +16,7 @@ const HX={cam:null,stage:null,orbit:null,frames:0,calls:0,tris:0,
     this.begin();this.hud(false);for(const d of ENCS)d.done=true;G.resetCombat();
     const cx=0,cz=109,p=G.player;this.tp(cx,0,kind==='hero'?cz:cz-30,0);G.ts=0;
     if(!this.lights){this.lights=[[3,4.2,-4,0xfff2e0,46],[-4.5,2.6,-1.5,0x45d4ff,30],[3.5,3.4,4.5,0xff8a3a,28]].map(([x,y,z,c,i])=>{const L=new THREE.PointLight(c,i,16,2);L.position.set(cx+x,y,cz+z);scene.add(L);return L;});}
+    this.lights.forEach((L,i)=>{L.intensity=[46,30,28][i]*(kind==='hero'?1:2.2);});
     let root=null,h=1.1,d=4.2,upd=null;const enc={gy:0,ar:inset(AREA.hall,1),ceil:16};
     if(this.stage){this.stage.remove&&this.stage.remove();this.stage=null;}
     if(kind==='hero'){root=p.rig.root;root.position.set(cx,0,cz);root.rotation.y=PI;root.visible=true;const c=o.clip&&CL[o.clip];if(c)p.rig.play(c,0,true);if(o.set!==undefined){p.set=p.wantSet=+o.set;p.rig.setWeapon(+o.set);}upd=dt=>{p.rig.update(dt);};}
