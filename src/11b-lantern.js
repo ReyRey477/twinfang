@@ -39,7 +39,8 @@ const orbs={list:[],pool:[],
 
 // ===================== MODEL KIT (Lantern, Stormvane) =====================
 // Parts are added to a (parent, material) set with a transform and merged into one mesh per set, so a detailed model costs
-// a handful of draw calls. UVs are scaled by part size (even texture grain); materials with vertexColors get a tint per part.
+// a handful of draw calls. UVs are scaled by part size (even texture grain); materials with vertexColors get a tint per part
+// (a hex colour, or a THREE.Color, which may go above 1: bright gold on a dark metal set).
 const LN_M=new THREE.Matrix4(),LN_Q=new THREE.Quaternion(),LN_E=new THREE.Euler(),LN_P=V(),LN_S=V(1,1,1),LN_C=new THREE.Color(),LN_ZAX=V(0,0,1);
 const LN_a=V(),LN_b=V(),LN_c=V(),LN_d=V(),LN_e=V(),LN_f=V();
 function LN_kit(){
@@ -51,7 +52,7 @@ function LN_kit(){
     if(M.determinant()<0)for(const k of ['position','normal','uv']){const a=A[k].array,w=A[k].itemSize;for(let i=0;i<cnt;i+=3)for(let c=0;c<w;c++){const p=(i+1)*w+c,q=(i+2)*w+c,t=a[p];a[p]=a[q];a[q]=t;}}
     const tile=mat.userData.tile;
     if(tile){g.computeBoundingBox();const s=g.boundingBox.getSize(LN_P),k=max(s.x,s.y,s.z)/tile,uv=A.uv,ou=(++n*.37)%1,ov=(n*.61)%1;for(let i=0;i<cnt;i++)uv.setXY(i,uv.getX(i)*k+ou,uv.getY(i)*k+ov);}
-    if(mat.vertexColors){LN_C.set(col);const c=new Float32Array(cnt*3);for(let i=0;i<cnt;i++){c[i*3]=LN_C.r;c[i*3+1]=LN_C.g;c[i*3+2]=LN_C.b;}g.setAttribute('color',new THREE.BufferAttribute(c,3));}
+    if(mat.vertexColors){col.isColor?LN_C.copy(col):LN_C.set(col);const c=new Float32Array(cnt*3);for(let i=0;i<cnt;i++){c[i*3]=LN_C.r;c[i*3+1]=LN_C.g;c[i*3+2]=LN_C.b;}g.setAttribute('color',new THREE.BufferAttribute(c,3));}
     const key=par.uuid+'|'+mat.uuid;let s=sets.get(key);if(!s)sets.set(key,s={par,mat,geos:[]});s.geos.push(g);
   };
   const add=(par,geo,mat,x=0,y=0,z=0,sx=1,sy=1,sz=1,rx=0,ry=0,rz=0,col)=>put(par,geo,mat,LN_M.compose(LN_P.set(x,y,z),LN_Q.setFromEuler(LN_E.set(rx,ry,rz)),LN_S.set(sx,sy,sz)),col);
@@ -116,12 +117,13 @@ const LN_cone=(r,h,n=5)=>new THREE.ConeGeometry(r,h,n);
 const LN_SPH=new THREE.SphereGeometry(1,10,7),LN_UZ=new THREE.CylinderGeometry(1,1,1,8).rotateX(PI/2).translate(0,0,.5),LN_UZT=new THREE.CylinderGeometry(.62,1,1,8).rotateX(PI/2).translate(0,0,.5);
 // blade feather, unit size: quill at the origin, tip at z=1, width along X (leading edge +X), a ridge along the middle
 const LN_BLADE=LN_loft([[0,.14,.25],[.05,.3,.45],[.16,.5,.5],[.72,.5,.4],[.9,.36,.25,0,.1],[1,.02,.04,0,.3]],4,true);
-const LN_STRIP=new THREE.BoxGeometry(.09,1.5,.66).translate(0,0,.53);
+const LN_STRIP=new THREE.BoxGeometry(.05,1.6,.74).translate(.43,0,.5);   // the line of light along a feather's leading edge
 
 // ===================== LANTERN =====================
-// A slender six-armed automaton that hovers out of reach: horned mask, halo, the core held in a gimbal inside an open chest.
+// A slender six-armed automaton that hovers out of reach: antlered mask, halo, the core held in a gimbal inside an open chest.
+// It is the dark counterpart of the white hero: gunmetal with gold trim, its light kept to rings, palms and the core.
 // The core is the origin (orbs and the shield tether start there). The geometry is built once and shared by every Lantern.
-const LN_COL={dark:0x566074,mid:0x8f99ad,pale:0xeceff4,gold:0xd6ac5e,joint:0x1b1e25};
+const LN_COL={dark:0x595f6d,mid:0x767d8e,pale:0xa0a8ba,gold:new THREE.Color(0xe0b25c).multiplyScalar(2.6),joint:0x2a2d36};
 const LN_LA=.5,LN_LF=.48,LN_SC=1;                                   // arm bone lengths, figure scale
 const LN_SH=[[.3,.42,-.14],[.27,.22,-.24],[.22,.02,-.28]];            // left shoulders: upper, middle, lower pair
 const LN_POLE=[[.5,-.6,-.5],[.8,-.3,-.5],[.5,.1,-.9]];                // where each pair's elbows point
@@ -134,7 +136,7 @@ const LN_POSE={
 let LN_PARTS=null;
 function LN_lanternParts(){
   if(LN_PARTS)return LN_PARTS;
-  const K=LN_kit(),TM={uuid:'metal',userData:{tile:TILE.armor},vertexColors:true},TG={uuid:'glow',userData:{}},grp={};
+  const K=LN_kit(),TM={uuid:'metal',userData:{tile:TILE.iron},vertexColors:true},TG={uuid:'glow',userData:{}},grp={};
   for(const k of ['body','head','cage','legs','shin','cab','ua','fa','palm'])grp[k]={uuid:k};
   const {body,head,cage,legs,shin,cab,ua,fa,palm}=grp,{dark:D,mid:Md,pale:Pl,gold:Au,joint:Jn}=LN_COL;
   const m=(par,geo,col,x,y,z,sx,sy,sz,rx,ry,rz)=>K.add(par,geo,TM,x,y,z,sx,sy,sz,rx,ry,rz,col),mm=(par,geo,col,x,y,z,sx,sy,sz,rx,ry,rz)=>K.pair(par,geo,TM,x,y,z,sx,sy,sz,rx,ry,rz,col);
@@ -158,17 +160,17 @@ function LN_lanternParts(){
   mm(body,LN_shell((u,v,o)=>{const a=-1.0+u*2.0,r=.2+.12*v,y=-.5-v*(.34-.2*pow(abs(2*u-1),2));return o.set(cos(a)*r,y,-.08+sin(a)*r*.8);},8,4,.018),Pl);
   bar(body,[0,.46,zc(.46)],[0,.64,-.14],.034,Jn); bars(body,[.03,.44,-.24],[.03,.62,-.2],.01,Md);
   for(const s of [-1,1])m(body,LN_tube([[s*.09,.66,-.24],[s*.3,.52,-.42],[s*.22,.2,-.46],[s*.05,.06,-.33]],.011,5),Jn);
-  // ---- head: cowl, smooth mask with a visor slit and three ring marks, antler horns, halo
-  const mp=(a,e,off,o)=>{const k=.42+.58*smooth(sat((e+1.05)/2.25*1.8));return o.set(sin(a)*cos(e)*(.128+off)*k,.15+sin(e)*(.2+off),.012+cos(a)*cos(e)*(.168+off));};
+  // ---- head: cowl, a blank mask narrowing to a point (no mouth: one gold seam down it, three ring marks in a triangle on the brow),
+  // antlers of two swept pairs angled outwards, halo
+  const mp=(a,e,off,o)=>{const k=.2+.8*smooth(sat((e+1.05)/2.25*1.45));return o.set(sin(a)*cos(e)*(.128+off)*k,.15+sin(e)*(.2+off)*(e<0?1.14:1),.012+cos(a)*cos(e)*(.168+off));};
   m(head,GS,D,0,.15,0,.112,.142,.15);
   m(head,LN_shell((u,v,o)=>mp((u-.5)*2.6,-1.05+v*2.25,0,o),10,10,.014),Pl);
-  m(head,LN_shell((u,v,o)=>mp((u-.5)*1.9,.14+v*.075,.004,o),8,1,.01),Jn);
-  m(head,LN_shell((u,v,o)=>mp((u-.5)*.07,-.95+v*1.0,.005,o),1,6,.008),Au);
-  gl(head,LN_tor(.017,.005,TAU,10,4),0,.287,.143,1,1,1,-.6); gg(head,LN_tor(.017,.005,TAU,10,4),.033,.243,.158,1,1,1,-.4,.27,0);
-  const horn=[1,1,1,-.18,.28,0];
-  mm(head,LN_plate([[.06,.22],[.13,.2],[.3,.36],[.41,.58],[.39,.88],[.33,.93],[.31,.6],[.22,.45],[.09,.31]],.034,.01),D,0,0,-.03,...horn);
-  gg(head,LN_tor(.03,.007,TAU,14,4).scale(1,2.5,1).translate(.356,.7,.022),0,0,-.03,...horn);
-  mm(head,LN_plate([[.02,.27],[.06,.26],[.115,.56],[.085,.6]],.024,.007),Pl,0,0,.03,1,1,1,-.3,.1,0);
+  m(head,LN_shell((u,v,o)=>mp((u-.5)*.07,-1.0+v*1.05,.005,o),1,6,.008),Au);
+  gl(head,LN_tor(.021,.0055,TAU,12,4),0,.3,.136,1,1,1,-.66); gg(head,LN_tor(.021,.0055,TAU,12,4),.046,.238,.153,1,1,1,-.4,.34,0);
+  const horn=[1,1,1,-.18,.28,-.46];
+  mm(head,LN_plate([[.06,.22],[.13,.2],[.3,.36],[.41,.58],[.39,.88],[.33,.93],[.31,.6],[.22,.45],[.09,.31]],.034,.01),D,-.04,.03,-.03,...horn);
+  gg(head,LN_tor(.03,.007,TAU,14,4).scale(1,2.5,1).translate(.356,.7,.022),-.04,.03,-.03,...horn);
+  mm(head,LN_plate([[.03,.24],[.08,.22],[.2,.4],[.25,.62],[.21,.66],[.15,.46]],.026,.008),Md,0,.0,-.06,1,1,1,-.5,.5,-1.0);
   mm(head,LN_cyl(.036,.036,.03,10),Md,.112,.14,-.03,1,1,1,0,0,PI/2);
   m(head,LN_tor(.45,.011,TAU,40),Au,0,.2,-.2);
   for(let k=0;k<3;k++)gl(head,LN_tor(.45,.017,.6,8),0,.2,-.2,1,1,1,0,0,PI/2-.3+k*TAU/3);
@@ -176,6 +178,7 @@ function LN_lanternParts(){
   m(head,LN_tor(.53,.007,TAU,40,4),Jn,0,.2,-.22,1,1,1,.5,0,.5); m(head,LN_tor(.5,.007,TAU,40,4),Jn,0,.2,-.22,1,1,1,-.45,.3,-.6);
   // ---- gimbal around the core (spins)
   m(cage,LN_tor(.33,.012,TAU,32),Au); m(cage,LN_tor(.33,.012,TAU,32),Au,0,0,0,1,1,1,PI/2,0,0);
+  m(cage,LN_tor(.214,.009,TAU,24,4),D,0,0,0,1,1,1,0,PI/2,0); m(cage,LN_tor(.214,.009,TAU,24,4),D,0,0,0,1,1,1,PI/2,0,0); m(cage,LN_tor(.214,.009,TAU,24,4),D,0,0,0,1,1,1,0,0,0);   // ribs caging the glass of the orb
   for(const s of [-1,1])m(cage,LN_cone(.03,.1,5),D,0,s*.375,0,1,1,1,s>0?0:PI);
   // ---- legs: long tapering thighs with a pale shell and a ring light, shins that end in points
   const TH=[[0,.085,.1],[.12,.105,.12],[.38,.068,.078],[.57,.046,.052]],SN=[[0,.046,.052],[.13,.056,.066,.012],[.4,.032,.036,.004],[.6,.017,.02],[.72,.003,.004]];
@@ -191,12 +194,18 @@ function LN_lanternParts(){
   for(const pts of [[[.05,0,0],[.09,-.5,-.06],[.06,-1.1,.02],[.1,-1.65,-.05]],[[-.06,0,0],[-.12,-.6,-.1],[-.07,-1.2,-.02],[-.13,-1.5,.03]],[[0,0,-.03],[.01,-.7,-.14],[-.02,-1.3,-.06],[.02,-1.95,-.1]],[[.1,.05,0],[.2,-.4,-.14],[.16,-.9,-.2]]]){
     m(cab,LN_tube(pts,.011,5),Jn);const e=pts[pts.length-1];m(cab,LN_cone(.022,.09,5),Au,e[0],e[1]-.03,e[2],1,1,1,PI);}
   // ---- arms: built along -Y from the joint, the same left and right, palm towards +Z
-  m(ua,LN_cyl(.036,.03,LN_LA,7),Jn,0,-LN_LA/2,0); m(ua,LN_cyl(.062,.05,.12),D,0,-.08,0); m(ua,LN_cyl(.048,.04,.22),Md,0,-.31,0);
-  for(const s of [-1,1])m(ua,GB,Au,s*.047,-.31,0,.01,.24,.018);
-  m(ua,LN_SPH,Md,0,-LN_LA,0,.055,.055,.055);
-  m(fa,LN_cyl(.03,.024,LN_LF,7),Jn,0,-LN_LF/2,0);
-  m(fa,LN_loft([[.06,.046,.034],[.2,.05,.038],[.4,.034,.03]],8),Pl,0,0,-.016,1,1,1,PI/2,0,0);
-  m(fa,LN_cyl(.037,.037,.03,8),Au,0,-LN_LF+.02,0); m(fa,GB,D,0,-LN_LF-.065,0,.1,.12,.03);
+  // twin-strut upper arm under a shoulder cap and a sleeve plate, a hinge disc at the elbow, a forearm plate and a wrist bracer
+  // that carries the ring glyph
+  for(const s of [-1,1])m(ua,LN_cyl(.016,.014,LN_LA,6),Jn,s*.022,-LN_LA/2,0);
+  m(ua,LN_shell((u,v,o)=>{const a=(u-.5)*3.4,y=.07-v*.2,r=.05+.03*sin(sat(v*1.4)*PI*.5);return o.set(sin(a)*r,y,-cos(a)*r);},6,3,.014),Pl);
+  m(ua,LN_shell((u,v,o)=>{const a=(u-.5)*2.6,y=-.2-v*.22,r=.052-.012*v;return o.set(sin(a)*r,y,-cos(a)*r);},5,2,.012),Md);
+  for(const s of [-1,1])m(ua,GB,Au,s*.05,-.31,-.012,.008,.2,.014);
+  m(ua,LN_cyl(.05,.05,.08,10),D,0,-LN_LA,0,1,1,1,0,0,PI/2); m(ua,LN_cyl(.024,.024,.1,8),Au,0,-LN_LA,0,1,1,1,0,0,PI/2);
+  for(const s of [-1,1])m(fa,LN_cyl(.013,.011,LN_LF,6),Jn,s*.018,-LN_LF/2,0);
+  m(fa,LN_shell((u,v,o)=>{const a=(u-.5)*2.7,y=-.07-v*.25,r=.036+.02*sin(sat(v*2.5)*PI*.5)-.014*v;return o.set(sin(a)*r,y,-cos(a)*r);},5,3,.012),Pl);
+  m(fa,LN_cyl(.046,.04,.1,8),D,0,-LN_LF+.07,0); m(fa,LN_cyl(.048,.048,.014,8),Au,0,-LN_LF+.118,0); m(fa,LN_cyl(.042,.042,.014,8),Au,0,-LN_LF+.022,0);
+  gl(palm,LN_tor(.019,.005,TAU,10,4),0,-LN_LF+.07,-.047);
+  m(fa,GB,D,0,-LN_LF-.065,0,.1,.12,.03);
   for(const [dx,l,rz] of [[0,1.15,0],[-.034,1,-.1],[.034,1,.1]]){const y=-LN_LF-.125;
     m(fa,GB,Md,dx+rz*.045,y-.05*l,.007,.02,.1*l,.02,-.15,0,rz); m(fa,GB,Md,dx+rz*.13,y-.14*l,.032*l,.016,.085*l,.016,-.5,0,rz);}
   for(const s of [-1,1])m(fa,GB,Md,s*.085,-LN_LF-.06,.012,.018,.085,.018,0,0,s*1.0);
@@ -210,7 +219,7 @@ class Lantern{
     this.pos=V(x,this.gy+4.2,z);this.vel=V();this.state='spawn';this.t=0;this.low=0;this.lowT=0;this.fireCd=rand(1.6,3.2);this.linkCd=1.2;this.link=o.link||null;this.forced=!!o.link;
     this.flash=0;this.dead=false;this.gone=false;this.strafe=random()<.5?-1:1;this.strafeT=rand(2,4);this.seed=rand(10);
     const root=this.root=new THREE.Group(); root.rotation.order='YXZ'; scene.add(root);
-    this.metal=pbr('armor',{vertexColors:true,emissive:0x9fd0ff,emissiveIntensity:0,envMapIntensity:1});
+    this.metal=charMat('iron',{vertexColors:true,roughness:1.1,emissive:0x9fd0ff,emissiveIntensity:0,envMapIntensity:.75,rim:0x8fe0ff,rimK:.6});
     this.glowM=new THREE.MeshBasicMaterial({color:hdr(0x4fe6dc,2.2)});
     const parts=LN_lanternParts(),mats={metal:this.metal,glow:this.glowM},fig=new THREE.Group(); fig.scale.setScalar(LN_SC); root.add(fig);
     const grp=(name,par,x=0,y=0,z=0)=>{const g=new THREE.Group();g.position.set(x,y,z);g.rotation.order='YXZ';par.add(g);
@@ -219,7 +228,10 @@ class Lantern{
     const inst=(name,mat)=>{const m=new THREE.InstancedMesh(parts[name][0][0],mat,6);m.frustumCulled=false;m.castShadow=!mat.isMeshBasicMaterial;body.add(m);return m;};
     this.ua=inst('ua',this.metal);this.fa=inst('fa',this.metal);this.palm=inst('palm',this.glowM);
     this.hand=[];for(let i=0;i<6;i++){const p=LN_POSE.idle[i>>1];this.hand.push(V(p[0]*(i&1?-1:1),p[1],p[2]));}
-    this.coreM=new THREE.MeshBasicMaterial({color:hdr(0xcfe4ff,3)}); this.core=new THREE.Mesh(GS,this.coreM); this.core.scale.setScalar(.2); root.add(this.core);
+    // the orb: a small core of light inside a shell of dark glass, so the charge reads as the light rising to fill it
+    this.coreM=new THREE.MeshBasicMaterial({color:hdr(0xcfe4ff,2)}); this.core=new THREE.Mesh(GS,this.coreM); this.core.scale.setScalar(.085); root.add(this.core);
+    this.glassM=new THREE.MeshStandardMaterial({color:0x0c1826,roughness:.16,metalness:0,transparent:true,opacity:.5,depthWrite:false,envMapIntensity:2}); this.glassM.onBeforeCompile=guardOut;
+    const gs=new THREE.Mesh(GS,this.glassM); gs.scale.setScalar(.2); gs.renderOrder=1; root.add(gs);
     const s=new THREE.Sprite(this.glowS=new THREE.SpriteMaterial({map:glowTex,color:hdr(0x8fc0ff,.4),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:false})); s.scale.setScalar(1.6); root.add(s);
     this.beam=makeBeam(0x9fd0ff); if(this.link)this.link.shield=this;
     const pp=G.player.pos; this.yaw=atan2(pp.x-x,pp.z-z); this.fold=0;this.kick=0;this.pS='';this.hx=.3;
@@ -231,7 +243,7 @@ class Lantern{
   solid(){return 0;}
   cy(){return this.pos.y;}
   hitPos(o){return o.copy(this.pos);}
-  remove(){scene.remove(this.root);this.unlink();this.beam.dispose();for(const m of [this.ua,this.fa,this.palm])m.dispose();for(const m of [this.metal,this.glowM,this.coreM,this.glowS])m.dispose();}
+  remove(){scene.remove(this.root);this.unlink();this.beam.dispose();for(const m of [this.ua,this.fa,this.palm])m.dispose();for(const m of [this.metal,this.glowM,this.coreM,this.glassM,this.glowS])m.dispose();}
   unlink(cd=3){if(this.link&&this.link.shield===this)this.link.shield=null;if(!this.forced||this.dead)this.link=null;this.linkCd=cd;}
   takeHit(h,dx,dz){
     if(this.dead||this.ghost)return;this.hp-=h.dmg;this.flash=1;if(!this.forced)this.unlink();
@@ -311,7 +323,10 @@ class Lantern{
     this.legs.rotation.set(-fold*1.3+clamp(vz*.06,-.25,.25)+sin(rt*.8)*.035,0,clamp(-vx*.05,-.2,.2));this.shin.rotation.x=fold*2.8+.1+sin(rt*.8+1)*.04;
     this.cab.scale.y=clamp((clear-.6)/2.05,.15,1);this.cab.rotation.set(clamp(vz*.08,-.4,.4)+sin(rt*1.1)*.05,0,clamp(-vx*.08,-.4,.4)+sin(rt*.8)*.04);
     this.cage.rotation.y+=dt*(S==='stun'?.3:S==='charge'?1.6+this.t*10:1.6);this.cage.rotation.x=sin(rt)*.3;
-    this.coreM.color.setHex(0xcfe4ff).multiplyScalar(glow*.55);this.core.scale.setScalar(.2+(S==='charge'?this.t*.15:0));
+    // light level of the orb: idle sits at about a third of a full charge, a stunned Lantern gutters at a few per cent
+    const lv=S==='stun'?.035+.03*abs(sin(rt*23)*sin(rt*7.3)):min(4,glow/8.2);
+    this.coreM.color.setHex(0xcfe4ff).multiplyScalar(lv*5.4);this.core.scale.setScalar(.085+(S==='charge'?min(.11,this.t*.16):0));
+    this.glassM.opacity=.5-.3*sat(lv-.4);this.glowS.color.setHex(0x8fc0ff).multiplyScalar(.04+.5*lv*lv);
     this.glowM.color.setHex(0x4fe6dc).multiplyScalar(.75*glow);
     this.metal.emissiveIntensity=.05+this.flash*this.flash*2;
   }

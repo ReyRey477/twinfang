@@ -17,7 +17,7 @@ const heroMats={
 // Foes: bone-khaki ceramic (Husk), matte military olive (Brute), violet-black (Stalker, with a magenta rim from below so its
 // outline reads in a dark hall). Their armour carries the emissive colour the enemy code raises for tells and hit flashes.
 const enemyMats=k=>{const B=k==='brute',S=k==='stalker';return {
-  armor:charMat('armor',Object.assign({color:B?0x5f6c3e:S?0x393052:0xb7a478,emissive:S?0xa050ff:0xff6a2a,emissiveIntensity:0,envMapIntensity:.6},S?{rim:0xff3fc8,rimK:.45,rimY:-1}:{})),
+  armor:charMat('armor',Object.assign({color:B?0x5f6c3e:S?0x393052:0xb7a478,emissive:S?0xa050ff:0xff6a2a,emissiveIntensity:0,envMapIntensity:.6,hold:.6},S?{rim:0xff3fc8,rimK:.45,rimY:-1}:{})),
   frame:charMat('frame',Object.assign({color:S?0x9a94b4:0xa4a8b2,envMapIntensity:.9},S?{rim:0xff3fc8,rimK:.3,rimY:-1}:{})),
   trim:pbr('steel',{color:B?0x8a8672:S?0x7a70a0:0x8a8e98,envMapIntensity:.9}),
   rubber:pbr('rubber',{envMapIntensity:.3}),
@@ -26,10 +26,10 @@ const enemyMats=k=>{const B=k==='brute',S=k==='stalker';return {
   edge:pbr('steel',{color:0xf4f6ff,roughness:.5,envMapIntensity:2}),
   glow:new THREE.MeshBasicMaterial({color:hdr(S?0xa040ff:0xff4d14,3.4)})};};
 const wardenMats=()=>({
-  armor:charMat('iron',{color:0x7e838e,emissive:0xff6a2a,emissiveIntensity:0,envMapIntensity:.8}),
-  dark:charMat('frame',{color:0x9a9aa2,emissive:0xff4a14,emissiveIntensity:0,envMapIntensity:.8}),
+  armor:charMat('iron',{color:0x7e838e,emissive:0xff6a2a,emissiveIntensity:0,envMapIntensity:.8,rim:0xffa468,rimK:.3,rimY:-1}),   // rim: the glow of the hall's floor ring
+  dark:charMat('frame',{color:0x9a9aa2,emissive:0x9a300c,emissiveIntensity:0,envMapIntensity:.8,rim:0xffa468,rimK:.2,rimY:-1}),   // a dull heat: the fire is in the core and the joints
   trim:pbr('steel',{color:0xc08a3c,envMapIntensity:1.1}),
-  cloth:charMat('armor',{color:0x7a1a20,envMapIntensity:.4}),
+  cloth:charMat('armor',{color:0x7a1a20,envMapIntensity:.4,hold:.5}),
   rubber:pbr('rubber',{envMapIntensity:.3}),
   blade:pbr('steel',{color:0x8a8e98,roughness:1.6,envMapIntensity:1.3}),
   edge:pbr('steel',{color:0xfff0dc,roughness:.5,envMapIntensity:2}),

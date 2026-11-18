@@ -166,18 +166,21 @@ function pbr(set,o={}){
   const m=new MSM(Object.assign({map:t.map,normalMap:t.nrm,roughnessMap:t.orm,metalnessMap:t.orm,aoMap:t.orm,roughness:1,metalness:1,envMapIntensity:.8},o));
   m.normalScale.set(ns,ns);m.userData.tile=TILE[set];m.onBeforeCompile=guardOut;m.customProgramCacheKey=()=>'pbr';return m;
 }
-// Character materials add two things to the standard shading:
+// Character materials add three things to the standard shading:
 //  - a tell or a hit flash (the material's emissive colour, raised by the enemy code) gathers on the silhouette instead of painting
 //    the whole body one flat colour: the lit surface stays readable while its rim burns, white-hot at the peak of a hit;
-//  - an optional rim light (o.rim = colour, o.rimK = strength, o.rimY = 1 from above, -1 from below) that lifts a figure off a dark room.
+//  - an optional rim light (o.rim = colour, o.rimK = strength, o.rimY = 1 from above, -1 from below) that lifts a figure off a dark room;
+//  - o.hold (0..1): how far the colour of the direct light is ignored on the painted surface, so a khaki Husk stays khaki when a teal
+//    strip light is behind it. The light still shades it; only its hue is pulled toward white.
 function charMat(set,o={}){
-  const c=new THREE.Color(o.rim||0).multiplyScalar(o.rimK??1),rim=new THREE.Vector4(c.r,c.g,c.b,o.rimY??1);delete o.rim;delete o.rimK;delete o.rimY;
+  const c=new THREE.Color(o.rim||0).multiplyScalar(o.rimK??1),rim=new THREE.Vector4(c.r,c.g,c.b,o.rimY??1),hold={value:o.hold||0};delete o.rim;delete o.rimK;delete o.rimY;delete o.hold;
   const m=pbr(set,o);
-  m.onBeforeCompile=s=>{guardOut(s);s.uniforms.uRim={value:rim};
-    s.fragmentShader=s.fragmentShader.replace('#include <common>','#include <common>\nuniform vec4 uRim;').replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
+  m.onBeforeCompile=s=>{guardOut(s);s.uniforms.uRim={value:rim};s.uniforms.uHold=hold;
+    s.fragmentShader=s.fragmentShader.replace('#include <common>','#include <common>\nuniform vec4 uRim;uniform float uHold;').replace('#include <lights_fragment_end>',`#include <lights_fragment_end>
+      {vec3 cL=reflectedLight.directDiffuse/max(material.diffuseColor,vec3(.004));reflectedLight.directDiffuse=mix(cL,vec3(dot(cL,vec3(.2126,.7152,.0722))),uHold)*material.diffuseColor;}`).replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
       {vec3 cV=vViewPosition*inversesqrt(max(dot(vViewPosition,vViewPosition),1e-12));float cF=1.-clamp(abs(dot(cV,normal)),0.,1.),cF3=cF*cF*cF;
-      float cE=max(totalEmissiveRadiance.r,max(totalEmissiveRadiance.g,totalEmissiveRadiance.b));
-      totalEmissiveRadiance=mix(totalEmissiveRadiance,vec3(cE),smoothstep(1.3,1.8,cE)*.85)*(.1+2.4*cF3);
+      float cE=max(totalEmissiveRadiance.r,max(totalEmissiveRadiance.g,totalEmissiveRadiance.b)),cH=smoothstep(1.3,1.8,cE);
+      totalEmissiveRadiance=mix(totalEmissiveRadiance,vec3(cE),cH*.85)*(.14*(1.-.7*cH)+3.*cF*cF*(1.-.45*cH));
       totalEmissiveRadiance+=uRim.rgb*cF3*clamp(.5+uRim.a*normal.y*.7,0.,1.);}`);};
   m.customProgramCacheKey=()=>'char';return m;
 }
