@@ -33,6 +33,15 @@ node tools/audio_lab.mjs                                  # runs the sound engin
 python tools/audio_view.py                                # spectrogram sheets and a table (length, peak, loudness, tonalness, ring time) for those WAVs
 ```
 
+The pictures a reviewer should judge, and the sample set:
+
+```bash
+python tools/review.py r1                                 # builds, then photographs the interface, about 40 combat moments and every character into tools/shots/review/r1 with a manifest of captions
+python tools/audio_bands.py mus_combat2 mix_fight         # octave-band balance of the lab's rendered scenes against a rough target for a metal mix
+python tools/fetch_samples.py                             # downloads the raw CC0 recordings into samples_src/ (git-ignored, about 70 MB)
+python tools/make_samples.py                              # cuts, levels, tunes and encodes them into src/samples/ (needs ffmpeg and the soundfile module)
+```
+
 `audio_view.py` needs numpy, scipy and Pillow. Its `ring` column is the longest time a narrow spectral peak above 250 Hz holds its pitch: the signature of a bell. Keep it under about 60 ms.
 
 Every run prints the page's console errors at the end. A scenario is a small module, so adding a check means adding a file.
