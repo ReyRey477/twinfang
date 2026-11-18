@@ -20,7 +20,11 @@ for (const d of ['bank', 'scenes']) { fs.rmSync(path.join(OUT, d), { recursive: 
 // the engine only needs the math helpers from 01-util.js (everything from the Math destructuring up to turnTo)
 const util = fs.readFileSync(path.join(ROOT, 'src/01-util.js'), 'utf8').split(/\r?\n/);
 const a = util.findIndex(l => l.startsWith('const {sin,cos')), b = util.findIndex(l => l.startsWith('const turnTo'));
-const code = util.slice(a, b + 1).join('\n') + '\n' + fs.readFileSync(SRC, 'utf8');
+// the same samples part build.py generates from src/samples
+const sdir = path.join(ROOT, 'src/samples'), sidx = path.join(sdir, 'index.json');
+const tune = fs.existsSync(sidx) ? Object.fromEntries(Object.entries(JSON.parse(fs.readFileSync(sidx, 'utf8'))).map(([k, v]) => [k, v.f])) : {};
+const smp = fs.existsSync(sdir) ? `const SMP={f:${JSON.stringify(tune)},d:{${fs.readdirSync(sdir).filter(f => f.endsWith('.mp3')).sort().map(f => `'${f.slice(0, -4)}':'${fs.readFileSync(path.join(sdir, f)).toString('base64')}'`).join(',')}}};\n` : '';
+const code = util.slice(a, b + 1).join('\n') + '\n' + smp + fs.readFileSync(SRC, 'utf8');
 
 const wav = (file, chans, sr) => {   // chans: Int16Array per channel
   const n = chans[0].length, nc = chans.length, buf = Buffer.alloc(44 + n * nc * 2);
@@ -46,7 +50,9 @@ try {
   if (ONLY !== 'scenes') {
     // ---- the bank, synthesised the way the game does it (sliced, real-time context) ----
     const initMs = await page.evaluate(() => { const t = performance.now(); sfx.init(); return performance.now() - t; });
-    await page.waitForFunction(() => sfx.ready_ === true, null, { timeout: 120000 });
+    await page.waitForFunction(() => sfx.ready_ === true && (!sfx.loaded || sfx.smpReady), null, { timeout: 120000 });
+    // the recordings go out with the bank (as smp-<group>) so audio_view.py screens them for ringing too
+    await page.evaluate(() => { for (const k in sfx.smp) if (!/^(g|bs|bt)\d+$/.test(k)) sfx.bank['smp-' + k] = sfx.smp[k].map(e => e.b); });
     const info = await page.evaluate(() => ({ sr: sfx.c.sampleRate, synth: Math.round(sfx.synthMs), maxSlice: +(sfx.maxSlice || 0).toFixed(1), names: Object.fromEntries(Object.entries(sfx.bank).map(([k, v]) => [k, v.length])) }));
     console.log(`init ${initMs.toFixed(1)} ms   synthesis ${info.synth} ms in slices (longest ${info.maxSlice} ms)   sample rate ${info.sr}   ${Object.values(info.names).reduce((p, q) => p + q, 0)} buffers in ${Object.keys(info.names).length} sounds`);
     for (const [name, n] of Object.entries(info.names)) for (let v = 0; v < n; v++) {
@@ -65,9 +71,12 @@ try {
       mus_explore: { dur: 20, f: `(s,t)=>s.tick(false,0,1/60)` },
       amb_hall: { dur: 10, pre: `s=>s.mGain.gain.value=0`, f: `(s,t)=>s.tick(false,0,1/60)` },
       mus_pad: { dur: 10, pre: `s=>s.bedHall.disconnect()`, f: `(s,t)=>s.tick(false,0,1/60)` },
-      mus_combat0: { dur: 15, f: `(s,t)=>s.tick(true,0,1/60)` },
-      mus_combat2: { dur: 15, f: `(s,t)=>s.tick(true,2,1/60)` },
-      mus_combat4: { dur: 15, f: `(s,t)=>s.tick(true,4,1/60)` },
+      stem_drums: { dur: 13, pre: `s=>{s.gtrBus.gain.value=0;s.bassIn.gain.value=0;s.padG.disconnect();s.bedHall.disconnect();}`, f: `(s,t)=>s.tick(true,2,1/60)` },
+      stem_guitars: { dur: 13, pre: `s=>{s.drumBus.gain.value=0;s.bassIn.gain.value=0;s.padG.disconnect();s.bedHall.disconnect();}`, f: `(s,t)=>s.tick(true,2,1/60)` },
+      stem_bass: { dur: 13, pre: `s=>{s.drumBus.gain.value=0;s.gtrBus.gain.value=0;s.padG.disconnect();s.bedHall.disconnect();}`, f: `(s,t)=>s.tick(true,2,1/60)` },
+      mus_combat0: { dur: 27, f: `(s,t)=>s.tick(true,0,1/60)` },
+      mus_combat2: { dur: 27, f: `(s,t)=>s.tick(true,2,1/60)` },
+      mus_combat4: { dur: 27, f: `(s,t)=>s.tick(true,4,1/60)` },
       amb_roof: { dur: 12, roof: true, f: `(s,t,at)=>{s.tick(false,0,1/60);if(at(4))s.thunder(1);if(at(9))s.thunder(.45);}` },
       mix_transition: { dur: 18, f: `(s,t)=>s.tick(t>4&&t<11,t>7?3:0,1/60)` },
       mix_fight: { dur: 15, f: `(s,t,at,ev)=>{s.tick(t>1&&t<12.2,2,1/60);
@@ -86,7 +95,7 @@ try {
         const sr = 48000, ctx = new OfflineAudioContext(2, sr * dur, sr); let T = 0, F = 0;
         Object.defineProperty(ctx, 'currentTime', { get: () => T, configurable: true });
         window.G = roof ? { player: { pos: { z: 300 } } } : undefined;
-        const s = new Sfx(), t0 = performance.now(); s.init(ctx, true); const synth = performance.now() - t0; if (pre) eval(pre)(s);
+        const s = new Sfx(), t0 = performance.now(); s.init(ctx, true); const synth = performance.now() - t0; if (s.loaded) await s.loaded; if (pre) eval(pre)(s);
         const fn = eval(f), at = x => Math.round(x * 60) === F, ev = p => Math.floor((F + 1) / 60 / p) !== Math.floor(F / 60 / p);
         for (F = 0; F < dur * 60; F++) { T = F / 60; fn(s, T, at, ev); }
         delete ctx.currentTime;

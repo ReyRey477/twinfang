@@ -1,18 +1,26 @@
 // ===================== AUDIO =====================
-// Everything is synthesised when the game starts; there are no sound files. A recipe writes samples into a buffer by
-// layering band-limited noise (air, scrape, hiss), saturated crunch, low sine thumps, gritty "electric" noise and
-// "clank": dozens of inharmonic modes that all die within ~20 ms, so metal reads as struck plate and never rings like
-// a bell. Nothing in the bank holds a pure tone above ~250 Hz. Several variants per sound keep repeats from sounding
-// identical. Playback runs through two generated convolution reverbs (machine hall / open roof), a bus compressor and
-// a soft clipper. The music is sequenced live in D minor: sampled drums, filtered bass, a pad, a driven chug and a lead,
-// layered by combat intensity; out of combat only the pad and the ambience beds remain.
-const MUS={bpm:138,
-  ROOT:[0,0,-4,-2,0,0,5,7],                                                 // bar roots in semitones from D2: Dm Dm Bb C Dm Dm Gm Am
-  PAD:[[0,7,15],[0,7,15],[-4,3,12],[-2,5,14],[0,7,15],[0,7,15],[-7,0,8],[-5,2,10]],   // pad voicings, semitones from D3
-  BASS:[0,-1,0,0,-1,0,-1,12,0,-1,0,0,-1,7,12,-1],                            // 16th steps, semitones above the bar root, -1 = rest
-  CHUG:[2,0,1,1,0,1,0,1,2,0,1,1,0,1,1,0],                                    // 2 = open accent, 1 = muted
-  LEAD:[[[0,6,12],[6,10,15]],[[0,8,14],[8,8,12]],[[0,6,12],[6,6,15],[12,4,17]],[[0,12,14],[12,4,10]],
-        [[0,6,19],[6,10,17]],[[0,8,15],[8,8,14]],[[0,6,12],[6,6,17],[12,4,20]],[[0,12,19],[12,4,14]]]};   // [step, length in steps, semitones from D4]
+// Two kinds of sound live here.
+// The band is made of real recordings (public-domain samples, see src/samples/CREDITS.md, embedded by build.py): an
+// acoustic drum kit, an electric guitar that was recorded direct and is played here through a modelled amplifier and
+// speaker cabinet, twice (left and right, like a double-tracked record), and a bass. The song is sequenced live so it
+// can follow the fight: verse riff and chorus in D minor, with fills, lead guitar and double kick added as the style
+// rank climbs. Out of combat a pad and a clean guitar take over.
+// Effects are still synthesised at start-up (band-limited noise, saturated crunch, low thumps, electric grit and short
+// dense "clank"; nothing holds a pure tone above ~250 Hz, so nothing rings like a bell), and the weapon and impact
+// sounds get a layer of recorded steel and air on top. Playback runs through two generated reverbs (machine hall /
+// open roof), a bus compressor and a soft clipper.
+// Guitar parts are [step, length, kind, semitones above D]: 'c' power chord, 'm' palm-muted note; sixteen steps to a bar.
+const MUS={bpm:152,
+  VERSE:[
+    [[0,2,'c',0],[2,1,'m',0],[3,1,'m',0],[4,2,'m',0],[6,1,'m',0],[7,1,'m',0],[8,2,'c',3],[10,1,'m',0],[11,1,'m',0],[12,2,'c',5],[14,2,'c',3]],
+    [[0,2,'c',0],[2,1,'m',0],[3,1,'m',0],[4,2,'m',0],[6,1,'m',0],[7,1,'m',0],[8,2,'c',3],[10,1,'m',0],[11,1,'m',0],[12,2,'c',6],[14,2,'c',5]],
+    [[0,2,'c',0],[2,1,'m',0],[3,1,'m',0],[4,2,'m',0],[6,1,'m',0],[7,1,'m',0],[8,2,'c',3],[10,1,'m',0],[11,1,'m',0],[12,2,'c',5],[14,2,'c',3]],
+    [[0,2,'c',0],[2,1,'m',0],[3,1,'m',0],[4,2,'m',0],[6,1,'m',0],[7,1,'m',0],[8,2,'c',8],[10,2,'c',8],[12,2,'c',10],[14,2,'c',10]]],
+  CHORD:[0,8,10,7,0,3,5,7],                                 // chorus roots, semitones above D: D Bb C A | D F G A
+  STRUM:[[0,3],[3,3],[6,2],[8,3],[11,3],[14,2]],            // where the chorus chords land, and how long they ring
+  LEAD:[[[0,6,69],[6,2,74],[8,8,77]],[[0,4,77],[4,4,74],[8,8,70]],[[0,6,79],[6,2,76],[8,8,72]],[[0,4,76],[4,4,73],[8,8,69]],
+        [[0,6,74],[6,2,77],[8,8,81]],[[0,4,84],[4,4,81],[8,8,77]],[[0,6,82],[6,2,79],[8,8,74]],[[0,4,76],[4,4,81],[8,8,85]]],   // [step, length, MIDI note]
+  CALM:[[50,57,65],[46,53,62],[48,55,64],[45,52,61]]};      // exploration chords as MIDI notes: Dm Bb C A
 class Sfx{
   constructor(){this.ok=false;this.bank={};this.lastAt={};this.lastV={};}
   // The game calls init() with no arguments on the first click. tools/audio_lab.mjs passes an OfflineAudioContext and
@@ -131,14 +139,7 @@ class Sfx{
         for(let k=0;k<4;k++)mix(x,dec(bq(noise(.12),'hp',rnd(1800,3200)),.0005,rnd(.01,.035)),k?rnd(.02,.3):0,k?rnd(.15,.3):.4);mix(x,thump(1.6,62,29,.55,.2),0,.5);return fin(drive(x,1.6));}],
       roar:[2,()=>{const d=1.6,x=buf(1.75),gr=rnd(21,26);for(const [f,k] of [[68,.5],[68.8,.4],[102.5,.3],[137,.25]])mix(x,osc(d,f,f*.56,'saw'),0,k);bq(x,'lp',k=>1000*pow(.3,k),1.3);
         shape(x,k=>min(1,k*14)*pow(max(0,1-k*1.09),.7)*(.7+.3*sin(k*1.75*TAU*gr)));mix(x,shape(bq(noise(1.5),'bp',k=>560*pow(.35,k),1.5),k=>min(1,k*14)*(1-k)),0,.6);
-        mix(x,shape(grit(bq(noise(1.4),'bp',k=>1900*pow(.45,k),6),55,.8),k=>min(1,k*10)*pow(1-k,1.5)),0,.25);return fin(drive(x,2.4));}],
-      // -- drum kit --
-      kick:[1,()=>{const x=buf(.3);mix(x,thump(.29,175,53,.07,.02));mix(x,dec(bq(noise(.02),'hp',2200),.0002,.003),0,.35);mix(x,dec(bq(noise(.05),'lp',900),.0005,.012),0,.3);return fin(drive(x,2));}],
-      snare:[2,()=>{const x=buf(.26);mix(x,dec(bq(noise(.24),'bp',rnd(1700,2000),.8),.0004,.055));mix(x,dec(bq(noise(.2),'hp',5000),.0004,.045),0,.5);mix(x,thump(.1,215,150,.035,.02),0,.7);return fin(drive(x,1.8));}],
-      hat:[2,()=>fin(dec(bq(noise(.08),'hp',8200),.0004,.018),.7)],
-      ohat:[1,()=>fin(dec(bq(bq(noise(.32),'hp',7000),'lp',13000),.001,.09),.7)],
-      tom:[1,()=>{const x=buf(.3);mix(x,thump(.3,150,82,.09,.04));mix(x,dec(bq(noise(.03),'lp',1500),.0004,.008),0,.3);return fin(drive(x,1.5));}],
-      crash:[1,()=>{const x=dec(bq(noise(1.6),'hp',3800),.002,.42);mix(x,dec(bq(noise(1.6),'bp',2600,1),.002,.25),0,.5);return fin(x,.7);}],
+        mix(x,shape(grit(bq(noise(1.4),'bp',k=>1900*pow(.45,k),6),55,.8),k=>min(1,k*10)*pow(1-k,1.5)),0,.25);return fin(drive(x,2.4));}]
     };
     const store=(name,chs)=>{const b=c.createBuffer(chs.length,chs[0].length,sr);chs.forEach((d,i)=>b.getChannelData(i).set(d));(this.bank[name]||(this.bank[name]=[])).push(b);
       const w=this.wait;if(w&&w.name===name){this.wait=null;if(performance.now()-w.t<700)this.play(name,w.o);}return b;};
@@ -148,7 +149,7 @@ class Sfx{
     this.sendG=g(.24); this.sfx.connect(this.sendG);
     const hall=c.createConvolver(),roof=c.createConvolver();
     this.hallG=g(1); this.roofG=g(0); this.sendG.connect(hall); this.sendG.connect(roof); hall.connect(this.hallG); roof.connect(this.roofG); this.hallG.connect(this.master); this.roofG.connect(this.master);
-    this.mFilter=filt('lowpass',18000,.7); this.duckG=g(1); this.mGain=g(.15); this.mFilter.connect(this.duckG); this.duckG.connect(this.mGain); this.mGain.connect(this.master);
+    this.mFilter=filt('lowpass',18000,.7); this.duckG=g(1); this.mGain=g(.21); this.mFilter.connect(this.duckG); this.duckG.connect(this.mGain); this.mGain.connect(this.master);
     this.mSend=g(.14); this.mFilter.connect(this.mSend); this.mSend.connect(hall);
     // live noise source for noise(); ambience beds are faded by where the player is
     const nb=this.nb=c.createBuffer(1,sr*2,sr),nd=nb.getChannelData(0); for(let i=0;i<nd.length;i++)nd[i]=random()*2-1;
@@ -171,6 +172,15 @@ class Sfx{
     this.synthMs=0;this.maxSlice=0;
     const run=budget=>{const t0=performance.now();while(tasks.length&&performance.now()-t0<budget){try{tasks.shift()();}catch(e){console.error('[audio]',e);}}
       const ms=performance.now()-t0;this.synthMs+=ms;this.maxSlice=max(this.maxSlice,ms);if(tasks.length)setTimeout(()=>run(6),8);else this.ready_=true;};
+    // the recordings: decoded a few at a time in the same queue; grouped by name ("kick_3" -> kick), tuned ones also by MIDI note
+    this.smp={}; this.tuned={g:{},bs:{},bt:{}}; this.smpReady=false; this.hallCv=hall;
+    const SM=typeof SMP!=='undefined'?SMP:null,names=SM?Object.keys(SM.d):[]; let left=names.length,loaded; this.loaded=new Promise(r=>{loaded=r;}); if(!left)loaded();
+    const got=(k,b)=>{if(b){const d=b.getChannelData(0);let o=0,pk=0;for(let i=0;i<d.length;i++)pk=max(pk,abs(d[i]));while(o<d.length&&abs(d[o])<pk*.02)o++;   // skip the decoder's lead-in so hits land on time
+        const e={b,o:max(0,o/b.sampleRate-.001),f:SM.f[k]||0},grp=k.slice(0,k.lastIndexOf('_'));(this.smp[grp]||(this.smp[grp]=[])).push(e);
+        const m=/^(g|bs|bt)(\d+)$/.exec(grp);if(m)(this.tuned[m[1]][+m[2]]||(this.tuned[m[1]][+m[2]]=[])).push(e);}
+      if(--left===0){this.smpReady=true;loaded();}};
+    for(let i=0;i<names.length;i+=6)tasks.unshift(()=>{for(const k of names.slice(i,i+6)){const bin=atob(SM.d[k]),u=new Uint8Array(bin.length);for(let j=0;j<bin.length;j++)u[j]=bin.charCodeAt(j);
+      c.decodeAudioData(u.buffer).then(b=>got(k,b),()=>got(k,null));}});
     this.ok=true; this.where=-1; this.startMusic();
     if(sync)run(1e9);else setTimeout(()=>run(6),30);
   }
@@ -201,15 +211,16 @@ class Sfx{
     const gn=c.createGain(); this.env(gn,T,a,dur,g); o.connect(gn); gn.connect(dest||this.sfx); o.start(T); o.stop(T+dur+a+.05);
   }
   // ---------- game events ----------
-  whoosh(p=1,g=1){if(p<.62)this.play('swoosh',{rate:.7+p*.6,g:.8*g,jit:.06});else this.play('whoosh',{rate:.72+p*.4,g:.75*g,jit:.07});}
-  hit(pw=.5){if(pw>.6){this.play('hitBig',{g:.85+pw*.2,jit:.06});this.duck(.5,.12);}else this.play('hit',{g:.7+pw*.5,jit:.07});}
-  hurt(){this.play('hurt',{g:1});this.duck(.5,.2);}
+  whoosh(p=1,g=1){if(p<.62){this.play('swoosh',{rate:.7+p*.6,g:.8*g,jit:.06});this.smpPlay('swh',{rate:.55+p*.5,g:.5*g,jit:.08});}else{this.play('whoosh',{rate:.72+p*.4,g:.6*g,jit:.07});this.smpPlay(g>1.2?'swh':'swl',{rate:.7+p*.3,g:.55*g,jit:.08});}
+  }
+  hit(pw=.5){if(pw>.6){this.play('hitBig',{g:.8+pw*.2,jit:.06});this.smpPlay('mbig',{rate:.85,g:.5,jit:.1});this.smpPlay('mhit',{rate:.8,g:.35,jit:.1});this.duck(.5,.12);}else{this.play('hit',{g:.6+pw*.5,jit:.07});this.smpPlay('mhit',{rate:1.05,g:.42+pw*.3,jit:.12});}}
+  hurt(){this.play('hurt',{g:1});this.smpPlay('mhit',{rate:.66,g:.45,jit:.06});this.duck(.5,.2);}
   telegraph(big){this.play('telegraph',{rate:big?.7:1,g:big?.9:.7});}
-  death(){this.play('death',{g:.85,jit:.08});}
+  death(){this.play('death',{g:.82,jit:.08});this.smpPlay('mbig',{rate:.75,g:.3,jit:.12});}
   dodge(){this.play('dodge',{g:.8});}
   jump(){this.play('jump',{g:.6});}
   step(){this.play('step',{g:.34,jit:.08});}
-  land(pw=.3){this.play('land',{g:.22+pw*.75,rate:1.1-pw*.25});}
+  land(pw=.3){this.play('land',{g:.22+pw*.75,rate:1.1-pw*.25});if(pw>.6)this.smpPlay('mbig',{rate:.62,g:.3*pw,jit:.08});}
   glint(){this.play('glint',{g:.7});}
   rankUp(i){this.play('rank',{rate:.8*pow(2,i/6),g:.7,jit:0});}
   barrier(){this.play('barrier',{g:.8});}
@@ -217,27 +228,61 @@ class Sfx{
   slow(on){if(!this.ok)return;const c=this.c;this.mFilter.frequency.cancelScheduledValues(c.currentTime);this.mFilter.frequency.setTargetAtTime(on?420:18000,c.currentTime,on?.05:.25);if(on)this.play('warp',{g:.7});}
   gun(){this.play('gun',{g:.5,jit:.05});}
   orb(){this.play('orb',{g:.5});}
-  deflect(){this.play('deflect',{g:.9});}
+  deflect(){this.play('deflect',{g:.85});this.smpPlay('mhit',{rate:1.45,g:.5,jit:.08});this.smpPlay('shing',{rate:1.2,g:.3,jit:.05});}
   thunder(v=1){this.play('thunder',{g:.9*v,jit:.1});if(v>.8)this.duck(.5,.4);}
-  roar(){this.play('roar',{g:1});this.duck(.4,.8);}
-  armorBreak(){this.play('shatter',{g:1});this.duck(.4,.3);}
+  roar(){this.play('roar',{g:1});this.smpPlay('growl',{rate:.52,g:.7,jit:.05});this.smpPlay('growl',{rate:.4,g:.5,jit:.05});this.duck(.4,.8);}
+  armorBreak(){this.play('shatter',{g:1});this.smpPlay('mbig',{rate:.7,g:.6,jit:.06});this.duck(.4,.3);}
   ready(){this.play('ready',{g:.7,jit:0});}
-  swap(){this.play('swap',{g:.8});}
+  swap(){this.play('swap',{g:.7});this.smpPlay('shing',{rate:1.1,g:.22,jit:.08});}
   pickup(){this.play('pickup',{g:.6,jit:0});}
   spawn(){this.play('spawn',{g:.45,jit:.08});}
   charge(){this.play('charge',{g:.6});}
   coreCharge(){this.play('core',{g:.7,jit:0});}
+  // ---------- samples ----------
+  // play one recording from a group (round robin): o.g gain, o.rate pitch, o.jit pitch spread, o.at start time, o.dest bus
+  smpPlay(group,o={}){
+    const set=this.ok&&this.smp[group]; if(!set||!set.length)return null; const c=this.c,T=o.at??c.currentTime;
+    let v=floor(random()*set.length); if(set.length>1&&v===this.lastV[group])v=(v+1)%set.length; this.lastV[group]=v;
+    const e=set[v],s=c.createBufferSource(),gn=c.createGain(); s.buffer=e.b; s.playbackRate.value=(o.rate??1)*(1+rand(-1,1)*(o.jit??.04)); gn.gain.value=o.g??1;
+    s.connect(gn); gn.connect(o.dest||this.sfx); s.start(T,e.o); return s;
+  }
+  // a tuned recording (guitar 'g', bass 'bs' / 'bt') nearest to a MIDI note, with the playback rate that puts it exactly in tune
+  note(kind,midi,rr=0){
+    const M=this.tuned[kind]; if(!M)return null; let best=null,bd=99; for(const m in M){const d=abs(m-midi);if(d<bd){bd=d;best=m;}} if(best===null)return null;
+    const set=M[best],e=set[rr%set.length]; return {b:e.b,o:e.o,rate:440*pow(2,(midi-69)/12)/e.f};
+  }
   // ---------- music ----------
+  // A guitar amplifier in filters and wave shapers: tighten the lows, push the mids, two clipping stages, then a
+  // speaker cabinet (low cut, chest thump, scooped low mids, presence peak, a notch, a steep roll-off above 5 kHz).
+  amp(drive,pan,level,lead){
+    const c=this.c,g=this.g_,f=this.filt_,pk=(fr,db,q)=>{const b=f('peaking',fr,q);b.gain.value=db;return b;};
+    const sh=(k,bias)=>{const w=c.createWaveShaper(),n=2048,cv=new Float32Array(n),o=Math.tanh(k*bias);for(let i=0;i<n;i++)cv[i]=(Math.tanh(k*(i/(n/2)-1+bias))-o)/Math.tanh(k);w.curve=cv;w.oversample='4x';return w;};
+    const chain=[g(1),f('highpass',lead?260:125,.7),pk(lead?1100:780,lead?8:6,.8),g(drive),sh(3.2,.07),f('lowpass',6800,.6),f('highpass',170,.7),g(2.1),sh(2.5,-.04),
+      f('highpass',88,.8),pk(128,lead?1:4,1.1),pk(250,lead?-2:-4,1),pk(380,lead?-3:-6,.9),pk(1100,lead?0:-4,.8),pk(3200,4.5,1.1),pk(4300,-6,5),f('lowpass',5300,.9),f('lowpass',6600,.7),g(level)];
+    for(let i=1;i<chain.length;i++)chain[i-1].connect(chain[i]);
+    const pn=c.createStereoPanner();pn.pan.value=pan;chain[chain.length-1].connect(pn);pn.connect(this.gtrBus);this.ampOut=pn;return chain[0];
+  }
   startMusic(){
     const c=this.c,g=this.g_,filt=this.filt_,lfo=(hz,depth,param)=>{const o=c.createOscillator(),d=g(depth);o.frequency.value=hz;o.connect(d);d.connect(param);o.start();return d;};
-    this.cmb=g(0); this.cmb.connect(this.mFilter);                 // everything that only plays in combat
-    this.pump=g(1); this.pump.connect(this.cmb);                   // bass, chug and pad breathe with the kick
+    this.cmb=g(0); this.cmb.connect(this.mFilter);                 // the band: only in combat
+    // drums: every piece has its place in the stereo picture; the kit shares a compressor and a little of the hall
+    this.drumBus=g(1); const dc=c.createDynamicsCompressor(); dc.threshold.value=-16; dc.knee.value=6; dc.ratio.value=3.5; dc.attack.value=.006; dc.release.value=.14;
+    const dOut=g(.95); this.drumBus.connect(dc); dc.connect(dOut); dOut.connect(this.cmb); const dRoom=g(.16); this.drumBus.connect(dRoom); dRoom.connect(this.hallCv);
+    this.dPan={}; for(const [k,p] of Object.entries({kick:0,kickb:0,sn:0,snc:0,sng:0,hh:.3,hhs:.3,hht:.3,hho:.3,t1:-.4,t2:-.15,t3:.2,t4:.45,crash:-.45,china:.55})){const pn=c.createStereoPanner();pn.pan.value=p;pn.connect(this.drumBus);this.dPan[k]=pn;}
+    // guitars: the same part played twice, left and right, each through its own amplifier; a third amplifier for the lead
+    this.gtrBus=g(1); this.gtrBus.connect(this.cmb);
+    this.ampL=this.amp(4.2,-.82,.2); this.ampR=this.amp(4.8,.82,.2); this.ampLead=this.amp(8,.08,.15,true);
+    const dl=c.createDelay(1),fb=g(.3),wet=g(.3); dl.delayTime.value=60/MUS.bpm*.75; this.ampOut.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(wet); wet.connect(this.cmb);   // the lead gets a dotted-eighth echo
+    // bass: a little grit, then straight down the middle; it dips a touch under every kick
+    this.pump=g(1); this.pump.connect(this.cmb);
+    this.bassIn=g(1.1); const bd=this.shaper_(1.7),bl=filt('lowpass',850,.7),bh=filt('highpass',36,.7),bs=filt('lowshelf',130,.7),bm=filt('peaking',520,.9),bo=g(.5); bs.gain.value=6; bm.gain.value=-6;
+    this.bassIn.connect(bd); bd.connect(bl); bl.connect(bh); bh.connect(bs); bs.connect(bm); bm.connect(bo); bo.connect(this.pump);
+    // out of combat: a dark pad and a clean guitar picking through the chord, with a long echo
     this.padLP=filt('lowpass',480,.8); this.padG=g(0); this.padLP.connect(this.padG); this.padG.connect(this.mFilter); lfo(.06,140,this.padLP.frequency);
-    this.padG.gain.linearRampToValueAtTime(.85,c.currentTime+3); this.padVs=[];
-    this.bassIn=g(1); const bd=this.shaper_(2.2),bl=filt('lowpass',1700,.7),bo=g(.27); this.bassIn.connect(bd); bd.connect(bl); bl.connect(bo); bo.connect(this.pump);
-    this.gtrIn=g(.55); const gd=this.shaper_(5),gh=filt('highpass',95,.7),g1=filt('lowpass',3100,.9),g2=filt('lowpass',3600,.6),go=g(.46);
-    this.gtrIn.connect(gd); gd.connect(gh); gh.connect(g1); g1.connect(g2); g2.connect(go); go.connect(this.pump);
-    this.leadG=g(.5); this.leadG.connect(this.cmb); const vo=c.createOscillator(); vo.frequency.value=5.3; vo.start(); this.vibG=g(9); vo.connect(this.vibG);
+    this.padG.gain.linearRampToValueAtTime(.5,c.currentTime+3); this.padVs=[];
+    this.cleanIn=g(1); const cl=filt('lowpass',3600,.7),ch=filt('highpass',140,.7),cd=c.createDelay(1),cf=g(.42),cw=g(.5); this.cleanG=g(0); cd.delayTime.value=60/MUS.bpm*1.5;
+    this.cleanIn.connect(ch); ch.connect(cl); cl.connect(this.cleanG); cl.connect(cd); cd.connect(cf); cf.connect(cd); cd.connect(cw); cw.connect(this.cleanG); this.cleanG.connect(this.mFilter);
+    const cs=g(.5); this.cleanG.connect(cs); cs.connect(this.hallCv); this.cleanG.gain.linearRampToValueAtTime(1,c.currentTime+2);
     this.spb=60/MUS.bpm/4; this.stepN=0; this.nextT=c.currentTime+.1; this.intensity=0; this.combat=false;
   }
   tick(combat,intensity,dt){
@@ -245,54 +290,68 @@ class Sfx{
     // which space are we in? (0 hall, 1 roof)
     const w=typeof G!=='undefined'&&G.player&&G.player.pos.z>262?1:0;
     if(w!==this.where){this.where=w;this.hallG.gain.setTargetAtTime(w?.15:1,now,.5);this.roofG.gain.setTargetAtTime(w?1:0,now,.5);this.bedHall.gain.setTargetAtTime(w?0:.1,now,1);this.bedRain.gain.setTargetAtTime(w?.15:0,now,1);}
-    if(combat!==this.combat){   // restart the pattern on the downbeat, and let go of whatever pad chord was sounding
-      this.combat=combat;this.stepN=0;this.nextT=now+.06;this.cmb.gain.setTargetAtTime(combat?1:0,now,combat?.03:.8);this.padG.gain.setTargetAtTime(combat?.5:.85,now,.6);
-      for(const v of this.padVs){if(v.gain.cancelAndHoldAtTime)v.gain.cancelAndHoldAtTime(now);else v.gain.cancelScheduledValues(now);v.gain.setTargetAtTime(0,now,.15);}
-      if(combat)this.play('crash',{at:this.nextT,g:.45,dest:this.cmb,jit:0});}
+    if(combat!==this.combat){   // the band comes in on the downbeat with a crash; out of combat it rings out and the pad and clean guitar return
+      this.combat=combat;this.stepN=0;this.nextT=now+.06;this.cmb.gain.setTargetAtTime(combat?1:0,now,combat?.02:.5);this.padG.gain.setTargetAtTime(combat?.16:.5,now,.6);this.cleanG.gain.setTargetAtTime(combat?0:1,now,combat?.05:1.2);
+      for(const v of this.padVs){if(v.gain.cancelAndHoldAtTime)v.gain.cancelAndHoldAtTime(now);else v.gain.cancelScheduledValues(now);v.gain.setTargetAtTime(0,now,.15);}}
     this.intensity=intensity;
-    const pf=combat?900+intensity*260:520;if(pf!==this.padF){this.padF=pf;this.padLP.frequency.setTargetAtTime(pf,now,.7);}
+    const pf=combat?700+intensity*160:520;if(pf!==this.padF){this.padF=pf;this.padLP.frequency.setTargetAtTime(pf,now,.7);}
     if(this.nextT<now-.2)this.nextT=now+.05;
     while(this.nextT<now+.14){this.sched(this.stepN++,this.nextT);this.nextT+=this.spb;}
   }
-  // one sixteenth-note step of the sequencer
-  sched(n,T){
-    const M=MUS,s=n%16,spb=this.spb,I=this.intensity,D=this.cmb;
-    if(!this.combat){if(n%32===0)this.pad(T,(n>>5)%8,spb*32);return;}      // exploration: the pad alone, one chord every two bars
-    const bar=(n>>4)%8,root=M.ROOT[bar],last=bar%4===3;
-    if(s===0)this.pad(T,bar,spb*16);
-    // drums
-    if(s===0||s===8||(s===10&&bar%2===1)||(s===7&&I>=2)||(s===3&&I>=4)||(s===14&&last&&I<3)){this.play('kick',{at:T,g:.72,dest:D,jit:0});const p=this.pump.gain;p.setTargetAtTime(.45,T-.005,.002);p.setTargetAtTime(1,T+.012,.08);}
-    if(s===4||s===12)this.play('snare',{at:T,g:.62,dest:D,jit:.02});
-    if(last&&I>=3&&s>=13)this.play('tom',{at:T,g:.55,dest:D,jit:0,rate:1.25-(s-13)*.2});
-    if(s===14&&I>=2)this.play('ohat',{at:T,g:.2,dest:D,jit:.02});
-    else if(s%2===0||I>=1)this.play('hat',{at:T,g:s%4===2?.24:s%2?.08:.15,dest:D,jit:.03});
-    // bass, chug, lead
-    const b=M.BASS[s];if(b>=0)this.bass(T,73.42*pow(2,(b+root)/12),spb*(s%8===0?1.9:1.1),s%8===0);
-    const ch=M.CHUG[s];if(I>=2&&ch)this.chug(T,73.42*pow(2,root/12),ch===2?spb*2.6:spb*.85,ch===2);
-    if(I>=3)for(const [st,len,semi] of M.LEAD[bar])if(st===s){this.lead(T,293.66*pow(2,semi/12),len*spb,.1);if(I>=4)this.lead(T,587.33*pow(2,semi/12),len*spb,.04);}
+  // ----- players -----
+  drum(name,T,gain=1,rate=1){const set=this.smp[name];if(!set)return;const e=set[floor(random()*set.length)],c=this.c,s=c.createBufferSource(),gn=c.createGain();s.buffer=e.b;s.playbackRate.value=rate*(1+rand(-.012,.012));gn.gain.value=gain*rand(.88,1);
+    s.connect(gn);gn.connect(this.dPan[name]||this.drumBus);s.start(T,e.o);
+    if(name==='kick'){const p=this.pump.gain;p.setTargetAtTime(.6,T-.004,.003);p.setTargetAtTime(1,T+.02,.07);}}
+  // one guitar event on one side: kind 'm' is a palm-muted note (damped highs, dies in a tenth of a second), 'c' a power chord
+  // (root, fifth, octave summed BEFORE the amplifier, which is where the growl of a real power chord comes from)
+  gtr(dest,rr,T,kind,root,dur){
+    const c=this.c,notes=kind==='c'?[[0,1],[7,.82],[12,.6]]:[[0,1.25]];T+=rand(0,.007);
+    for(const [iv,lv] of notes){const n=this.note('g',root+iv,rr+(iv?1:0));if(!n)return;const s=c.createBufferSource(),gn=c.createGain();s.buffer=n.b;s.playbackRate.value=n.rate*(1+rand(-.0018,.0018));
+      if(kind==='m'){const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1500;lp.Q.value=.7;gn.gain.setValueAtTime(lv,T);gn.gain.setTargetAtTime(0,T+.016,.017);s.connect(lp);lp.connect(gn);s.start(T,n.o);s.stop(T+.16);}
+      else{gn.gain.setValueAtTime(lv,T);gn.gain.setValueAtTime(lv,T+dur-.02);gn.gain.linearRampToValueAtTime(0,T+dur+.012);s.connect(gn);s.start(T,n.o);s.stop(T+dur+.03);}
+      gn.connect(dest);}
+    if(kind==='m'&&this.smp.gm){const e=this.smp.gm[(rr+floor(random()*3))%this.smp.gm.length],s=c.createBufferSource(),gn=c.createGain();s.buffer=e.b;gn.gain.value=.45;s.connect(gn);gn.connect(dest);s.start(T,e.o);}
   }
-  pad(T,ch,dur){
+  bass(T,midi,dur,stac){const n=this.note(stac?'bt':'bs',midi,floor(random()*2));if(!n)return;const c=this.c,s=c.createBufferSource(),gn=c.createGain();s.buffer=n.b;s.playbackRate.value=n.rate;
+    gn.gain.setValueAtTime(stac?.9:1,T);gn.gain.setValueAtTime(stac?.9:1,T+dur-.02);gn.gain.linearRampToValueAtTime(0,T+dur+.03);s.connect(gn);gn.connect(this.bassIn);s.start(T,n.o);s.stop(T+dur+.05);}
+  lead(T,midi,dur,lv=1){const n=this.note('g',midi,0);if(!n)return;const c=this.c,s=c.createBufferSource(),gn=c.createGain(),vo=c.createOscillator(),vd=c.createGain();s.buffer=n.b;s.playbackRate.value=n.rate;
+    vo.frequency.value=5.6;vd.gain.setValueAtTime(0,T);vd.gain.setValueAtTime(0,T+min(.18,dur*.4));vd.gain.linearRampToValueAtTime(28,T+min(.5,dur));vo.connect(vd);vd.connect(s.detune);vo.start(T);vo.stop(T+dur+.1);
+    gn.gain.setValueAtTime(lv,T);gn.gain.setValueAtTime(lv,T+dur-.03);gn.gain.linearRampToValueAtTime(0,T+dur+.04);s.connect(gn);gn.connect(this.ampLead);s.start(T,n.o);s.stop(T+dur+.06);}
+  pluck(T,midi,lv){const n=this.note('g',midi,0);if(!n)return;const c=this.c,s=c.createBufferSource(),gn=c.createGain();s.buffer=n.b;s.playbackRate.value=n.rate;gn.gain.setValueAtTime(lv,T);gn.gain.setTargetAtTime(0,T+.5,.5);s.connect(gn);gn.connect(this.cleanIn);s.start(T,n.o);s.stop(T+2.2);}
+  pad(T,roots,dur){
     const c=this.c,vg=c.createGain(),e=T+dur;vg.gain.setValueAtTime(0,T);vg.gain.linearRampToValueAtTime(.1,T+min(.7,dur*.3));vg.gain.setValueAtTime(.1,e);vg.gain.linearRampToValueAtTime(0,e+.9);vg.connect(this.padLP);
-    const fs=MUS.PAD[ch].map(s=>146.83*pow(2,s/12));fs.push(73.42*pow(2,MUS.ROOT[ch]/12));
-    for(const dt of [-7,7]){const pn=c.createStereoPanner();pn.pan.value=dt/14;pn.connect(vg);for(const f of fs){const o=c.createOscillator();o.type='sawtooth';o.frequency.value=f;o.detune.value=dt;o.connect(pn);o.start(T);o.stop(e+1);}}
+    for(const dt of [-7,7]){const pn=c.createStereoPanner();pn.pan.value=dt/14;pn.connect(vg);for(const m of roots){const o=c.createOscillator();o.type='sawtooth';o.frequency.value=440*pow(2,(m-69)/12);o.detune.value=dt;o.connect(pn);o.start(T);o.stop(e+1);}}
     this.padVs.push(vg);if(this.padVs.length>3)this.padVs.shift();
   }
-  bass(T,f,dur,acc){
-    const c=this.c,fl=c.createBiquadFilter(),gn=c.createGain();fl.type='lowpass';fl.Q.value=4;fl.frequency.setValueAtTime(acc?2000:1200,T);fl.frequency.exponentialRampToValueAtTime(240,T+dur);
-    this.env(gn,T,.004,dur,acc?.5:.4);
-    for(const [ty,m] of [['sawtooth',1],['square',1.004]]){const o=c.createOscillator();o.type=ty;o.frequency.value=f*m;o.connect(fl);o.start(T);o.stop(T+dur+.05);}
-    fl.connect(gn);gn.connect(this.bassIn);
-  }
-  chug(T,f,dur,acc){
-    const c=this.c,gn=c.createGain();this.env(gn,T,.003,dur,acc?.5:.36);
-    for(const m of [1,1.498,2]){const o=c.createOscillator();o.type='sawtooth';o.frequency.value=f*m*(1+rand(-.0015,.0015));o.connect(gn);o.start(T);o.stop(T+dur+.05);}
-    gn.connect(this.gtrIn);
-  }
-  lead(T,f,dur,pk){
-    const c=this.c,fl=c.createBiquadFilter(),gn=c.createGain();fl.type='lowpass';fl.Q.value=2;fl.frequency.setValueAtTime(900,T);fl.frequency.linearRampToValueAtTime(2300,T+.08);fl.frequency.setTargetAtTime(1300,T+.08,.3);
-    gn.gain.setValueAtTime(0,T);gn.gain.linearRampToValueAtTime(pk,T+.045);gn.gain.setValueAtTime(pk,T+dur*.85);gn.gain.linearRampToValueAtTime(0,T+dur+.12);
-    for(const [ty,dt] of [['sawtooth',-5],['square',6]]){const o=c.createOscillator();o.type=ty;o.frequency.value=f;o.detune.value=dt;this.vibG.connect(o.detune);o.connect(fl);o.start(T);o.stop(T+dur+.2);}
-    fl.connect(gn);gn.connect(this.leadG);
+  // one sixteenth-note step of the song: sixteen bars, eight of verse riff then eight of chorus
+  sched(n,T){
+    const M=MUS,s=n%16,spb=this.spb,I=this.intensity;
+    if(!this.combat){   // exploration: a pad chord every two bars and a clean guitar walking up through it
+      const bar=(n>>4)%8,ch=M.CALM[bar>>1];if(n%32===0)this.pad(T,[ch[0]-12,ch[0],ch[1],ch[2]],spb*32);
+      if(this.smpReady&&s%4===0){const k=((n%32)>>2);const m=[ch[0],ch[1],ch[2],ch[1]+12,ch[2],ch[1],ch[0]+12,-1][k];if(m>0)this.pluck(T,m+12,.5);}
+      return;}
+    if(!this.smpReady)return;
+    const bar=(n>>4)%16,chorus=bar>=8,cb=bar-8,phraseEnd=bar%4===3,last=bar===7||bar===15;
+    let ev;   // this bar's guitar part
+    if(!chorus)ev=M.VERSE[bar%4];
+    else{const r=M.CHORD[cb];ev=(cb%4===3?M.STRUM.slice(0,3).map(([st,ln])=>[st,ln,'c',r]).concat([8,9,10,11,12,13,14,15].map(st=>[st,1,'m',r])):M.STRUM.map(([st,ln])=>[st,ln,'c',r]));}
+    if(s===0)this.pad(T,chorus?[38+M.CHORD[cb]+12,38+M.CHORD[cb]+19,38+M.CHORD[cb]+24]:[50,57,62],spb*16);
+    let kick=false,chug=false;
+    for(const [st,ln,kind,semi] of ev)if(st===s){const dur=ln*spb;
+      this.gtr(this.ampL,0,T,kind,38+semi,dur);this.gtr(this.ampR,1,T,kind,38+semi,dur);
+      this.bass(T,26+semi,kind==='m'?spb*.9:dur,kind==='m');kick=true;chug=kind==='m';}
+    // drums: the kick locks to the guitar, snare on two and four, cymbals by section and intensity
+    const fill=last&&s>=8&&I>=1,dbl=chorus&&I>=4;
+    if(fill){if(s<12)this.drum(s%2?'snc':'sn',T,.6+(s-8)*.08);else this.drum(['t1','t2','t3','t4'][s-12],T,.95);if(s===8||s===12)this.drum('kick',T,.9);}
+    else{
+      if(kick&&!(chug&&(s%4===3||s===4)&&!dbl))this.drum('kick',T,1);else if(dbl)this.drum('kickb',T,.8);
+      if(s===4||s===12)this.drum('sn',T,.95);else if(!chorus&&I>=1&&(s===7||s===9)&&bar%2)this.drum('sng',T,.7);
+      if(chorus){if(I>=4&&s%4===0)this.drum('china',T,.42);else if(s%2===0)this.drum(I>=2?'hho':'hh',T,I>=2?(s%4?.2:.3):(s%4?.3:.45),1);}
+      else if(s%2===0)this.drum(s%4?'hhs':'hh',T,s%4?.6:.42);else if(I>=3)this.drum('hht',T,.16);
+    }
+    if(s===0&&(bar%4===0)&&(chorus||I>=1||bar===0))this.drum('crash',T,chorus?.5:.4,bar%8?1:.94);
+    // lead guitar over the chorus once the fight is going well
+    if(chorus&&I>=3)for(const [st,ln,m] of M.LEAD[cb])if(st===s){this.lead(T,m,ln*spb,1);if(I>=4)this.lead(T+.012,m-12,ln*spb,.7);}
   }
 }
 const sfx=new Sfx();
