@@ -1,8 +1,9 @@
-"""Tile screenshots into one contact sheet.  python tools/sheet.py <prefix> [columns] [scale]  ->  tools/shots/sheet_<prefix>.png"""
+"""Tile screenshots into one contact sheet.  python tools/sheet.py <prefix> [columns] [scale] [dir]  ->  <dir>/sheet_<prefix>.png  (dir defaults to tools/shots)"""
 import glob, os, sys
 from PIL import Image, ImageDraw
 here = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shots")
 prefix = sys.argv[1]; cols = int(sys.argv[2]) if len(sys.argv) > 2 else 5; scale = float(sys.argv[3]) if len(sys.argv) > 3 else 1
+if len(sys.argv) > 4: here = sys.argv[4]
 files = sorted(glob.glob(os.path.join(here, prefix + "_*.png")))
 ims = [Image.open(f).convert("RGB") for f in files]
 if scale != 1: ims = [im.resize((int(im.width * scale), int(im.height * scale)), Image.LANCZOS) for im in ims]
