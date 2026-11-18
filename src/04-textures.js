@@ -172,11 +172,27 @@ function pbr(set,o={}){
 //  - an optional rim light (o.rim = colour, o.rimK = strength, o.rimY = 1 from above, -1 from below) that lifts a figure off a dark room;
 //  - o.hold (0..1): how far the colour of the direct light is ignored on the painted surface, so a khaki Husk stays khaki when a teal
 //    strip light is behind it. The light still shades it; only its hue is pulled toward white.
+//  - wear, driven by a per-vertex attribute the rig writes (aW, see loft and shell in 07-rig): where a plate's border or a hard crease
+//    is within a centimetre or two the paint is rubbed through to bare metal, in patches; bolt heads are gunmetal; each plate darkens
+//    toward its lower edge (o.grime); and a part can be flagged to take a second paint colour (o.tone). o.wear = the metal's colour,
+//    o.wearK = how far in the wear reaches (0 = none). Geometry without the attribute reads as unworn.
 function charMat(set,o={}){
-  const c=new THREE.Color(o.rim||0).multiplyScalar(o.rimK??1),rim=new THREE.Vector4(c.r,c.g,c.b,o.rimY??1),hold={value:o.hold||0};delete o.rim;delete o.rimK;delete o.rimY;delete o.hold;
-  const m=pbr(set,o);
-  m.onBeforeCompile=s=>{guardOut(s);s.uniforms.uRim={value:rim};s.uniforms.uHold=hold;
-    s.fragmentShader=s.fragmentShader.replace('#include <common>','#include <common>\nuniform vec4 uRim;uniform float uHold;').replace('#include <lights_fragment_end>',`#include <lights_fragment_end>
+  const c=new THREE.Color(o.rim||0).multiplyScalar(o.rimK??1),rim=new THREE.Vector4(c.r,c.g,c.b,o.rimY??1),hold={value:o.hold||0};
+  const wc=new THREE.Color(o.wear??0xa4a8b2),wear={value:new THREE.Vector4(wc.r,wc.g,wc.b,o.wearK??1)},b=new THREE.Color(o.color??0xffffff),t=new THREE.Color(o.tone??o.color??0xffffff);
+  const tone={value:new THREE.Vector4(t.r/max(b.r,.004),t.g/max(b.g,.004),t.b/max(b.b,.004),o.grime??.25)};
+  for(const k of ['rim','rimK','rimY','hold','wear','wearK','tone','grime'])delete o[k];
+  const m=pbr(set,o);m.userData.wear=wear;
+  m.onBeforeCompile=s=>{guardOut(s);s.uniforms.uRim={value:rim};s.uniforms.uHold=hold;s.uniforms.uWear=wear;s.uniforms.uTone=tone;
+    s.vertexShader=s.vertexShader.replace('#include <common>','#include <common>\nattribute vec4 aW;varying vec4 vW;').replace('#include <begin_vertex>','#include <begin_vertex>\nvW=aW;');
+    s.fragmentShader=s.fragmentShader.replace('#include <common>',`#include <common>
+      uniform vec4 uRim,uWear,uTone;uniform float uHold;varying vec4 vW;
+      float cH(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+      float cN(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(cH(i),cH(i+vec2(1.,0.)),f.x),mix(cH(i+vec2(0.,1.)),cH(i+vec2(1.,1.)),f.x),f.y);}`).replace('#include <metalnessmap_fragment>',`#include <metalnessmap_fragment>
+      {float wD=min(vW.x,vW.y)+.25,wA=cN(vMapUv*63.),wB=cN(vMapUv*17.+3.7),wN=wA*.5+wB*.5,wE=max(wN-.42,0.)*.026*uWear.a;   // how far in the wear reaches here: nowhere on about a third of an edge, a centimetre or two at most
+      float wR=(1.-smoothstep(wE*.35,max(wE,1e-4),wD))*step(1e-4,wE),wK=step(wD,-.004);
+      diffuseColor.rgb*=mix(vec3(1.),uTone.rgb,clamp(1.-vW.w,0.,1.))*(1.-uTone.a*clamp(vW.z,0.,1.)*(.55+.45*wB));
+      diffuseColor.rgb=mix(mix(diffuseColor.rgb,uWear.rgb,wR),vec3(.15,.155,.17),wK);
+      metalnessFactor=mix(mix(metalnessFactor,.9,wR),.85,wK);roughnessFactor=mix(mix(roughnessFactor,.4,wR),.42,wK);}`).replace('#include <lights_fragment_end>',`#include <lights_fragment_end>
       {vec3 cL=reflectedLight.directDiffuse/max(material.diffuseColor,vec3(.004));reflectedLight.directDiffuse=mix(cL,vec3(dot(cL,vec3(.2126,.7152,.0722))),uHold)*material.diffuseColor;}`).replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
       {vec3 cV=vViewPosition*inversesqrt(max(dot(vViewPosition,vViewPosition),1e-12));float cF=1.-clamp(abs(dot(cV,normal)),0.,1.),cF3=cF*cF*cF;
       float cE=max(totalEmissiveRadiance.r,max(totalEmissiveRadiance.g,totalEmissiveRadiance.b)),cH=smoothstep(1.3,1.8,cE);

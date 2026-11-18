@@ -93,9 +93,9 @@ export default async ({ page, shot, ev, log }) => {
   // ---------- characters on the stage ----------
   await ev(() => { G.reset(); HX.hud(false); });
   const CH = [
-    ['hero', 'front', { a: 25, d: 2.6, h: 1.05 }, 'Hero with the Twin Fangs, three-quarter front, full body.'],
-    ['hero', 'back', { a: 205, d: 2.6, h: 1.05 }, 'Hero from behind, the angle seen for most of the game.'],
-    ['hero', 'close', { a: 32, d: 1.2, h: 1.48 }, 'Hero head and torso close-up.'],
+    ['hero', 'front', { a: 25, d: 2.6, h: 1.05, set: 0 }, 'Hero with the Twin Fangs, three-quarter front, full body.'],
+    ['hero', 'back', { a: 205, d: 2.6, h: 1.05, set: 0 }, 'Hero from behind, the angle seen for most of the game.'],
+    ['hero', 'close', { a: 32, d: 1.2, h: 1.48, set: 0 }, 'Hero head and torso close-up.'],
     ['hero', 'pistol', { a: -50, d: 2.1, h: 1.15, set: 1 }, 'Hero with Blade & Pistol.'],
     ['hero', 'maul', { a: 25, d: 3, h: 1.2, set: 2 }, 'Hero with the Great Maul.'],
     ['husk', 'front', { a: 25, d: 2.9, h: 1.1, clip: 'eIdle' }, 'Husk (basic melee enemy), front.'], ['husk', 'back', { a: 205, d: 2.9, h: 1.1, clip: 'eIdle' }, 'Husk, back.'], ['husk', 'close', { a: 30, d: 1.35, h: 1.4, clip: 'eIdle' }, 'Husk close-up.'],
