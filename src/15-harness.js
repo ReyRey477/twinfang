@@ -16,7 +16,9 @@ const HX={cam:null,stage:null,orbit:null,frames:0,calls:0,tris:0,
     this.begin();this.hud(false);for(const d of ENCS)d.done=true;G.resetCombat();
     const cx=0,cz=109,p=G.player;this.tp(cx,0,kind==='hero'?cz:cz-30,0);G.ts=0;
     if(!this.lights){this.lights=[[3,4.2,-4,0xfff2e0,46],[-4.5,2.6,-1.5,0x45d4ff,30],[3.5,3.4,4.5,0xff8a3a,28]].map(([x,y,z,c,i])=>{const L=new THREE.PointLight(c,i,16,2);L.position.set(cx+x,y,cz+z);scene.add(L);return L;});}
-    this.lights.forEach((L,i)=>{L.intensity=[46,30,28][i]*(kind==='hero'?1:kind==='all'?1.5:2.2);L.distance=kind==='all'?26:16;});
+    // the Stormvane is ten times the size of the others: its lights stand well back, or they burn a white spot on whatever is nearest
+    const far=kind==='storm'?2.6:1;this.lights.forEach((L,i)=>{if(!L.userData.p)L.userData.p=L.position.clone();const p=L.userData.p;L.position.set(cx+(p.x-cx)*far,p.y*(far>1?1.9:1),cz+(p.z-cz)*far);
+      L.intensity=[46,30,28][i]*(kind==='hero'?1:kind==='all'?1.5:kind==='storm'?7:2.2);L.distance=kind==='all'?26:kind==='storm'?46:16;});
     let root=null,h=1.1,d=4.2,upd=null;const enc={gy:0,ar:inset(AREA.hall,1),ceil:16};
     if(this.stage){this.stage.remove&&this.stage.remove();this.stage=null;}
     if(kind==='hero'){root=p.rig.root;root.position.set(cx,0,cz);root.rotation.y=PI;root.visible=true;const c=o.clip&&CL[o.clip];if(c)p.rig.play(c,0,true);if(o.set!==undefined){p.set=p.wantSet=+o.set;p.rig.setWeapon(+o.set);}upd=dt=>{p.rig.update(dt);};}

@@ -1,30 +1,38 @@
 // ===================== COMBAT DATA =====================
-// The hero: white lacquered shell over a dark mechanical core, slate-blue secondary plates, teal power.
-// Foes: dark iron lit amber (or violet for stalkers).
+// Three classes of surface on every character, so each keeps its own colour whatever light it stands in: painted armour
+// (hardly metallic, satin), a dark gunmetal frame under it, and near-black rubber for bellows and cable.
+// The hero: white lacquer over a graphite core and gunmetal frame, navy secondary plates, teal power, and a cool rim light
+// so the figure separates from a dark floor when seen from behind.
 const heroMats={
-  shell:pbr('shell',{color:0xdde0e7,envMapIntensity:.9}),
-  shell2:pbr('shell',{color:0x4d5e80,envMapIntensity:.9}),
-  frame:pbr('plate',{color:0x9aa0ac,envMapIntensity:.6}),
-  steel:pbr('steel',{color:0x8d95a2,envMapIntensity:1}),
-  visor:pbr('steel',{color:0x161a20,roughness:.6,envMapIntensity:1.4}),
-  brass:pbr('steel',{color:0xc9964a,envMapIntensity:1}),
+  shell:charMat('shell',{color:0xe8ebf2,envMapIntensity:.9,rim:0x8fdcff,rimK:.5}),
+  shell2:charMat('shell',{color:0x24365e,envMapIntensity:.9,rim:0x8fdcff,rimK:.45}),
+  frame:charMat('frame',{color:0xc8ccd8,envMapIntensity:1,rim:0x8fdcff,rimK:.3}),
+  dark:charMat('frame',{color:0x5e626c,roughness:1.7,metalness:.6,envMapIntensity:.6,rim:0x8fdcff,rimK:.2}),
+  steel:pbr('steel',{color:0xaeb6c4,envMapIntensity:1}),
+  visor:charMat('steel',{color:0x12161c,roughness:.5,envMapIntensity:1.6}),
   rubber:pbr('rubber',{envMapIntensity:.3}),
-  blade:pbr('steel',{color:0xdcefff,roughness:.5,envMapIntensity:1.8}),
+  blade:pbr('steel',{color:0x8f9aac,roughness:1.5,envMapIntensity:1.3}),
+  edge:pbr('steel',{color:0xf4f8ff,roughness:.45,envMapIntensity:2.2}),
   glow:new THREE.MeshBasicMaterial({color:hdr(0x45d4ff,2.6)})};
+// Foes: bone-khaki ceramic (Husk), matte military olive (Brute), violet-black (Stalker, with a magenta rim from below so its
+// outline reads in a dark hall). Their armour carries the emissive colour the enemy code raises for tells and hit flashes.
 const enemyMats=k=>{const B=k==='brute',S=k==='stalker';return {
-  armor:pbr('armor',{color:B?0x66754a:S?0x3a3654:0x9a927f,emissive:S?0xa050ff:0xff6a2a,emissiveIntensity:0,envMapIntensity:.9}),
-  frame:pbr('plate',{color:0x9098a4,envMapIntensity:.6}),
-  trim:pbr('steel',{color:B?0x8a8672:S?0x6c648c:0x767c88,envMapIntensity:.9}),
+  armor:charMat('armor',Object.assign({color:B?0x5f6c3e:S?0x393052:0xb7a478,emissive:S?0xa050ff:0xff6a2a,emissiveIntensity:0,envMapIntensity:.6,hold:.6},S?{rim:0xff3fc8,rimK:.45,rimY:-1}:{})),
+  frame:charMat('frame',Object.assign({color:S?0x9a94b4:0xa4a8b2,envMapIntensity:.9},S?{rim:0xff3fc8,rimK:.3,rimY:-1}:{})),
+  trim:pbr('steel',{color:B?0x8a8672:S?0x7a70a0:0x8a8e98,envMapIntensity:.9}),
   rubber:pbr('rubber',{envMapIntensity:.3}),
-  blade:pbr('steel',{color:0xb8bcc6,roughness:.6,envMapIntensity:1.4}),
+  hazard:Object.assign(pbr('hazard',{envMapIntensity:.4}),{userData:{tile:.2}}),   // stencilled chevrons (finer than the world's)
+  blade:pbr('steel',{color:0xa8acb8,roughness:1.6,envMapIntensity:1.2}),
+  edge:pbr('steel',{color:0xf4f6ff,roughness:.5,envMapIntensity:2}),
   glow:new THREE.MeshBasicMaterial({color:hdr(S?0xa040ff:0xff4d14,3.4)})};};
 const wardenMats=()=>({
-  armor:pbr('armor',{color:0x6e645a,emissive:0xff6a2a,emissiveIntensity:0,envMapIntensity:1.1}),
-  dark:pbr('plate',{color:0x8a8a90,emissive:0xff4a14,emissiveIntensity:0,envMapIntensity:.6}),
-  trim:pbr('steel',{color:0xb8843c,envMapIntensity:1.1}),
-  cloth:pbr('armor',{color:0x6a1c20,envMapIntensity:.7}),
+  armor:charMat('iron',{color:0x7e838e,emissive:0xff6a2a,emissiveIntensity:0,envMapIntensity:.8,rim:0xffa468,rimK:.3,rimY:-1}),   // rim: the glow of the hall's floor ring
+  dark:charMat('frame',{color:0x9a9aa2,emissive:0x9a300c,emissiveIntensity:0,envMapIntensity:.8,rim:0xffa468,rimK:.2,rimY:-1}),   // a dull heat: the fire is in the core and the joints
+  trim:pbr('steel',{color:0xc08a3c,envMapIntensity:1.1}),
+  cloth:charMat('armor',{color:0x7a1a20,envMapIntensity:.4,hold:.5}),
   rubber:pbr('rubber',{envMapIntensity:.3}),
-  blade:pbr('steel',{color:0x8a8e98,roughness:.6,envMapIntensity:1.5}),
+  blade:pbr('steel',{color:0x8a8e98,roughness:1.6,envMapIntensity:1.3}),
+  edge:pbr('steel',{color:0xfff0dc,roughness:.5,envMapIntensity:2}),
   glow:new THREE.MeshBasicMaterial({color:hdr(0xff5a14,3.6)})});
 
 // Each weapon set maps the attack buttons to moves. `heavy:null` means the pistol.
