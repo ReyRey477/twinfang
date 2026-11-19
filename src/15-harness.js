@@ -72,7 +72,7 @@ renderer.info.autoReset=false;
     else if(HX.cam){camera.position.copy(HX.cam.p);camera.lookAt(HX.cam.t);}
     renderer.info.reset();render();HX.calls=renderer.info.render.calls;HX.tris=renderer.info.render.triangles;HX.frames++;
   };}
-{const b=document.createElement('div');b.textContent='build '+BUILD;b.style.cssText='position:absolute;right:16px;bottom:12px;font:11px monospace;letter-spacing:.12em;opacity:.5;color:#9fc8ff';$('title').appendChild(b);}
+{const b=document.createElement('div');b.id='bstamp';b.textContent='build '+BUILD;b.style.cssText='position:absolute;right:16px;bottom:12px;font:11px monospace;letter-spacing:.12em;opacity:.5;color:#9fc8ff';$('title').appendChild(b);}
 {
   const num=s=>s.split(',').map(Number);
   if(QS.has('show'))HX.show(QS.get('show'),Object.fromEntries(QS));

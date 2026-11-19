@@ -147,8 +147,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Rajd
 .go kbd,#khint kbd,.keys kbd{display:inline-block;min-width:1.5em;padding:1px 5px;margin:0 .35em 0 .1em;border:1px solid rgba(232,244,255,.8);border-radius:4px;font:inherit;letter-spacing:0;text-align:center;background:rgba(232,244,255,.1)}
 @keyframes pulse{50%{opacity:.55}}
 #khint{margin:34px 0 0 6px;font-size:14px;font-weight:600;letter-spacing:.3em;opacity:.7}
-#title>div:last-child{display:none}   /* the build stamp (added by the harness): not on the public title; ?build shows it, and the controls panel carries it */
-body.stamp #title>div:last-child{display:block;opacity:.4!important}
+#bstamp{opacity:.35!important}   /* the build stamp (added by the harness): small and dim in the corner of the title, so a stale file is obvious; the controls panel carries it too */
 #keys p small{float:right;font:11px monospace;letter-spacing:.12em;opacity:.7}
 /* controls panel: C on the title, hold C in play */
 #keys{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(880px,86vw);padding:26px 34px 28px;background:rgba(5,8,14,.93);border-top:1px solid rgba(127,227,255,.7);border-bottom:1px solid rgba(127,227,255,.7);box-shadow:0 0 60px rgba(0,0,0,.8);transition:opacity .2s;z-index:5}
@@ -4924,7 +4923,7 @@ G.player=new Player();fx.noGhost(heroMats);for(const k in heroMats)rimPatch(hero
 // the strip of light laid in the floor under each arena barrier shared the lamps' material at four times white, and next to a
 // fight it bloomed into a band wider than the hero: it gets the dim line material the wall trim uses
 for(const o of world.children)if(o.isMesh&&o.material===amberGlow&&o.geometry===GB&&o.scale.y<.05)o.material=warmLine;
-if(QS.has('build'))document.body.classList.add('stamp');$('keys').querySelector('p').insertAdjacentHTML('beforeend','<small>build '+BUILD+'</small>');   // the build number: in the controls panel, and on the title only with ?build
+$('keys').querySelector('p').insertAdjacentHTML('beforeend','<small>build '+BUILD+'</small>');   // the build number: in the controls panel as well as in the corner of the title
 window.G=G;window.onAction=onAction;window.cam=cam;window.fx=fx;window.T3={scene,camera,renderer,bloom};window.DBG={keys,held,input,MOVES,door,ENCS,AREA,LOCKS,orbs,waves,CL,WEAPONS,walkable,groundAt};
 window.step=(n=1,dt=1/60)=>{for(let i=0;i<n;i++)G.update(dt);composer.render();};
 
@@ -5029,7 +5028,7 @@ renderer.info.autoReset=false;
     else if(HX.cam){camera.position.copy(HX.cam.p);camera.lookAt(HX.cam.t);}
     renderer.info.reset();render();HX.calls=renderer.info.render.calls;HX.tris=renderer.info.render.triangles;HX.frames++;
   };}
-{const b=document.createElement('div');b.textContent='build '+BUILD;b.style.cssText='position:absolute;right:16px;bottom:12px;font:11px monospace;letter-spacing:.12em;opacity:.5;color:#9fc8ff';$('title').appendChild(b);}
+{const b=document.createElement('div');b.id='bstamp';b.textContent='build '+BUILD;b.style.cssText='position:absolute;right:16px;bottom:12px;font:11px monospace;letter-spacing:.12em;opacity:.5;color:#9fc8ff';$('title').appendChild(b);}
 {
   const num=s=>s.split(',').map(Number);
   if(QS.has('show'))HX.show(QS.get('show'),Object.fromEntries(QS));

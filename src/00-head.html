@@ -147,8 +147,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Rajd
 .go kbd,#khint kbd,.keys kbd{display:inline-block;min-width:1.5em;padding:1px 5px;margin:0 .35em 0 .1em;border:1px solid rgba(232,244,255,.8);border-radius:4px;font:inherit;letter-spacing:0;text-align:center;background:rgba(232,244,255,.1)}
 @keyframes pulse{50%{opacity:.55}}
 #khint{margin:34px 0 0 6px;font-size:14px;font-weight:600;letter-spacing:.3em;opacity:.7}
-#title>div:last-child{display:none}   /* the build stamp (added by the harness): not on the public title; ?build shows it, and the controls panel carries it */
-body.stamp #title>div:last-child{display:block;opacity:.4!important}
+#bstamp{opacity:.35!important}   /* the build stamp (added by the harness): small and dim in the corner of the title, so a stale file is obvious; the controls panel carries it too */
 #keys p small{float:right;font:11px monospace;letter-spacing:.12em;opacity:.7}
 /* controls panel: C on the title, hold C in play */
 #keys{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(880px,86vw);padding:26px 34px 28px;background:rgba(5,8,14,.93);border-top:1px solid rgba(127,227,255,.7);border-bottom:1px solid rgba(127,227,255,.7);box-shadow:0 0 60px rgba(0,0,0,.8);transition:opacity .2s;z-index:5}

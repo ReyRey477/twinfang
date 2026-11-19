@@ -285,7 +285,7 @@ G.player=new Player();fx.noGhost(heroMats);for(const k in heroMats)rimPatch(hero
 // the strip of light laid in the floor under each arena barrier shared the lamps' material at four times white, and next to a
 // fight it bloomed into a band wider than the hero: it gets the dim line material the wall trim uses
 for(const o of world.children)if(o.isMesh&&o.material===amberGlow&&o.geometry===GB&&o.scale.y<.05)o.material=warmLine;
-if(QS.has('build'))document.body.classList.add('stamp');$('keys').querySelector('p').insertAdjacentHTML('beforeend','<small>build '+BUILD+'</small>');   // the build number: in the controls panel, and on the title only with ?build
+$('keys').querySelector('p').insertAdjacentHTML('beforeend','<small>build '+BUILD+'</small>');   // the build number: in the controls panel as well as in the corner of the title
 window.G=G;window.onAction=onAction;window.cam=cam;window.fx=fx;window.T3={scene,camera,renderer,bloom};window.DBG={keys,held,input,MOVES,door,ENCS,AREA,LOCKS,orbs,waves,CL,WEAPONS,walkable,groundAt};
 window.step=(n=1,dt=1/60)=>{for(let i=0;i<n;i++)G.update(dt);composer.render();};
 

@@ -86,7 +86,7 @@ export default async ({ page, shot, ev, log }) => {
     const pk = k + '|' + (r.enc || '-'); per[pk] = (per[pk] || 0) + 1; if (per[pk] >= Math.ceil(q / 3)) block.push(pk);   // at most a third of a quota from one encounter
     // once per encounter: the same moment through the real camera with the interface up, style meter forced to a visible rank
     const hk = r.enc + (k.startsWith('telegraph') ? 't' : 'h');
-    if (r.enc && !hudDone[r.enc] && k !== 'barrier' && k !== 'spawn') { hudDone[r.enc] = 1;
+    if (r.enc && !hudDone[r.enc] && k !== 'barrier' && k !== 'spawn' && !k.startsWith('fin')) {   // (not on a finisher: the interface is hidden and no foe is left to face) hudDone[r.enc] = 1;
       const rank = await ev(() => { const s = G.style, v = { c1: 130, c2: 250, warden: 340, A: 210, B: 420, C: 460, storm: 380 }[G.enc.def.id] || 150; s.m = v; s.idle = 0; G.combo = 3 + ((v / 9) | 0); G.comboT = 0; for (let i = 0; i < 3; i++) G.update(1 / 60); window.__chase(); return document.getElementById('rank').textContent + ' ' + document.getElementById('rword').textContent; });
       await wait(450); await take(`hud_${String(10 + n).padStart(2, '0')}_combat_${r.enc}`, 'hud', `Interface during the ${r.enc} fight through the real chase camera: vitality, style rank "${rank}", combo counter, weapon selector${r.enc === 'warden' || r.enc === 'storm' ? ', boss health bar' : ''}.`); }
     const view = await ev(([delay, mode]) => { for (let i = 0; i < delay; i++) G.update(1 / 60); if (mode === 'game') { HX.free(); HX.render(); HX.render(); return 'the real game camera, as the player sees it'; } return window.__dir(mode); }, [delay, k.startsWith('fin') || k === 'thunderFar' ? 'game' : n % 2 ? 'chase' : 'side']);
