@@ -9,7 +9,7 @@ class Warden{
     this.phase=1;this.armor=this.maxArmor=160;this.cd=1;this.flash=0;this.dead=false;this.gone=false;this.dodged=false;this.struck=false;this.gun=0;this.left=false;this.farT=0;
     this.combo=0;this.dashes=0;this.rec=1;this.stunT=0;this.tx=0;this.tz=0;this.fired=0;this.marked=false;
     this.mats=wardenMats();this.rig=new Rig({kind:'warden',scale:this.scale,mats:this.mats});scene.add(this.rig.root);this.rig.play(CL.kneel,0);
-    this.trail=new Trail(18,0xff7a2a,{life:.1,body:.22,px:10,white:.12,edge:1.4});
+    this.trail=new Trail(18,0xff5a1e,{life:.1,body:.3,px:10,white:.12,edge:1.4});
   }
   get ghost(){return this.state==='intro'||this.state==='shift'||this.state==='leap';}
   get air(){return false;}

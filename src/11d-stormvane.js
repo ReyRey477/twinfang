@@ -320,6 +320,6 @@ class Stormvane{
     const sh=this.shieldOn,hot=sat((coreK-2.5)/3.5);this.coreM.color.setHex(sh?0x6fffe0:this.phase===2&&this.armor>0?0xffc070:0x4f9cff).lerp(LN_C.setHex(0xd8ecff),hot*.8).multiplyScalar((.85+max(0,coreK-2.5)*.85)*(1+.2*sin(G.rt*8)));
     this.core.scale.set(.6,.5,.74).multiplyScalar(1+min(.6,(coreK-2.5)*.05));
     this.iron.emissiveIntensity=.04;   // a faint constant glow so the dark hull never vanishes into the night; hits and tells are the rim's job
-    fx.rim(this,this.rimM||(this.rimM={m:this.iron}),this.flash,S==='wsw'?sat(t/.8):S==='tail'?sat(t/.55):S==='bite'?sat(t/.66):0,1,S==='stun',G.boltA<.05?1.5*G.boltK:0,0xbfd8ff);   // lightning rims it for three frames
+    fx.rim(this,this.rimM||(this.rimM={m:this.iron}),this.flash,S==='wsw'?sat(t/.8):S==='tail'?sat(t/.55):S==='bite'?sat(t/.66):0,1,S==='stun',G.boltA<.07?1.5*G.boltK:0,0xbfd8ff);   // lightning rims it for four frames
   }
 }

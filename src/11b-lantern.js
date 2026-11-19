@@ -2,27 +2,32 @@
 // Slow homing orbs fired by Lanterns and the Stormvane. Slash one to send it back at its owner; shoot it to pop it.
 const ORB_RED=new THREE.Color(3.4,.07,.16);
 const orbs={list:[],pool:[],
+  // is an orb within t seconds of reaching p? (effects that would hide the hero hold off while one is)
+  near(p,t){for(const o of this.list)if(!o.back&&hypot(o.pos.x-p.x,o.pos.y-p.y-1.1,o.pos.z-p.z)<o.speed*t+.9)return true;return false;},
   make(){
-    // a hot core in a dark shell with a bright rim, and a thin ring tumbling round it. Pure red while it is the enemy's (the
-    // colour of danger, and nothing like the amber wall lamps), the hero's cyan once it has been slashed back (the shell and
-    // ring read the core's colour). It pulses at 6 Hz, drags a ribbon and throws a pool of its light on the floor under it.
-    const m=new THREE.Mesh(GS,new THREE.MeshBasicMaterial({color:ORB_RED.clone()})),u={uC:{value:m.material.color}}; m.scale.setScalar(.175);
-    const sh=new THREE.Mesh(GS,new THREE.ShaderMaterial({uniforms:u,vertexShader:GHOST_VS,fragmentShader:`uniform vec3 uC;varying vec3 vN;varying vec3 vP;void main(){vec3 n=vN*inversesqrt(max(dot(vN,vN),1e-10)),v=vP*inversesqrt(max(dot(vP,vP),1e-10));float f=1.-clamp(abs(dot(n,v)),0.,1.),r=f*f*f;gl_FragColor=vec4(uC*r*.8,.85*(1.-r)*smoothstep(.08,.5,f));}`,
-      blending:THREE.CustomBlending,blendSrc:THREE.OneFactor,blendDst:THREE.OneMinusSrcAlphaFactor,depthWrite:false,transparent:true})); sh.scale.setScalar(2.1); m.add(sh);
-    m.add(new THREE.Mesh(new THREE.TorusGeometry(2.7,.12,6,40),new THREE.ShaderMaterial({uniforms:u,vertexShader:GHOST_VS,fragmentShader:`uniform vec3 uC;void main(){gl_FragColor=vec4(uC*.7,1.);}`})));
+    // A white-hot core 12 cm across inside a 42 cm shell of its colour, additive, brightest face-on and torn at its edge by noise
+    // that scrolls over it: a ball of fire, with no drawn rings (the old shell and tumbling ring read as a bullseye, and with the
+    // tail across them as a no-entry sign). Pure red while it is the enemy's (the colour of danger, nothing like the amber wall
+    // lamps), the hero's cyan once it has been slashed back (userData.c is that colour). It pulses at 6 Hz, drags a tapered
+    // ribbon that sheds sparks, and throws a pool of its light on the floor under it.
+    const m=new THREE.Mesh(GS,new THREE.MeshBasicMaterial({color:new THREE.Color(3.2,3,2.8)})),u={uC:{value:ORB_RED.clone()},uT:TIMEU,uN:{value:fxNoise}}; m.scale.setScalar(.06); m.userData.c=u.uC.value;
+    const sh=new THREE.Mesh(GS,new THREE.ShaderMaterial({uniforms:u,vertexShader:GHOST_VS,fragmentShader:`uniform vec3 uC;uniform float uT;uniform sampler2D uN;varying vec3 vN;varying vec3 vP;
+      void main(){vec3 n=vN*inversesqrt(max(dot(vN,vN),1e-10)),v=vP*inversesqrt(max(dot(vP,vP),1e-10));float c=clamp(abs(dot(n,v)),0.,1.);
+        float a=smoothstep(.2,.6,c*c+(texture2D(uN,n.xy*.2+vec2(uT*.7,uT*.45)).r-.5)*.8-texture2D(uN,n.xy*.45-vec2(uT*.4,uT*1.1)).b*.15);
+        gl_FragColor=vec4(uC*a*(.22+.8*c*c),1.);}`,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true})); sh.scale.setScalar(3.5); m.add(sh);
     scene.add(m); return m;
   },
   spawn(x,y,z,dx,dy,dz,owner,speed=7.8){
     const o={pos:V(x,y,z),vel:V(dx,dy,dz).normalize().multiplyScalar(speed),owner,life:7,back:false,dodged:false,dead:false,speed,m:this.pool.pop()||this.make()};
-    o.m.visible=true; o.m.material.color.copy(ORB_RED); o.m.position.copy(o.pos); this.list.push(o); sfx.orb(); return o;
+    o.m.visible=true; o.m.userData.c.copy(ORB_RED); o.m.position.copy(o.pos); this.list.push(o); sfx.orb(); return o;
   },
   kill(o,burst=true){
     const i=this.list.indexOf(o); if(i>=0)this.list.splice(i,1); o.m.visible=false; this.pool.push(o.m); o.dead=true;
-    if(burst){const c=o.back?[.6,2.4,3.2]:[3.2,.3,.3];fx.sparks(o.pos,0,.3,0,12,c,6);fx.halo(o.pos,c,.2,1.5,.14,0,0,0,1,.03);fx.core(o.pos,c,.7);}
+    if(burst){const c=o.back?[.6,2.4,3.2]:[3.2,.3,.3];fx.sparks(o.pos,0,.3,0,12,c,6);fx.shock(o.pos,o.vel.x,o.vel.y+rand(-3,3),o.vel.z,[c[0]*.5,c[1]*.5,c[2]*.5],.9,.14,.15);fx.core(o.pos,c,.45);}
   },
   deflect(o){
-    o.back=true; o.life=5; o.m.material.color.copy(hdr(0x45d4ff,3.6));
-    fx.glint(o.pos,0x9fefff,4,1.5,.14); fx.halo(o.pos,[.8,2.6,3.2],.2,1.7,.13); fx.flash(o.pos,0x45d4ff,40,.12); sfx.deflect();
+    o.back=true; o.life=5; o.m.userData.c.copy(hdr(0x45d4ff,3.6));
+    fx.glint(o.pos,0x9fefff,4,1.5,.13); fx.shock(o.pos,o.vel.x,o.vel.y,o.vel.z,[.5,1.7,2.1],1.1,.14,.2); fx.flash(o.pos,0x45d4ff,40,.12); sfx.deflect();
   },
   update(dt){
     const p=G.player;
@@ -37,11 +42,13 @@ const orbs={list:[],pool:[],
         if(d<.85){const hit=p.takeHit(9,o); if(hit||p.state!=='dodge'){this.kill(o);continue;}}
         const lead=min(.3,d*.05); _a.x+=p.vel.x*lead; _a.z+=p.vel.z*lead; _a.setLength(o.speed); o.vel.lerp(_a,1-exp(-2*dt)).setLength(o.speed);
       }
-      o.pos.addScaledVector(o.vel,dt); o.m.position.copy(o.pos); const rg=o.m.children[1]; rg.rotation.x+=dt*7; rg.rotation.y+=dt*4.3;
-      const pu=1+.13*sin(G.rt*TAU*6+o.life*9); o.m.scale.setScalar(.175*pu);
-      if(o.back){fx.tail(o.pos,o.vel,[.5,2.6,3.4],1.8,.28);fx.pool(o.pos.x,p.gy,o.pos.z,2.6,[.1,.55,.8],.5);}
-      else{fx.tail(o.pos,o.vel,[3.2,.12,.2],1.2,.3);fx.pool(o.pos.x,(o.owner&&o.owner.gy)||p.gy,o.pos.z,3,[1,.02,.05],.55*pu);}
-      fx.parts.put(o.pos.x,o.pos.y,o.pos.z,o.back?1.2:2.6,o.back?2.2:1.5,o.back?2.6:1.3,0,1,.3,.3,2|64);   // the white-hot centre
+      o.pos.addScaledVector(o.vel,dt); o.m.position.copy(o.pos);
+      const pu=1+.13*sin(G.rt*TAU*6+o.life*9),tc=o.back?[.5,2.6,3.4]:[3.2,.12,.2]; o.m.scale.setScalar(.06*pu);
+      // the tail: a ribbon 25 cm wide at the head and 1.5 m long, strictly along the velocity, shedding three or four sparks a frame
+      fx.tail(o.pos,o.vel,tc,1.5,.25);
+      for(let k=random()<dt*210-floor(dt*210)?1:0,n=floor(dt*210)+k;n>0;n--){const s=rand(.1,1.2)/o.speed,i=fx.parts.put(o.pos.x-o.vel.x*s,o.pos.y-o.vel.y*s,o.pos.z-o.vel.z*s,tc[0],tc[1],tc[2],1,rand(.16,.3),.035,.012,4),j=i*3;
+        fx.parts.v[j]=o.vel.x*.25+rand(-1.6,1.6);fx.parts.v[j+1]=o.vel.y*.25+rand(-1.6,1.6);fx.parts.v[j+2]=o.vel.z*.25+rand(-1.6,1.6);fx.parts.st[i]=.03;fx.parts.dr[i]=3;fx.parts.m[i*4+3]=.5;}
+      if(o.back)fx.pool(o.pos.x,p.gy,o.pos.z,2.6,[.1,.55,.8],.5);else fx.pool(o.pos.x,(o.owner&&o.owner.gy)||p.gy,o.pos.z,3,[1,.02,.05],.55*pu);
     }
   },
   clear(){while(this.list.length)this.kill(this.list[0],false);}

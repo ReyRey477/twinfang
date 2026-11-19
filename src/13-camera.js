@@ -1,5 +1,5 @@
 // ===================== CAMERA =====================
-const cam={yaw:0,pitch:.2,dist:5.3,cd:5.3,ad:5.3,focus:V(0,1.4,7),trauma:0,fovKick:0,ab:0,side:0,zoom:0,up:0,
+const cam={yaw:0,pitch:.2,dist:5.3,cd:5.3,ad:5.3,focus:V(0,1.4,7),trauma:0,fovKick:0,fov:58,punch:0,ab:0,side:0,zoom:0,up:0,
   shake(a){this.trauma=min(1,this.trauma+a);},
   update(dt){
     const p=G.player,tg=G.lock,boss=G.boss&&!G.boss.gone?G.boss:null,play=G.state==='play';
@@ -27,7 +27,8 @@ const cam={yaw:0,pitch:.2,dist:5.3,cd:5.3,ad:5.3,focus:V(0,1.4,7),trauma:0,fovKi
     this.trauma=max(0,this.trauma-dt*2.4);const s=this.trauma*this.trauma,t=G.rt*38;
     const sx=(sin(t*1.3)+sin(t*2.7+1))*.5*s*.3,sy=(sin(t*1.7+2)+sin(t*3.1))*.5*s*.3;
     camera.position.set(x+sx*cos(this.yaw),y+sy,z-sx*sin(this.yaw));camera.lookAt(this.focus.x,this.focus.y+this.up+sy*.4,this.focus.z);camera.rotateZ(sin(t*2.1)*s*.035);
-    this.fovKick=damp(this.fovKick,0,6,dt);this.zoom=damp(this.zoom,0,2.5,dt);const fov=58+this.fovKick-this.zoom*5+(boss?4:0);if(abs(camera.fov-fov)>.01){camera.fov=damp(camera.fov,fov,8,dt);camera.updateProjectionMatrix();}
+    this.fovKick=damp(this.fovKick,0,6,dt);this.zoom=damp(this.zoom,0,2.5,dt);this.fov=damp(this.fov,58+this.fovKick-this.zoom*5+(boss?4:0),8,dt);
+    const fov=this.fov-this.punch;this.punch=damp(this.punch,0,26,dt);if(abs(camera.fov-fov)>.01){camera.fov=fov;camera.updateProjectionMatrix();}   // punch: a hit pushes the lens in by a degree or two for a couple of frames (not smoothed, or it would not be felt)
     this.ab=max(0,this.ab-dt*.14);   // gone within 100 ms
     moon.position.set(p.pos.x+3,p.pos.y+18,p.pos.z-7);moon.target.position.set(p.pos.x,p.pos.y,p.pos.z+2);
   }};

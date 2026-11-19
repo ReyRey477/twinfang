@@ -38,8 +38,8 @@ class Player{
     else{this.ddx=-sin(this.yaw);this.ddz=-cos(this.yaw);this.rig.play(CL.back,.05,true);}
     if(!this.grounded)this.vel.y=2;else fx.puff(this.pos.x,this.pos.z,8,.6,this.gy);
     sfx.dodge();cam.fovKick=7;
-    // an afterimage where the hero stood (two more follow 40 ms apart, see update) and a kick of sparks; the thruster streaks ride the back vents for four frames
-    this.gN=1;fx.ghost(this.rig.root,0x58d8ff);_a.set(this.pos.x-this.ddx*.3,this.pos.y+1.32,this.pos.z-this.ddz*.3);
+    // afterimages (see update) and a kick of sparks; the thruster streaks ride the back vents for four frames
+    this.gN=0;_a.set(this.pos.x-this.ddx*.3,this.pos.y+1.32,this.pos.z-this.ddz*.3);
     fx.sparks(_a,-this.ddx,.05,-this.ddz,8,[.6,2.4,3.4],8,.3);fx.flash(_a,0x58d8ff,24,.1);
   }
   shoot(){
@@ -91,8 +91,8 @@ class Player{
     if(m.charge){   // maul: hold to charge, release to smash
       this.vel.x*=e14;this.vel.z*=e14;this.charge=sat(t/1);
       _a.set(0,.98,0);this.rig.sword[1].localToWorld(_a);
-      if(random()<dt*(20+this.charge*60)){const a=rand(TAU),r=rand(.8,1.6);fx.parts.spawn(_a.x+cos(a)*r,_a.y+rand(-.8,.8),_a.z+sin(a)*r,-cos(a)*r*3,0,-sin(a)*r*3,3.2,1.8,.6,rand(.05,.12),.33);}
-      if(this.charge>=1&&!this.ready){this.ready=true;sfx.ready();fx.glint(_a,0xffc070,4,1.7,.2);fx.flash(_a,0xffb060,45,.16);}
+      if(random()<dt*(20+this.charge*60)){const a=rand(TAU),r=rand(.8,1.6);fx.parts.spawn(_a.x+cos(a)*r,_a.y+rand(-.8,.8),_a.z+sin(a)*r,-cos(a)*r*3,0,-sin(a)*r*3,1.3,2.5,3.1,rand(.05,.12),.33);}   // (the charge gathers in the hero's own cyan-white: amber is the enemy's)
+      if(this.charge>=1&&!this.ready){this.ready=true;sfx.ready();fx.glint(_a,0xcfefff,4,1.7,.13);fx.flash(_a,0xcfefff,40,.16);}
       if(this.dodgeCd<=0&&input.take('dodge')){this.dodge(mv);return 0;}
       if((!held.heavy&&t>.1)||t>2.4){this.smash=this.charge;this.startMove('MSMASH');}
       return 0;
@@ -163,7 +163,10 @@ class Player{
     }else if(st==='attack'){trail=this.updAttack(dt,mv);}
     else if(st==='dodge'){
       const sp=lerp(18,5,sat(this.t/.36));this.vel.x=this.ddx*sp;this.vel.z=this.ddz*sp;
-      if(this.gN<3&&this.t>=this.gN*.04){this.gN++;fx.ghost(this.rig.root,0x58d8ff);}
+      // afterimages: three at most, 60 ms apart, never within half a metre of the last one, and none while an orb is about to arrive
+      // (the hero must not be buried in its own cyan at the moment the player has to read the orb)
+      fx.ghostOff=orbs.near(this.pos,.2);
+      if(this.gN<3&&this.t>=this.gN*.06&&!fx.ghostOff&&(!this.gN||hypot(this.pos.x-this.gx,this.pos.z-this.gz)>=.5)){this.gN++;this.gx=this.pos.x;this.gz=this.pos.z;fx.ghost(this.rig.root,0x58d8ff,.14,this.ddx,this.ddz);}
       if(this.t<.105){const l=min(1.25,.5+this.t*11)*min(1,(.105-this.t)/.035+.35),bx=this.pos.x+this.vel.x*dt-this.ddx*.2,bz=this.pos.z+this.vel.z*dt-this.ddz*.2;   // two tapered streaks about 1.2 m long, from the back vents, opposite the dodge
         for(const s of [-.17,.17]){_a.set(bx+this.ddz*s,this.pos.y+1.3,bz-this.ddx*s);fx.lens(_a,-this.ddx,.03,-this.ddz,l,l,.14,.14,[.45,2.1,3],1,1,2|64,4);}}
       if(this.t>=.2){if(input.take('light'))this.startMove(W.light);else if(this.heavyIn())this.heavy(mv);else if(this.grounded&&input.take('rush'))this.startMove(W.rush);}
@@ -183,6 +186,6 @@ class Player{
     for(let i=1;i<=n;i++){const k=i/n;rig.root.position.lerpVectors(this.prev,this.pos,k);rig.root.rotation.y=this.pyaw+wrapA(this.yaw-this.pyaw)*k;rig.update(dt/n);rig.root.updateMatrixWorld(true);this.sampleTrails(dt/n);}
     this.light.position.set(this.pos.x+sy*.9,this.pos.y+2.1,this.pos.z+cy*.9);
     // hurt and invulnerable: a white rim flash, then a rim flicker. The hero is never hidden (it used to blink out of sight).
-    fx.rim(this,this.rimM||(this.rimM=Object.fromEntries(Object.entries(heroMats).filter(([k])=>k!=='glow'))),this.invuln>1.04?1:0,0,0,this.hp>0&&this.invuln>0&&this.state!=='dodge',G.dark>.001?2.5:G.boltA<.05?1.5*G.boltK:0,0x9fe8ff);   // and rim-lit through the dark frames that open a finisher, and for three frames by lightning
+    fx.rim(this,this.rimM||(this.rimM=Object.fromEntries(Object.entries(heroMats).filter(([k])=>k!=='glow'))),this.invuln>1.04?1:0,0,0,this.hp>0&&this.invuln>0&&this.state!=='dodge',G.dark>.001?2.5:G.boltA<.07?1.5*G.boltK:0,0x9fe8ff);   // and rim-lit through the dark frames that open a finisher, and for four frames by lightning
   }
 }

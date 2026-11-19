@@ -17,7 +17,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Rajd
 #hud.on{opacity:1}
 #hin{position:absolute;inset:0}   /* everything but the banner: gone (not dimmed) for as long as a letterbox bar has any height */
 /* vitality */
-#hpw{position:absolute;left:44px;top:32px;width:340px}
+#hpw{position:absolute;left:44px;top:32px;width:340px;opacity:var(--fo,1);transition:opacity .12s}   /* --fo: set from the game loop while a warning flare sits under the block */
 .lbl{display:flex;justify-content:space-between;align-items:flex-end;font-size:12px;font-weight:600;letter-spacing:.42em;margin:0 6px 5px 2px;text-shadow:1px 1px 0 var(--ink)}
 #hpn{font-size:19px;font-weight:700;letter-spacing:.04em;line-height:.9;color:#bfefff}
 #hpb{position:relative;height:14px;background:rgba(6,10,16,.85);border:1px solid rgba(190,230,255,.6);box-shadow:0 0 0 1px rgba(0,0,0,.7);transform:skewX(-24deg);overflow:hidden}
@@ -26,24 +26,27 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Rajd
 #hpf{background:linear-gradient(90deg,#149fd0,#8fe6ff 93%,#fff 98%);transition:transform .12s}
 #hpt{background:repeating-linear-gradient(90deg,transparent 0,transparent calc(10% - 1.5px),rgba(4,8,12,.8) calc(10% - 1.5px),rgba(4,8,12,.8) 10%)}
 #hpw.low #hpf{background:linear-gradient(90deg,#a80a22,#ff4250 93%,#fff 98%)}
-#hpw.low #hpb{border-color:#ff5a66;animation:lowp .667s ease-in-out infinite}
+#hpw.low #hpb{border-color:#ff5a66;box-shadow:0 0 0 1px rgba(0,0,0,.7),0 0 0 2px rgba(255,48,64,.6);animation:lowp .909s ease-in-out infinite}   /* 1.1 Hz, with the red at the frame edges (see the grade pass) */
+#hpw.crit #hpb{animation-duration:.556s}   /* under a tenth: 1.8 Hz */
 #hpw.low #hpn{color:#ff6470}
-@keyframes lowp{50%{box-shadow:0 0 0 1px rgba(0,0,0,.7),0 0 16px 2px rgba(255,40,60,.85)}}
+@keyframes lowp{50%{transform:skewX(-24deg) scale(1.04);box-shadow:0 0 0 1px rgba(0,0,0,.7),0 0 0 2px #ff3040,0 0 12px 2px rgba(255,40,60,.85)}}
 /* Style rank: the loudest thing on the HUD, and louder with every rank. A plate that is nearly opaque at the frame edge (the room
    cannot wash the letter out) under a rule in the rank colour; behind the letter an emblem that builds with the rank: nothing at D,
    one slash at C, two crossed at B, a burst of six shards at A, and at S the same burst over twelve turning rays that pulse. */
 #style{position:absolute;right:0;top:18%;width:300px;padding:10px 38px 12px 0;text-align:right;opacity:0;transition:opacity .12s;--rc:#8fa3b5;--rd:#3d4b59;--rs:72px}
-#style.on{opacity:1}
+#style.on{opacity:var(--fo,1)}
 #style::before{content:'';position:absolute;inset:0 -34px 0 -20px;z-index:-2;transform:skewX(-12deg);
   background:linear-gradient(270deg,var(--rc) 0,var(--rc) 45%,transparent 100%) top/100% 2px no-repeat,linear-gradient(270deg,rgba(4,6,11,.9) 0,rgba(4,6,11,.88) 46%,rgba(4,6,11,.55) 74%,rgba(4,6,11,0) 100%)}
-#style::after{content:'';position:absolute;right:14px;top:10px;bottom:10px;width:4px;background:var(--rc);box-shadow:0 0 14px var(--rc);transform:skewX(-12deg)}
+#style::after{content:'';position:absolute;right:14px;top:10px;bottom:10px;width:4px;background:var(--rc);box-shadow:0 0 14px var(--rg,var(--rc));transform:skewX(-12deg)}
 #style.up{animation:pshake .16s linear}
 #pfl{position:absolute;inset:0 -34px 0 -20px;z-index:-2;transform:skewX(-12deg);background:linear-gradient(270deg,var(--rc) 0,transparent 80%);opacity:0}
 #style.up #pfl{animation:pflash .12s ease-out}
 @keyframes pshake{0%{transform:translate(4px,-2px)}25%{transform:translate(-4px,2px)}50%{transform:translate(3px,1px)}75%{transform:translate(-2px,-1px)}100%{transform:none}}
 @keyframes pflash{0%{opacity:.5}100%{opacity:0}}
 .rkw{position:relative;display:inline-block;line-height:1}
-.emb{position:absolute;left:50%;top:50%;width:calc(var(--rs)*1.55);height:calc(var(--rs)*1.55);margin:calc(var(--rs)*-.775) 0 0 calc(var(--rs)*-.775);z-index:-1;pointer-events:none;opacity:.92;filter:drop-shadow(0 0 7px var(--rc))}
+.emb{position:absolute;left:50%;top:50%;width:calc(var(--rs)*1.55);height:calc(var(--rs)*1.55);margin:calc(var(--rs)*-.775) 0 0 calc(var(--rs)*-.775);z-index:-1;pointer-events:none;opacity:.92;filter:drop-shadow(0 0 7px var(--rg,var(--rc)))}
+.r3{--rg:#ffc23a}   /* A is white-silver; only its rim and glow are gold, so it never matches the yellow of a heavy warning */
+.r3 .emb{filter:drop-shadow(0 0 1.5px #ffc23a) drop-shadow(0 0 7px #ffc23a)}
 .emb::before,.emb::after{content:'';position:absolute;inset:0;display:none}
 .r1 .emb::before,.r2 .emb::before,.r2 .emb::after{display:block;clip-path:polygon(2% 100%,45% 41%,98% 0,55% 59%);background:linear-gradient(45deg,var(--rd) 0,var(--rc) 32%,#fff 50%,var(--rc) 68%,var(--rd) 100%)}
 .r2 .emb::after{transform:scaleX(-1)}
@@ -58,13 +61,13 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Rajd
 #rank,#endR{display:inline-block;font-family:var(--ser);font-weight:900;font-size:var(--rs);line-height:1;padding:0 12px 0 8px;
   background:linear-gradient(180deg,#fff 0,#fff 22%,var(--rc) 56%,var(--rd) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
   transform:skewX(-12deg);transform-origin:right bottom;
-  filter:drop-shadow(1.5px 0 0 var(--ink)) drop-shadow(-1.5px 0 0 var(--ink)) drop-shadow(0 1.5px 0 var(--ink)) drop-shadow(0 -1.5px 0 var(--ink)) drop-shadow(0 0 12px var(--rc))}
+  filter:drop-shadow(1.5px 0 0 var(--ink)) drop-shadow(-1.5px 0 0 var(--ink)) drop-shadow(0 1.5px 0 var(--ink)) drop-shadow(0 -1.5px 0 var(--ink)) drop-shadow(0 0 12px var(--rg,var(--rc)))}
 #rank{transition:font-size .16s}
 #rank.pop{animation:rpop .16s cubic-bezier(.2,1.5,.4,1)}
 @keyframes rpop{0%{transform:skewX(-12deg) scale(1.6);filter:brightness(2.4) drop-shadow(0 0 16px var(--rc))}100%{transform:skewX(-12deg) scale(1)}}
 #rank.drop{animation:rdrop .22s ease-out}
 @keyframes rdrop{0%{transform:skewX(-12deg) translateY(-10px);opacity:.5}100%{transform:skewX(-12deg)}}
-#swipe{position:absolute;left:-60px;right:0;top:44%;height:3px;background:linear-gradient(90deg,transparent,var(--rc) 30%,#fff 80%,#fff);opacity:0;transform-origin:right}
+#swipe{position:absolute;left:-60px;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--rc) 30%,#fff 80%,#fff);opacity:0;transform-origin:right}
 #style.up #swipe{animation:wipe .32s ease-out}
 @keyframes wipe{0%{opacity:1;transform:scaleX(0)}55%{opacity:1;transform:scaleX(1)}100%{opacity:0;transform:scaleX(1) translateX(-40px)}}
 #rword{font-size:20px;font-weight:700;letter-spacing:.42em;margin:4px -.42em 0 0;color:var(--rc);text-shadow:2px 2px 0 var(--ink)}
@@ -72,6 +75,8 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Rajd
 #smf{position:relative;display:block;height:100%;width:0;background:linear-gradient(90deg,var(--rd),var(--rc));box-shadow:inset -3px 0 0 #fff}
 #smf::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent 0,rgba(255,255,255,.75) 50%,transparent 100%) no-repeat;background-size:46px 100%;animation:sheen 1.3s linear infinite}
 @keyframes sheen{from{background-position:-50px 0}to{background-position:230px 0}}
+#smf.tick{animation:smtick .5s ease-out}
+@keyframes smtick{0%{filter:brightness(2.8);box-shadow:inset -18px 0 0 #fff}100%{filter:none;box-shadow:inset -3px 0 0 #fff}}
 #sm::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(20% - 2px),rgba(4,8,12,.92) calc(20% - 2px),rgba(4,8,12,.92) 20%)}
 #combo{margin-top:10px;font-size:56px;font-weight:700;line-height:.86;min-height:66px;text-shadow:2px 2px 0 var(--ink),0 0 14px rgba(0,0,0,.6);transform-origin:right center}
 #combo small{display:block;font-size:13px;line-height:1.5;letter-spacing:.46em;margin:2px -.46em 0 0;opacity:.85}
@@ -80,23 +85,38 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Rajd
 /* callouts (PERFECT DODGE, ARMOUR BROKEN ...): a strip above the style block, never over the fight */
 #call{position:absolute;right:0;top:calc(18% - 50px);padding:3px 44px 3px 30px;font-size:28px;font-weight:700;letter-spacing:.12em;line-height:1.2;white-space:nowrap;color:#fff;text-shadow:2px 2px 0 var(--ink);
   background:linear-gradient(270deg,rgba(5,8,14,.88),rgba(5,8,14,.72) 70%,rgba(5,8,14,0));border-right:4px solid #7fe3ff;transform:skewX(-12deg) translateX(40px);opacity:0;transition:opacity .14s,transform .14s}
-#call.on{opacity:1;transform:skewX(-12deg)}
+#call.on{opacity:var(--fo,1);transform:skewX(-12deg)}
+/* skill call-outs (PERFECT DODGE, ARMOUR BROKEN, STAGGERED): larger, in the hero's cyan-white, sweeping in from the right on a
+   slash in the rank colour over 0.7 s, and the style gauge ticks with it */
+#call.skill{top:calc(18% - 64px);padding:2px 46px 4px 44px;font-size:34px;letter-spacing:.1em;color:#e4f9ff;border-right:5px solid var(--rc,#7fe3ff);text-shadow:2px 2px 0 var(--ink),0 0 18px rgba(90,215,255,.6);
+  background:linear-gradient(270deg,rgba(5,8,14,.92),rgba(5,8,14,.8) 70%,rgba(5,8,14,0))}
+#call.skill::before{content:'';position:absolute;left:-40px;right:0;bottom:0;height:4px;background:linear-gradient(90deg,transparent,var(--rc,#7fe3ff) 40%,#fff);transform-origin:right}
+#call.skill.on{animation:skin .7s cubic-bezier(.12,.85,.2,1) both}
+#call.skill.on::before{animation:skslash .7s cubic-bezier(.12,.85,.2,1) both}
+@keyframes skin{0%{opacity:0;transform:skewX(-12deg) translateX(260px)}30%{opacity:1}100%{transform:skewX(-12deg)}}
+@keyframes skslash{0%{transform:scaleX(0)}55%,100%{transform:scaleX(1)}}
 /* banners (SEALED, boss names): high in the frame, clear of the fight; opacity comes from the game loop */
 #msg{position:absolute;left:0;right:0;top:14%;text-align:center;font-family:var(--ser);font-size:46px;letter-spacing:.3em;opacity:0;transition:letter-spacing 1.6s;text-shadow:0 2px 0 var(--ink),0 0 26px rgba(255,140,60,.8)}
 #msg.on{letter-spacing:.46em}
 #sub{position:absolute;left:0;right:0;top:calc(14% + 64px);text-align:center;font-size:19px;font-weight:700;letter-spacing:.46em;opacity:0;color:#e2f4ff;text-shadow:1px 2px 0 var(--ink),0 0 10px #000}
-#hint{position:absolute;left:0;right:0;bottom:24px;text-align:center;font-size:14px;font-weight:600;letter-spacing:.22em;opacity:.8;transition:opacity 1.2s;text-shadow:1px 1px 0 var(--ink)}
+#hint{position:absolute;left:0;right:0;bottom:24px;text-align:center;font-size:14px;font-weight:600;letter-spacing:.22em;opacity:.8;transition:opacity .4s;text-shadow:1px 1px 0 var(--ink)}
 #hint b{color:#7fe3ff;font-weight:700}
 #hint.gone,#hud.boss #hint{opacity:0}
-/* weapon sets: three slanted chips with key caps */
-#wsel{position:absolute;left:44px;bottom:54px;display:flex;flex-direction:column;align-items:flex-start;gap:6px;font-size:13px;font-weight:700;letter-spacing:.18em}
+/* weapon sets: three slanted chips, each with its key cap, a silhouette of the weapon and (when it is the one in hand) a bar and
+   icon in that weapon's own colour (--wc: the colour of its trails and hits); the chip pops for 120 ms on a switch */
+#wsel{position:absolute;left:44px;bottom:54px;opacity:var(--fo,1);transition:opacity .12s;display:flex;flex-direction:column;align-items:flex-start;gap:6px;font-size:13px;font-weight:700;letter-spacing:.18em}
 #wsel span{display:flex;align-items:center;gap:9px;padding:4px 16px 4px 6px;background:rgba(5,8,14,.74);border:1px solid rgba(160,220,255,.2);transform:skewX(-14deg);opacity:.55;transition:opacity .15s,border-color .15s,box-shadow .15s}
 #wsel span b{min-width:19px;height:19px;line-height:19px;text-align:center;letter-spacing:0;border:1px solid rgba(190,230,255,.55);border-radius:3px;background:rgba(160,220,255,.12)}
-#wsel span.on{opacity:1;color:#e4f8ff;border-color:#7fe3ff;box-shadow:inset 3px 0 0 #7fe3ff,0 0 14px rgba(60,200,255,.3)}
-#wsel span.on b{background:#7fe3ff;border-color:#7fe3ff;color:#04121a}
+#wsel span{transform-origin:left center}
+#wsel svg{flex:none;width:22px;height:22px;margin:-2px -2px -2px -3px;fill:currentColor;opacity:.8}
+#wsel span.on{opacity:1;color:#e4f8ff;border-color:var(--wc);box-shadow:inset 4px 0 0 var(--wc),0 0 14px rgba(60,200,255,.3);animation:wpop .12s ease-out}
+#wsel span.on b{background:var(--wc);border-color:var(--wc);color:#04121a}
+#wsel span.on svg{fill:var(--wc);opacity:1;filter:drop-shadow(0 0 4px var(--wc))}
+@keyframes wpop{0%{transform:skewX(-14deg) scale(1.16)}100%{transform:skewX(-14deg)}}
 /* boss: bottom centre, well away from vitality */
 #boss{position:absolute;left:50%;bottom:40px;width:56%;transform:translateX(-50%);opacity:0;transition:opacity .2s}
-#boss.on{opacity:1}
+#boss.on{opacity:var(--fo,1)}
+#boss.low{bottom:22px}
 #bossN{font-family:var(--ser);font-size:18px;letter-spacing:.4em;margin:0 0 6px 6px;text-align:left;text-shadow:1px 2px 0 var(--ink),0 0 12px rgba(0,0,0,.9)}
 #bossB{height:12px;background:rgba(10,6,6,.88);border:1px solid rgba(255,196,150,.65);box-shadow:0 0 0 1px rgba(0,0,0,.7);transform:skewX(-24deg);overflow:hidden}
 #bossF{display:block;height:100%;width:100%;background:linear-gradient(90deg,#b8240c,#ff7a3a 94%,#fff 99%);transition:width .15s}
@@ -107,7 +127,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Rajd
 #bt{top:0}#bb{bottom:0}
 #fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none}
 /* title: logo, tagline and one call to action over a staged shot of the hero; the controls live in their own panel */
-.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding-left:8vw;background:linear-gradient(90deg,rgba(4,6,12,.93) 0,rgba(4,6,12,.92) 34%,rgba(4,6,12,.6) 46%,rgba(4,6,12,0) 58%);transition:opacity .9s;overflow:hidden}
+.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding-left:8vw;background:linear-gradient(90deg,rgba(4,6,12,.85) 0,rgba(4,6,12,.84) 32%,rgba(4,6,12,.55) 46%,rgba(4,6,12,0) 58%);transition:opacity .9s;overflow:hidden}
 .ov.off{opacity:0;pointer-events:none}
 /* embers drifting up across the title: two layers of sparse dots that scroll at different speeds */
 #title::before,#title::after{content:'';position:absolute;left:0;right:0;top:0;height:200%;pointer-events:none;opacity:.8;
@@ -127,7 +147,9 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Rajd
 .go kbd,#khint kbd,.keys kbd{display:inline-block;min-width:1.5em;padding:1px 5px;margin:0 .35em 0 .1em;border:1px solid rgba(232,244,255,.8);border-radius:4px;font:inherit;letter-spacing:0;text-align:center;background:rgba(232,244,255,.1)}
 @keyframes pulse{50%{opacity:.55}}
 #khint{margin:34px 0 0 6px;font-size:14px;font-weight:600;letter-spacing:.3em;opacity:.7}
-#title>div:last-child{opacity:.4!important}
+#title>div:last-child{display:none}   /* the build stamp (added by the harness): not on the public title; ?build shows it, and the controls panel carries it */
+body.stamp #title>div:last-child{display:block;opacity:.4!important}
+#keys p small{float:right;font:11px monospace;letter-spacing:.12em;opacity:.7}
 /* controls panel: C on the title, hold C in play */
 #keys{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(880px,86vw);padding:26px 34px 28px;background:rgba(5,8,14,.93);border-top:1px solid rgba(127,227,255,.7);border-bottom:1px solid rgba(127,227,255,.7);box-shadow:0 0 60px rgba(0,0,0,.8);transition:opacity .2s;z-index:5}
 #keys.off{opacity:0;pointer-events:none}
@@ -140,15 +162,17 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Rajd
 /* Defeat and results. Results: a heading and a panel of the same width; each line carries its own grade in a slanted chip, and the
    final rank stands on the emblem it has on the HUD, under a label. Defeat: the word, a red rule that draws in under it, and one
    line saying where and when. */
-#end{align-items:center;padding:0;background:radial-gradient(ellipse at center,rgba(2,4,8,.2),rgba(2,4,8,.75))}
+#end{align-items:center;padding:0;background:radial-gradient(ellipse at center,rgba(2,4,8,.5),rgba(2,4,8,.62))}
 #end h1{font-size:clamp(40px,5.6vw,72px);letter-spacing:.14em;margin-right:-.14em}
 #endL{display:block;width:min(900px,88vw);height:1px;margin:20px 0 0;background:linear-gradient(90deg,rgba(127,227,255,0),#7fe3ff 20%,#7fe3ff 80%,rgba(127,227,255,0))}
 #endI{display:none;margin-top:18px;font-size:17px;font-weight:600;letter-spacing:.42em;opacity:.6}
-#end .go{margin:34px 0 0;font-size:18px;letter-spacing:.4em;opacity:.7;animation:none}
-body.dead #c{filter:grayscale(1) blur(3px) brightness(.4)}
-body.done #c{filter:blur(6px) brightness(.3)}
-#end.dead{background:radial-gradient(ellipse at center,rgba(8,0,2,.1) 30%,rgba(110,0,12,.6) 100%)}
-#end.dead h1{font-size:clamp(40px,6vw,84px);background:linear-gradient(180deg,#ff3040,#7a0010);-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 0 26px rgba(255,30,50,.4));animation:spread 1.2s cubic-bezier(.2,.7,.2,1) both}
+#end .go{margin:34px 0 0;font-size:21px;letter-spacing:.4em;opacity:.7;animation:none}
+/* the last frame of the fight stays behind both screens: dimmed (to about a third, with the scrim) under the results, grey and still
+   readable (the fallen hero is the picture) under a red-to-black wash on defeat */
+body.dead #c{filter:grayscale(.85) blur(2px) brightness(.62)}
+body.done #c{filter:blur(2.5px) brightness(.85) saturate(.85)}
+#end.dead{background:linear-gradient(180deg,rgba(96,0,12,.42) 0,rgba(70,0,9,.16) 36%,rgba(26,0,4,.5) 68%,rgba(3,0,1,.94) 100%)}
+#end.dead h1{font-size:clamp(56px,7.5vw,96px);background:linear-gradient(180deg,#ff3040,#7a0010);-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 0 26px rgba(255,30,50,.4));animation:spread 1.2s cubic-bezier(.2,.7,.2,1) both}
 @keyframes spread{from{letter-spacing:.1em;margin-right:-.1em}to{letter-spacing:.35em;margin-right:-.35em}}
 #end.dead #endP{display:none}
 #end.dead #endI{display:block}
@@ -161,9 +185,20 @@ body.done #c{filter:blur(6px) brightness(.3)}
 #endS em{display:block;min-width:30px;padding:3px 9px 3px 7px;font-family:var(--ser);font-style:normal;font-weight:900;font-size:30px;line-height:1;text-align:center;transform:skewX(-12deg);background:rgba(255,255,255,.07);border-left:3px solid currentColor;text-shadow:2px 2px 0 var(--ink)}
 #endRW{display:flex;flex-direction:column;align-items:center;--rs:176px;--rc:#ff6a2a;--rd:#a02a00}
 #endRW small{position:relative;z-index:1;font-size:15px;font-weight:700;letter-spacing:.5em;margin:0 0 4px;padding:2px 8px 2px 16px;color:#fff;background:rgba(4,6,11,.82);border-left:3px solid var(--rc);transform:skewX(-12deg)}
-#endR{padding:0 22px 0 14px;animation:slash .4s .9s cubic-bezier(.3,.8,.3,1) both}
-#endRW .emb{animation:embin .5s 1.1s ease-out both}
-@keyframes embin{from{opacity:0;transform:scale(.4)}to{opacity:.92;transform:none}}
+/* the rows come in 80 ms apart, then the rank is stamped: it cuts in, its emblem lands and the block shakes 6 px. On this screen
+   the emblem is hard-edged (no glow, the S rays cut off clean) and the letter carries a 2 px dark stroke and nothing else. */
+#endS>*{animation:rowin .22s ease-out both}
+#endS>*:nth-child(n+4){animation-delay:.08s}#endS>*:nth-child(n+7){animation-delay:.16s}#endS>*:nth-child(n+10){animation-delay:.24s}#endS>*:nth-child(n+13){animation-delay:.32s}
+@keyframes rowin{from{opacity:0;transform:translateX(-26px)}}
+#endS em{animation-name:rowinE}
+@keyframes rowinE{from{opacity:0;transform:skewX(-12deg) translateX(-26px)}}
+#endRW{animation:stamp .3s 1s linear both}
+@keyframes stamp{0%{transform:translate(6px,-4px)}25%{transform:translate(-6px,3px)}50%{transform:translate(4px,2px)}75%{transform:translate(-2px,-1px)}100%{transform:none}}
+#endR{padding:0 22px 0 14px;animation:slash .3s .7s cubic-bezier(.3,.8,.3,1) both;
+  filter:drop-shadow(2px 0 0 var(--ink)) drop-shadow(-2px 0 0 var(--ink)) drop-shadow(0 2px 0 var(--ink)) drop-shadow(0 -2px 0 var(--ink))}
+#endRW .emb{filter:none;animation:embin .22s .9s cubic-bezier(.2,1.5,.4,1) both}
+#endRW.r4 .emb::before{-webkit-mask:radial-gradient(circle,#000 0,#000 66%,transparent 67%);mask:radial-gradient(circle,#000 0,#000 66%,transparent 67%)}
+@keyframes embin{from{opacity:0;transform:scale(1.9)}to{opacity:.92;transform:none}}
 @keyframes slash{0%{clip-path:polygon(-40% -40%,-40% -40%,-90% 140%,-90% 140%)}100%{clip-path:polygon(-40% -40%,190% -40%,140% 140%,-90% 140%)}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
@@ -176,7 +211,7 @@ body.done #c{filter:blur(6px) brightness(.3)}
     <div id="style"><i id="pfl"></i><i id="swipe"></i><div class="rkw"><i class="emb"></i><div id="rank">D</div></div><div id="rword">DULL</div><div id="sm"><i id="smf"></i></div><div id="combo"></div></div>
     <div id="call"></div>
     <div id="hint"><b>LMB</b> attack &nbsp; <b>RMB</b> heavy / pistol &nbsp; <b>E</b> special &nbsp; <b>1 2 3</b> weapon &nbsp; <b>SPACE</b> jump &nbsp; <b>SHIFT</b> dodge &nbsp; <b>Q</b> lock-on &nbsp; <b>C</b> controls</div>
-    <div id="wsel"><span><b>1</b>TWIN FANGS</span><span><b>2</b>BLADE &amp; PISTOL</span><span><b>3</b>GREAT MAUL</span></div>
+    <div id="wsel"><span style="--wc:#4fe3ff"><b>1</b><svg viewBox="0 0 22 22"><path d="M3 19l1.5 1.5L18 6l1-4-4 1zM19 19l-1.5 1.5L4 6 3 2l4 1z"/></svg>TWIN FANGS</span><span style="--wc:#9fd0ff"><b>2</b><svg viewBox="0 0 22 22"><path d="M1.5 19.5L3 21 14.5 9.5 16 4l-5.5 1.5zM12 13h9v3h-4.5v4.5h-3V16H12z"/></svg>BLADE &amp; PISTOL</span><span style="--wc:#cfefff"><b>3</b><svg viewBox="0 0 22 22"><path d="M2.5 19.5L4 21l9.5-9.5L12 10zM10.5 7.5l5-5.5 6 6-5.5 5z"/></svg>GREAT MAUL</span></div>
     <div id="boss"><div id="bossN"></div><div id="bossB"><i id="bossF"></i></div><div id="bossAB"><i id="bossA"></i></div></div>
   </div>
   <div id="msg"></div><div id="sub"></div>
