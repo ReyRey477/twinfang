@@ -4,17 +4,18 @@
 <meta charset="utf-8">
 <title>TWINFANG</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 /* Two faces: Cinzel for names and ranks, Rajdhani for everything read at a glance. Every piece of HUD sits on its own dark plate
-   or carries a hard shadow, so the scene cannot eat it. Orange is the enemy's colour, cyan the hero's, red means danger. */
+   or carries a hard shadow, so the scene cannot eat it. Orange is the enemy's colour, cyan the hero's, red means danger.
+   Banners, the letterbox bars and the HUD's visibility are driven from the game loop (inline styles), not by CSS transitions, so
+   what is on screen always matches the state of the game: nothing is ever caught half faded under a bar. */
 :root{--ser:'Cinzel','Palatino Linotype','Book Antiqua',Georgia,serif;--ink:rgba(3,5,9,.95)}
 html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:'Rajdhani','Bahnschrift','Segoe UI',sans-serif;color:#e8f4ff;user-select:none;-webkit-user-select:none}
 #c{position:fixed;inset:0;width:100%;height:100%;display:block;transition:filter .6s}
 #hud{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .8s}
 #hud.on{opacity:1}
-#hin{position:absolute;inset:0;transition:opacity .25s}
-body.cine #hin{opacity:0}   /* nothing but the banner while the letterbox bars are in */
+#hin{position:absolute;inset:0}   /* everything but the banner: gone (not dimmed) for as long as a letterbox bar has any height */
 /* vitality */
 #hpw{position:absolute;left:44px;top:32px;width:340px}
 .lbl{display:flex;justify-content:space-between;align-items:flex-end;font-size:12px;font-weight:600;letter-spacing:.42em;margin:0 6px 5px 2px;text-shadow:1px 1px 0 var(--ink)}
@@ -28,51 +29,62 @@ body.cine #hin{opacity:0}   /* nothing but the banner while the letterbox bars a
 #hpw.low #hpb{border-color:#ff5a66;animation:lowp .667s ease-in-out infinite}
 #hpw.low #hpn{color:#ff6470}
 @keyframes lowp{50%{box-shadow:0 0 0 1px rgba(0,0,0,.7),0 0 16px 2px rgba(255,40,60,.85)}}
-/* style rank: the loudest thing on the HUD, and louder with every rank */
-#style{position:absolute;right:0;top:18%;width:292px;padding:8px 36px 12px 0;text-align:right;opacity:0;transition:opacity .3s;--rc:#8fa3b5;--rd:#3d4b59;--rs:72px}
+/* Style rank: the loudest thing on the HUD, and louder with every rank. A plate that is nearly opaque at the frame edge (the room
+   cannot wash the letter out) under a rule in the rank colour; behind the letter an emblem that builds with the rank: nothing at D,
+   one slash at C, two crossed at B, a burst of six shards at A, and at S the same burst over twelve turning rays that pulse. */
+#style{position:absolute;right:0;top:18%;width:300px;padding:10px 38px 12px 0;text-align:right;opacity:0;transition:opacity .12s;--rc:#8fa3b5;--rd:#3d4b59;--rs:72px}
 #style.on{opacity:1}
-#style::before{content:'';position:absolute;inset:0 -30px 0 0;z-index:-1;background:linear-gradient(270deg,rgba(5,8,14,.84) 0,rgba(5,8,14,.62) 55%,rgba(5,8,14,0) 100%);transform:skewX(-12deg)}
+#style::before{content:'';position:absolute;inset:0 -34px 0 -20px;z-index:-2;transform:skewX(-12deg);
+  background:linear-gradient(270deg,var(--rc) 0,var(--rc) 45%,transparent 100%) top/100% 2px no-repeat,linear-gradient(270deg,rgba(4,6,11,.9) 0,rgba(4,6,11,.88) 46%,rgba(4,6,11,.55) 74%,rgba(4,6,11,0) 100%)}
 #style::after{content:'';position:absolute;right:14px;top:10px;bottom:10px;width:4px;background:var(--rc);box-shadow:0 0 14px var(--rc);transform:skewX(-12deg)}
-#rank{display:inline-block;font-family:var(--ser);font-weight:800;font-style:italic;font-size:var(--rs);line-height:1;padding:0 10px 0 6px;transition:font-size .16s;
-  background:linear-gradient(180deg,#fff 0,#fff 24%,var(--rc) 58%,var(--rd) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
-  transform:rotate(-6deg);transform-origin:right center;filter:drop-shadow(2px 2px 0 var(--ink)) drop-shadow(0 0 10px var(--rc))}
+#style.up{animation:pshake .16s linear}
+#pfl{position:absolute;inset:0 -34px 0 -20px;z-index:-2;transform:skewX(-12deg);background:linear-gradient(270deg,var(--rc) 0,transparent 80%);opacity:0}
+#style.up #pfl{animation:pflash .12s ease-out}
+@keyframes pshake{0%{transform:translate(4px,-2px)}25%{transform:translate(-4px,2px)}50%{transform:translate(3px,1px)}75%{transform:translate(-2px,-1px)}100%{transform:none}}
+@keyframes pflash{0%{opacity:.5}100%{opacity:0}}
+.rkw{position:relative;display:inline-block;line-height:1}
+.emb{position:absolute;left:50%;top:50%;width:calc(var(--rs)*1.55);height:calc(var(--rs)*1.55);margin:calc(var(--rs)*-.775) 0 0 calc(var(--rs)*-.775);z-index:-1;pointer-events:none;opacity:.92;filter:drop-shadow(0 0 7px var(--rc))}
+.emb::before,.emb::after{content:'';position:absolute;inset:0;display:none}
+.r1 .emb::before,.r2 .emb::before,.r2 .emb::after{display:block;clip-path:polygon(2% 100%,45% 41%,98% 0,55% 59%);background:linear-gradient(45deg,var(--rd) 0,var(--rc) 32%,#fff 50%,var(--rc) 68%,var(--rd) 100%)}
+.r2 .emb::after{transform:scaleX(-1)}
+.r3 .emb::before,.r4 .emb::after{display:block;background:radial-gradient(circle,#fff 0,var(--rc) 26%,var(--rd) 72%);
+  clip-path:polygon(62.9% 1.7%,56.4% 43.6%,84.8% 40.7%,58.7% 52.3%,85.4% 85.4%,52.3% 58.7%,40.7% 84.8%,43.6% 56.4%,1.7% 62.9%,41.3% 47.7%,24.5% 24.5%,47.7% 41.3%)}
+.r4 .emb::before{display:block;inset:-12%;background:repeating-conic-gradient(from 3deg,var(--rc) 0 5deg,transparent 5deg 30deg);-webkit-mask:radial-gradient(circle,#000 0,#000 24%,transparent 69%);mask:radial-gradient(circle,#000 0,#000 24%,transparent 69%);animation:erot 6s linear infinite}
+.r4 .emb::after{animation:epulse .8s ease-in-out infinite}
+@keyframes erot{to{transform:rotate(360deg)}}
+@keyframes epulse{50%{transform:scale(1.14);filter:brightness(1.35)}}
+/* the letter: Cinzel at its heaviest, slanted by a skew (the face has no italic), a dark outline all round, white at the top
+   running into the rank colour: always the colour of its label */
+#rank,#endR{display:inline-block;font-family:var(--ser);font-weight:900;font-size:var(--rs);line-height:1;padding:0 12px 0 8px;
+  background:linear-gradient(180deg,#fff 0,#fff 22%,var(--rc) 56%,var(--rd) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  transform:skewX(-12deg);transform-origin:right bottom;
+  filter:drop-shadow(1.5px 0 0 var(--ink)) drop-shadow(-1.5px 0 0 var(--ink)) drop-shadow(0 1.5px 0 var(--ink)) drop-shadow(0 -1.5px 0 var(--ink)) drop-shadow(0 0 12px var(--rc))}
+#rank{transition:font-size .16s}
 #rank.pop{animation:rpop .16s cubic-bezier(.2,1.5,.4,1)}
-@keyframes rpop{0%{transform:rotate(-6deg) scale(1.6)}100%{transform:rotate(-6deg) scale(1)}}
-#rank.drop{animation:rdrop .24s ease-out}
-@keyframes rdrop{0%{transform:rotate(-6deg) translateY(-9px);filter:grayscale(1) brightness(.6)}100%{transform:rotate(-6deg);filter:grayscale(1) brightness(.9)}}
-#style.r3 #rank,#style.r4 #rank{filter:drop-shadow(2px 2px 0 var(--ink)) drop-shadow(0 0 18px var(--rc))}
-#style.r4 #rank{animation:sglow 1s ease-in-out infinite}
-@keyframes sglow{50%{filter:drop-shadow(2px 2px 0 var(--ink)) drop-shadow(0 0 30px var(--rc)) brightness(1.2)}}
-#style.r4 #rank.pop{animation:rpop .16s cubic-bezier(.2,1.5,.4,1)}
+@keyframes rpop{0%{transform:skewX(-12deg) scale(1.6);filter:brightness(2.4) drop-shadow(0 0 16px var(--rc))}100%{transform:skewX(-12deg) scale(1)}}
+#rank.drop{animation:rdrop .22s ease-out}
+@keyframes rdrop{0%{transform:skewX(-12deg) translateY(-10px);opacity:.5}100%{transform:skewX(-12deg)}}
 #swipe{position:absolute;left:-60px;right:0;top:44%;height:3px;background:linear-gradient(90deg,transparent,var(--rc) 30%,#fff 80%,#fff);opacity:0;transform-origin:right}
 #style.up #swipe{animation:wipe .32s ease-out}
 @keyframes wipe{0%{opacity:1;transform:scaleX(0)}55%{opacity:1;transform:scaleX(1)}100%{opacity:0;transform:scaleX(1) translateX(-40px)}}
-#rword{font-size:20px;font-weight:700;letter-spacing:.42em;margin:2px -.42em 0 0;color:var(--rc);text-shadow:2px 2px 0 var(--ink)}
-#sm{position:relative;margin:8px 0 0 auto;width:196px;height:6px;background:rgba(255,255,255,.16);box-shadow:0 0 0 1px rgba(0,0,0,.75);transform:skewX(-24deg)}
-#smf{position:relative;display:block;height:100%;width:0;background:linear-gradient(90deg,var(--rd),var(--rc))}
-#smf::after{content:'';position:absolute;right:-1px;top:-2px;bottom:-2px;width:3px;background:#fff;box-shadow:0 0 8px #fff}
-#sm::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(20% - 2px),rgba(4,8,12,.9) calc(20% - 2px),rgba(4,8,12,.9) 20%)}
-#combo{margin-top:8px;font-size:44px;font-weight:700;line-height:1;min-height:44px;text-shadow:2px 2px 0 var(--ink);transform-origin:right center}
-#combo small{font-size:14px;letter-spacing:.3em;margin-left:8px;opacity:.85}
+#rword{font-size:20px;font-weight:700;letter-spacing:.42em;margin:4px -.42em 0 0;color:var(--rc);text-shadow:2px 2px 0 var(--ink)}
+#sm{position:relative;margin:9px 2px 0 auto;width:204px;height:10px;background:rgba(255,255,255,.14);box-shadow:0 0 0 1px rgba(0,0,0,.8);transform:skewX(-24deg);overflow:hidden}
+#smf{position:relative;display:block;height:100%;width:0;background:linear-gradient(90deg,var(--rd),var(--rc));box-shadow:inset -3px 0 0 #fff}
+#smf::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent 0,rgba(255,255,255,.75) 50%,transparent 100%) no-repeat;background-size:46px 100%;animation:sheen 1.3s linear infinite}
+@keyframes sheen{from{background-position:-50px 0}to{background-position:230px 0}}
+#sm::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(20% - 2px),rgba(4,8,12,.92) calc(20% - 2px),rgba(4,8,12,.92) 20%)}
+#combo{margin-top:10px;font-size:56px;font-weight:700;line-height:.86;min-height:66px;text-shadow:2px 2px 0 var(--ink),0 0 14px rgba(0,0,0,.6);transform-origin:right center}
+#combo small{display:block;font-size:13px;line-height:1.5;letter-spacing:.46em;margin:2px -.46em 0 0;opacity:.85}
 #combo.hit{animation:punch .12s ease-out}
 @keyframes punch{0%{transform:scale(1.25)}100%{transform:none}}
 /* callouts (PERFECT DODGE, ARMOUR BROKEN ...): a strip above the style block, never over the fight */
 #call{position:absolute;right:0;top:calc(18% - 50px);padding:3px 44px 3px 30px;font-size:28px;font-weight:700;letter-spacing:.12em;line-height:1.2;white-space:nowrap;color:#fff;text-shadow:2px 2px 0 var(--ink);
   background:linear-gradient(270deg,rgba(5,8,14,.88),rgba(5,8,14,.72) 70%,rgba(5,8,14,0));border-right:4px solid #7fe3ff;transform:skewX(-12deg) translateX(40px);opacity:0;transition:opacity .14s,transform .14s}
 #call.on{opacity:1;transform:skewX(-12deg)}
-/* banners (SEALED, boss names): high in the frame, clear of the fight */
-#msg{position:absolute;left:0;right:0;top:14%;text-align:center;font-family:var(--ser);font-size:46px;letter-spacing:.3em;opacity:0;transition:opacity .4s,letter-spacing 1.6s;text-shadow:0 2px 0 var(--ink),0 0 26px rgba(255,140,60,.8)}
-#msg.on{opacity:1;letter-spacing:.46em}
-#sub{position:absolute;left:0;right:0;top:calc(14% + 64px);text-align:center;font-size:19px;font-weight:700;letter-spacing:.46em;opacity:0;transition:opacity .4s;color:#e2f4ff;text-shadow:1px 2px 0 var(--ink),0 0 10px #000}
-#sub.on{opacity:1}
-/* lock-on */
-#ret{position:absolute;left:0;top:0;width:54px;height:54px;margin:-27px 0 0 -27px;opacity:0;transition:opacity .2s}
-#ret.on{opacity:1}
-#ret i{position:absolute;inset:0;border:2px solid rgba(235,245,255,.85);border-radius:50%;clip-path:polygon(0 0,38% 0,38% 100%,0 100%,0 0,62% 0,100% 0,100% 100%,62% 100%,62% 0);animation:spin 3s linear infinite;box-shadow:0 0 8px rgba(0,0,0,.8)}
-#ret.hard i{border-color:#7fe3ff;box-shadow:0 0 10px rgba(60,200,255,.9)}
-@keyframes spin{to{transform:rotate(360deg)}}
-#ret b{position:absolute;left:-14px;right:-14px;top:-15px;height:5px;background:rgba(6,6,8,.85);border:1px solid rgba(0,0,0,.8)}
-#thp{display:block;height:100%;width:100%;background:linear-gradient(90deg,#d8380f,#ff8a3a)}
+/* banners (SEALED, boss names): high in the frame, clear of the fight; opacity comes from the game loop */
+#msg{position:absolute;left:0;right:0;top:14%;text-align:center;font-family:var(--ser);font-size:46px;letter-spacing:.3em;opacity:0;transition:letter-spacing 1.6s;text-shadow:0 2px 0 var(--ink),0 0 26px rgba(255,140,60,.8)}
+#msg.on{letter-spacing:.46em}
+#sub{position:absolute;left:0;right:0;top:calc(14% + 64px);text-align:center;font-size:19px;font-weight:700;letter-spacing:.46em;opacity:0;color:#e2f4ff;text-shadow:1px 2px 0 var(--ink),0 0 10px #000}
 #hint{position:absolute;left:0;right:0;bottom:24px;text-align:center;font-size:14px;font-weight:600;letter-spacing:.22em;opacity:.8;transition:opacity 1.2s;text-shadow:1px 1px 0 var(--ink)}
 #hint b{color:#7fe3ff;font-weight:700}
 #hint.gone,#hud.boss #hint{opacity:0}
@@ -83,22 +95,27 @@ body.cine #hin{opacity:0}   /* nothing but the banner while the letterbox bars a
 #wsel span.on{opacity:1;color:#e4f8ff;border-color:#7fe3ff;box-shadow:inset 3px 0 0 #7fe3ff,0 0 14px rgba(60,200,255,.3)}
 #wsel span.on b{background:#7fe3ff;border-color:#7fe3ff;color:#04121a}
 /* boss: bottom centre, well away from vitality */
-#boss{position:absolute;left:50%;bottom:40px;width:56%;transform:translateX(-50%);opacity:0;transition:opacity .6s}
+#boss{position:absolute;left:50%;bottom:40px;width:56%;transform:translateX(-50%);opacity:0;transition:opacity .2s}
 #boss.on{opacity:1}
 #bossN{font-family:var(--ser);font-size:18px;letter-spacing:.4em;margin:0 0 6px 6px;text-align:left;text-shadow:1px 2px 0 var(--ink),0 0 12px rgba(0,0,0,.9)}
 #bossB{height:12px;background:rgba(10,6,6,.88);border:1px solid rgba(255,196,150,.65);box-shadow:0 0 0 1px rgba(0,0,0,.7);transform:skewX(-24deg);overflow:hidden}
 #bossF{display:block;height:100%;width:100%;background:linear-gradient(90deg,#b8240c,#ff7a3a 94%,#fff 99%);transition:width .15s}
 #bossAB{height:4px;margin-top:3px;transform:skewX(-24deg);background:rgba(10,6,6,.8);box-shadow:0 0 0 1px rgba(0,0,0,.6)}
 #bossA{display:block;height:100%;width:0;background:#ffe0a0;transition:width .15s}
-/* letterbox: eased for a boss arriving, snapped in for a finisher */
-.bar{position:fixed;left:0;right:0;height:0;background:#000;transition:height .5s}
+/* letterbox: its height is set from the game loop (eased for a boss arriving, snapped in for a finisher) */
+.bar{position:fixed;left:0;right:0;height:0;background:#000}
 #bt{top:0}#bb{bottom:0}
-body.cine .bar{height:11vh}
-body.fin .bar{transition:height .12s}
 #fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none}
 /* title: logo, tagline and one call to action over a staged shot of the hero; the controls live in their own panel */
-.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding-left:8vw;background:linear-gradient(90deg,rgba(4,6,12,.85) 0,rgba(4,6,12,.7) 24%,rgba(4,6,12,0) 46%);transition:opacity .9s}
+.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding-left:8vw;background:linear-gradient(90deg,rgba(4,6,12,.93) 0,rgba(4,6,12,.92) 34%,rgba(4,6,12,.6) 46%,rgba(4,6,12,0) 58%);transition:opacity .9s;overflow:hidden}
 .ov.off{opacity:0;pointer-events:none}
+/* embers drifting up across the title: two layers of sparse dots that scroll at different speeds */
+#title::before,#title::after{content:'';position:absolute;left:0;right:0;top:0;height:200%;pointer-events:none;opacity:.8;
+  background-image:radial-gradient(4px 4px at 61% 9%,#ffd9b0,#ff8a3a 45%,transparent 75%),radial-gradient(3px 3px at 72% 23%,#ffc48a,#ff7a2a 45%,transparent 75%),radial-gradient(5px 5px at 88% 31%,#ffe0c0,#ff8a3a 45%,transparent 75%),radial-gradient(3px 3px at 54% 38%,#ffc48a,#ff7a2a 45%,transparent 75%),radial-gradient(4px 4px at 79% 47%,#ffd9b0,#ff8a3a 45%,transparent 75%),radial-gradient(3px 3px at 94% 12%,#ffc48a,#ff7a2a 45%,transparent 75%),radial-gradient(3.5px 3.5px at 66% 44%,#ffd9b0,#ff8a3a 45%,transparent 75%),radial-gradient(2.6px 2.6px at 83% 5%,#ffc48a,#ff7a2a 45%,transparent 75%),radial-gradient(3px 3px at 47% 19%,#ffc48a,#ff7a2a 45%,transparent 75%),radial-gradient(2.6px 2.6px at 58% 28%,#ffd9b0,#ff8a3a 45%,transparent 75%);
+  background-size:100% 50%;animation:drift 26s linear infinite}
+#title::after{background-position:-7% 21%;animation-duration:17s;opacity:.55}
+@keyframes drift{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+.ov>*{position:relative;z-index:1}
 .ov h1{font-family:var(--ser);font-weight:800;font-size:clamp(48px,7.2vw,116px);letter-spacing:.12em;margin:0;line-height:1;
   background:linear-gradient(100deg,rgba(255,255,255,0) 42%,#fff 50%,rgba(255,255,255,0) 58%) no-repeat 160% 0/260% 100%,linear-gradient(180deg,#fff 20%,#7fe3ff 75%,#2a8bb0);
   -webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 28px rgba(60,200,255,.45));animation:sweep 6s ease-in-out infinite}
@@ -120,23 +137,33 @@ body.fin .bar{transition:height .12s}
 .keys b{flex:0 0 132px;color:#7fe3ff;font-weight:700;letter-spacing:.12em}
 .keys span{opacity:.9}
 #keys p{margin:18px 0 0;padding-top:14px;border-top:1px solid rgba(160,220,255,.2);font-size:15px;letter-spacing:.06em;opacity:.8}
-/* defeat and results */
+/* Defeat and results. Results: a heading and a panel of the same width; each line carries its own grade in a slanted chip, and the
+   final rank stands on the emblem it has on the HUD, under a label. Defeat: the word, a red rule that draws in under it, and one
+   line saying where and when. */
 #end{align-items:center;padding:0;background:radial-gradient(ellipse at center,rgba(2,4,8,.2),rgba(2,4,8,.75))}
-#end h1{font-size:clamp(40px,6vw,84px)}
-#end .go{margin:40px 0 0;font-size:18px;letter-spacing:.4em;opacity:.7;animation:none}
+#end h1{font-size:clamp(40px,5.6vw,72px);letter-spacing:.14em;margin-right:-.14em}
+#endL{display:block;width:min(900px,88vw);height:1px;margin:20px 0 0;background:linear-gradient(90deg,rgba(127,227,255,0),#7fe3ff 20%,#7fe3ff 80%,rgba(127,227,255,0))}
+#endI{display:none;margin-top:18px;font-size:17px;font-weight:600;letter-spacing:.42em;opacity:.6}
+#end .go{margin:34px 0 0;font-size:18px;letter-spacing:.4em;opacity:.7;animation:none}
 body.dead #c{filter:grayscale(1) blur(3px) brightness(.4)}
 body.done #c{filter:blur(6px) brightness(.3)}
 #end.dead{background:radial-gradient(ellipse at center,rgba(8,0,2,.1) 30%,rgba(110,0,12,.6) 100%)}
-#end.dead h1{background:linear-gradient(180deg,#ff3040,#7a0010);-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 0 26px rgba(255,30,50,.4));animation:spread 1.2s cubic-bezier(.2,.7,.2,1) both}
+#end.dead h1{font-size:clamp(40px,6vw,84px);background:linear-gradient(180deg,#ff3040,#7a0010);-webkit-background-clip:text;background-clip:text;filter:drop-shadow(0 0 26px rgba(255,30,50,.4));animation:spread 1.2s cubic-bezier(.2,.7,.2,1) both}
 @keyframes spread{from{letter-spacing:.1em;margin-right:-.1em}to{letter-spacing:.35em;margin-right:-.35em}}
 #end.dead #endP{display:none}
-#endP{display:flex;align-items:center;gap:54px;margin-top:26px;padding:22px 44px 22px 40px;background:rgba(5,8,14,.86);border-top:1px solid rgba(127,227,255,.6);border-bottom:1px solid rgba(127,227,255,.6)}
-#endS{display:grid;grid-template-columns:auto auto auto;gap:9px 28px;align-items:baseline;font-size:22px;font-weight:600}
+#end.dead #endI{display:block}
+#end.dead #endL{width:min(520px,60vw);height:2px;margin-top:14px;background:linear-gradient(90deg,rgba(255,40,60,0),#ff3040 18%,#ff5a66 50%,#ff3040 82%,rgba(255,40,60,0));box-shadow:0 0 12px rgba(255,30,50,.7);animation:draw .7s .35s cubic-bezier(.2,.7,.2,1) both}
+@keyframes draw{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+#endP{display:flex;align-items:center;justify-content:space-between;box-sizing:border-box;width:min(900px,88vw);margin-top:0;padding:26px 56px 26px 48px;background:rgba(5,8,14,.86);border-bottom:1px solid rgba(127,227,255,.6)}
+#endS{display:grid;grid-template-columns:auto auto auto;gap:12px 30px;align-items:center;font-size:26px;font-weight:600;line-height:1}
 #endS b{font-weight:600;letter-spacing:.2em;opacity:.8}
-#endS span{text-align:right;font-variant-numeric:tabular-nums;letter-spacing:.04em;min-width:96px}
-#endS em{font-family:var(--ser);font-style:italic;font-weight:800;font-size:24px;width:26px;text-align:center;text-shadow:2px 2px 0 var(--ink)}
-#endR{font-family:var(--ser);font-weight:800;font-style:italic;font-size:180px;line-height:.95;padding:0 18px 0 4px;background:linear-gradient(180deg,#fff 0,#fff 22%,var(--rc,#ff6a2a) 60%,var(--rd,#a02a00));-webkit-background-clip:text;background-clip:text;color:transparent;
-  filter:drop-shadow(3px 3px 0 var(--ink)) drop-shadow(0 0 30px var(--rc,#ff6a2a));animation:slash .4s .9s cubic-bezier(.3,.8,.3,1) both}
+#endS span{text-align:right;font-variant-numeric:tabular-nums;letter-spacing:.04em;min-width:110px}
+#endS em{display:block;min-width:30px;padding:3px 9px 3px 7px;font-family:var(--ser);font-style:normal;font-weight:900;font-size:30px;line-height:1;text-align:center;transform:skewX(-12deg);background:rgba(255,255,255,.07);border-left:3px solid currentColor;text-shadow:2px 2px 0 var(--ink)}
+#endRW{display:flex;flex-direction:column;align-items:center;--rs:176px;--rc:#ff6a2a;--rd:#a02a00}
+#endRW small{position:relative;z-index:1;font-size:15px;font-weight:700;letter-spacing:.5em;margin:0 0 4px;padding:2px 8px 2px 16px;color:#fff;background:rgba(4,6,11,.82);border-left:3px solid var(--rc);transform:skewX(-12deg)}
+#endR{padding:0 22px 0 14px;animation:slash .4s .9s cubic-bezier(.3,.8,.3,1) both}
+#endRW .emb{animation:embin .5s 1.1s ease-out both}
+@keyframes embin{from{opacity:0;transform:scale(.4)}to{opacity:.92;transform:none}}
 @keyframes slash{0%{clip-path:polygon(-40% -40%,-40% -40%,-90% 140%,-90% 140%)}100%{clip-path:polygon(-40% -40%,190% -40%,140% 140%,-90% 140%)}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
@@ -146,9 +173,8 @@ body.done #c{filter:blur(6px) brightness(.3)}
 <div id="hud">
   <div id="hin">
     <div id="hpw"><div class="lbl"><span>VITALITY</span><b id="hpn">100</b></div><div id="hpb"><i id="hpl"></i><i id="hpf"></i><i id="hpt"></i></div></div>
-    <div id="style"><i id="swipe"></i><div id="rank">D</div><div id="rword">DULL</div><div id="sm"><i id="smf"></i></div><div id="combo"></div></div>
+    <div id="style"><i id="pfl"></i><i id="swipe"></i><div class="rkw"><i class="emb"></i><div id="rank">D</div></div><div id="rword">DULL</div><div id="sm"><i id="smf"></i></div><div id="combo"></div></div>
     <div id="call"></div>
-    <div id="ret"><i></i><b><u id="thp"></u></b></div>
     <div id="hint"><b>LMB</b> attack &nbsp; <b>RMB</b> heavy / pistol &nbsp; <b>E</b> special &nbsp; <b>1 2 3</b> weapon &nbsp; <b>SPACE</b> jump &nbsp; <b>SHIFT</b> dodge &nbsp; <b>Q</b> lock-on &nbsp; <b>C</b> controls</div>
     <div id="wsel"><span><b>1</b>TWIN FANGS</span><span><b>2</b>BLADE &amp; PISTOL</span><span><b>3</b>GREAT MAUL</span></div>
     <div id="boss"><div id="bossN"></div><div id="bossB"><i id="bossF"></i></div><div id="bossAB"><i id="bossA"></i></div></div>
@@ -182,7 +208,9 @@ body.done #c{filter:blur(6px) brightness(.3)}
 </div>
 <div class="ov off" id="end">
   <h1 id="endT"></h1>
-  <div id="endP"><div id="endS"></div><div id="endR">S</div></div>
+  <i id="endL"></i>
+  <div id="endI"></div>
+  <div id="endP"><div id="endS"></div><div id="endRW"><small>RANK</small><div class="rkw" id="endK"><i class="emb"></i><div id="endR">S</div></div></div></div>
   <div class="go" id="endGo"></div>
 </div>
 <script type="module">

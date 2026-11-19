@@ -9,7 +9,7 @@ class Warden{
     this.phase=1;this.armor=this.maxArmor=160;this.cd=1;this.flash=0;this.dead=false;this.gone=false;this.dodged=false;this.struck=false;this.gun=0;this.left=false;this.farT=0;
     this.combo=0;this.dashes=0;this.rec=1;this.stunT=0;this.tx=0;this.tz=0;this.fired=0;this.marked=false;
     this.mats=wardenMats();this.rig=new Rig({kind:'warden',scale:this.scale,mats:this.mats});scene.add(this.rig.root);this.rig.play(CL.kneel,0);
-    this.trail=new Trail(18,0xff7a2a);
+    this.trail=new Trail(18,0xff7a2a,{life:.1,body:.22,px:10,white:.12,edge:1.4});
   }
   get ghost(){return this.state==='intro'||this.state==='shift'||this.state==='leap';}
   get air(){return false;}
@@ -46,8 +46,9 @@ class Warden{
     const want=this.hp>this.maxHp*.66?1:this.hp>this.maxHp*.33?2:3;
     if(!this.dead&&want>ph&&S!=='shift'&&S!=='dash'&&S!=='dive'&&S!=='cling'&&S!=='leap'&&P.y<=gy+.01){
       this.phase=want;this.armor=0;this.vel.set(0,0,0);this.set('shift',CL.roar,.2);sfx.roar();cam.shake(.7);
+      r.root.updateMatrixWorld(true);fx.shed(r.hide,P.x,gy+2.6,P.z,gy,this.scale);   // the plates it drops are thrown clear as real pieces
       for(const m of r.hide)m.visible=false;for(const m of r.hot)m.visible=true;
-      fx.rings.spawn(P.x,gy+.1,P.z,0xff5a1a,5,.5,14,.55);fx.embers(P.x,gy+2.4,P.z,120,[3.2,1,.25],1.4);
+      fx.phase(P.x,gy,P.z,0xff5a1a,this.mats.armor.color.getHex(),this.scale);
       G.msg('',want===2?'THE ARMOUR FALLS':'IT WILL NOT YIELD',2.2);
     }
     const sweep=()=>{const w=this.phase===3?.5:.9;this.wind=w;this.left=!this.left;this.set('windup',this.left?CL.eWindM:CL.eWind,.1,.4/(.65*w));sfx.telegraph(true);
@@ -109,7 +110,7 @@ class Warden{
       if(t>=this.stunT){if(ph===1)this.armor=this.maxArmor;this.dashes=0;this.set('walk');this.cd=.7;}}
     else if(S==='dead'){fr(8);glow=t;
       if(random()<dt*50)fx.parts.spawn(P.x+rand(-1.4,1.4),gy+rand(.3,3),P.z+rand(-1.4,1.4),0,rand(2,6),0,3.2,1,.25,rand(.08,.2),.8,-1,1);
-      if(t>2.3&&!this.gone){this.gone=true;fx.embers(P.x,gy+2,P.z,200,[3.2,1,.25],1.6);fx.burst(P.x,gy+2.2,P.z,2.6,[3.2,1,.25],0xff5a1a,gy,30,this.mats.armor.color.getHex());
+      if(t>2.3&&!this.gone){this.gone=true;fx.embers(P.x,gy+2,P.z,200,[3.2,1,.25],1.6);fx.burst(P.x,gy+2.2,P.z,2.6,[3.2,1,.25],0xff5a1a,gy,30,this.mats.armor.color.getHex(),{rig:r,o:this,v:this.vel});
         _a.set(P.x,gy+2,P.z);fx.flash(_a,0xff6a2a,300,.4);fx.rings.spawn(P.x,gy+.06,P.z,0xff5a1a,4,.5,12,.5);sfx.death();sfx.boom();cam.shake(.8);this.remove();return;}}
     P.x+=this.vel.x*dt;P.z+=this.vel.z*dt;P.x=clamp(P.x,ar.x0,ar.x1);P.z=clamp(P.z,ar.z0,ar.z1);
     r.root.position.copy(P);r.root.rotation.y=this.yaw;
@@ -117,7 +118,7 @@ class Warden{
     r.update(dt);
     // rim only (see fx.rim): the armour is never painted over, so its steel and gold stay visible through the whole fight
     const wind=S==='windup'||S==='swind'||S==='dwind'||S==='cling'||S==='volley';
-    fx.rim(this,this.mats,this.flash,wind?glow:0,1,S==='stun',S==='dead'?min(4,t*1.6):S==='shift'?1.8:ph>1?.6+.25*sin(G.rt*5):0,0xff5a14);
-    r.root.updateMatrixWorld(true);const sw=r.sword[1];_a.set(0,.3,0);sw.localToWorld(_a);_b.set(0,1.95,0);sw.localToWorld(_b);this.trail.sample(_a,_b,trail);
+    fx.rim(this,this.mats,this.flash,wind?glow:0,1,S==='stun',S==='dead'?min(4,t*1.6):S==='shift'?3.6:ph>1?.6+.25*sin(G.rt*5):0,0xff5a14);   // changing phase: its own lights at twice their level
+    r.root.updateMatrixWorld(true);const sw=r.sword[1];_a.set(0,.3,0);sw.localToWorld(_a);_b.set(0,1.95,0);sw.localToWorld(_b);this.trail.sample(_a,_b,trail,dt);
   }
 }

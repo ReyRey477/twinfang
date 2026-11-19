@@ -8,7 +8,7 @@ class Enemy{
     this.pos=V(x,this.gy+(S?min(8.4,(o.ceil||10.5)-2.15):0),z);this.vel=V();this.yaw=PI;this.state=S?'drop':'spawn';this.t=0;this.atkCd=S?rand(.6,1.6):rand(.5,2);this.strafe=random()<.5?-1:1;this.strafeT=rand(1,3);
     this.flash=0;this.hang=0;this.chain=0;this.token=false;this.dead=false;this.gone=false;this.spiked=false;this.struck=false;this.dodged=false;this.shield=null;this.poise=120;this.gunPoise=0;
     this.mats=enemyMats(kind);this.baseEm=S?0xa050ff:0xff6a2a;this.rig=new Rig({kind,scale:this.scale,mats:this.mats});scene.add(this.rig.root);
-    this.rig.play(S?CL.sHang:CL.eIdle,0);this.trail=B?null:new Trail(14,S?0xa050ff:0xff4a12);
+    this.rig.play(S?CL.sHang:CL.eIdle,0);this.trail=B?null:new Trail(14,S?0xa050ff:0xff4a12,{life:.1,body:.2,px:8,white:.1,edge:1.3});   // a foe's ribbon: shorter history and a fainter body than the hero's
     if(!S){fx.spawnIn(x,this.gy,z,this.scale,1.1);sfx.spawn();}
   }
   get ghost(){return this.state==='spawn'||this.state==='drop';}
@@ -130,12 +130,12 @@ class Enemy{
     r.root.rotation.y=this.yaw;r.update(dt);
     // rim only, the surface is never repainted: white on a hit, the warning colour on a wind-up, a cool flicker when staggered
     const hot=S==='dead'?min(3.5,this.t*8):this.shield?1+.4*sin(G.rt*9):B&&this.hp<this.maxHp*.55?.8+.4*sin(G.rt*7):0;
-    fx.rim(this,this.mats,this.flash,S==='windup'?sat(this.t/(B?.9:.45)):0,B?1:0,S==='stagger'||S==='broken',hot,S!=='dead'&&this.shield?0x9fd0ff:this.baseEm);
+    fx.rim(this,this.mats,this.flash,S==='windup'?sat(this.t/(B?.9:.45)):0,B?1:0,S==='stagger'||S==='broken',hot,S!=='dead'&&this.shield?0xffc45a:this.baseEm);   // shielded: the gold of the Lantern's tether
     if(this.trail){r.root.updateMatrixWorld(true);const sw=r.sword[1];_a.set(0,.12,0);sw.localToWorld(_a);_b.set(0,1.05,0);sw.localToWorld(_b);this.trail.sample(_a,_b,S==='strike'&&this.t<(St?.34:.2)||S==='drop'&&this.t>this.delay+.7,dt);}
     if(S==='dead'){
       r.root.scale.setScalar(this.scale*(1+this.t*.3));
       if(this.t>.42&&!this.gone){this.gone=true;const y=this.pos.y+1.1*this.scale;
-        fx.burst(this.pos.x,y,this.pos.z,this.scale,St?[1.6,.6,3.2]:[3.2,1,.25],this.baseEm,gy,B?16:9,this.mats.armor.color.getHex());sfx.death();this.remove();}
+        fx.burst(this.pos.x,y,this.pos.z,this.scale,St?[1.6,.6,3.2]:[3.2,1,.25],this.baseEm,gy,B?16:9,this.mats.armor.color.getHex(),{rig:r,o:this,v:this.vel});sfx.death();this.remove();}   // the body itself comes apart
     }
   }
 }

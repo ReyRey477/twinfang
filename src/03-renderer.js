@@ -44,11 +44,15 @@ const bloom=new UnrealBloomPass(new THREE.Vector2(256,256),.52,.66,.95); compose
 //   uDmg   taking damage: a red vignette on the frame edges only, heavier on the side uDir points to; uLow: the low-health pulse
 //   uSlow  slow motion: world at half saturation with cool shadows, closer vignette, slight radial blur at the edges;
 //          bright saturated things (the hero's lights, warning flares) keep their colour
-//   uExp   exposure: dips on hit-stop and for the two dark frames that open a finisher
+//   uExp   exposure (lightning lifts it for a frame, then pulls it under for a few)
+//   uDip   how far the world is pulled down (hit-stop, the dark frames that open a finisher, a boss changing phase); what already
+//          glows is exempt, so the hit mark and the rim-lit fighters stand out of a darker frame
+//   uStop  the same moments: world saturation falls (0.3 on a heavy hit-stop, 0.75 on the dark frames) and the vignette closes a little
+//   uRb    radial blur at the frame edges (150 ms after a finisher)
 const grade=new ShaderPass({
-  uniforms:{tDiffuse:{value:null},uAb:{value:0},uDmg:{value:0},uLow:{value:0},uDir:{value:new THREE.Vector2()},uSlow:{value:0},uFlash:{value:0},uT:{value:0},uExp:{value:2.05}},
+  uniforms:{tDiffuse:{value:null},uAb:{value:0},uDmg:{value:0},uLow:{value:0},uDir:{value:new THREE.Vector2()},uSlow:{value:0},uStop:{value:0},uDip:{value:1},uRb:{value:0},uT:{value:0},uExp:{value:2.05}},
   vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-  fragmentShader:`uniform sampler2D tDiffuse;uniform float uAb,uDmg,uLow,uSlow,uFlash,uT,uExp;uniform vec2 uDir;varying vec2 vUv;
+  fragmentShader:`uniform sampler2D tDiffuse;uniform float uAb,uDmg,uLow,uSlow,uStop,uDip,uRb,uT,uExp;uniform vec2 uDir;varying vec2 vUv;
   // ACES (Hill fit): keeps the amber and teal emitters saturated, rolls highlights off to white
   vec3 aces(vec3 x){
     const mat3 a=mat3(.59719,.07600,.02840,.35458,.90834,.13383,.04823,.01566,.83777);
@@ -59,10 +63,11 @@ const grade=new ShaderPass({
     // lens: chromatic aberration grows with the cube of the radius, so the middle of the frame is never split
     vec2 o=d*r2*(.003+uAb*.0095);
     vec3 c=vec3(texture2D(tDiffuse,vUv+o).r,texture2D(tDiffuse,vUv).g,texture2D(tDiffuse,vUv-o).b);
-    if(uSlow>.01){vec2 b=d*r2*.05*uSlow;c=(c+texture2D(tDiffuse,vUv-b).rgb+texture2D(tDiffuse,vUv-b*2.).rgb+texture2D(tDiffuse,vUv-b*3.).rgb)*.25;}
-    c=vec3(c.r>=0.?c.r:0.,c.g>=0.?c.g:0.,c.b>=0.?c.b:0.)*uExp*(1.-.19*uSlow);
-    c*=mix(1.,smoothstep(1.12,.22,r*1.32),.88)*(1.-uSlow*.5*smoothstep(.22,.75,r));
-    c+=uFlash;
+    if(uSlow+uRb>.01){vec2 b=d*r2*(.05*uSlow+.3*uRb);c=(c+texture2D(tDiffuse,vUv-b).rgb+texture2D(tDiffuse,vUv-b*2.).rgb+texture2D(tDiffuse,vUv-b*3.).rgb)*.25;}
+    c=vec3(c.r>=0.?c.r:0.,c.g>=0.?c.g:0.,c.b>=0.?c.b:0.);
+    // the dip darkens the world, not what glows: anything already bright (hit marks, flares, rims, the hero's lights) keeps its level
+    c*=uExp*(1.-.19*uSlow)*mix(uDip,1.,smoothstep(.5,1.5,max(c.r,max(c.g,c.b))));
+    c*=mix(1.,smoothstep(1.12,.22,r*1.32),.88)*(1.-max(uSlow,uStop)*.5*smoothstep(.22,.75,r));
     c=aces(c);
     // grade (display-linear): teal shadows, warm highlights, a little extra chroma and contrast
     float l=dot(c,vec3(.2126,.7152,.0722));
@@ -71,6 +76,7 @@ const grade=new ShaderPass({
     c=mix(vec3(l),c,1.1);
     float mx=max(c.r,max(c.g,c.b)),keep=smoothstep(.45,.9,mx)*smoothstep(.12,.45,mx-min(c.r,min(c.g,c.b)));
     c=mix(c,mix(mix(vec3(l),c,.5)*mix(vec3(.7,.9,1.28),vec3(1.),smoothstep(0.,.45,l)),c,keep),uSlow);
+    c=mix(c,vec3(dot(c,vec3(.2126,.7152,.0722))),uStop*(1.-keep));
     c=mix(c,c*c*(3.-2.*c),.3);
     float v=smoothstep(.55,1.03,r*1.4142)*clamp(1.+.75*dot(d/max(r,.001),uDir),.35,1.75);
     c=mix(c,vec3(.62,.012,.03)*(.3+l),clamp(v*(uDmg*.46+uLow*.3),0.,.7));
