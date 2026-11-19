@@ -6,6 +6,7 @@ Updated 2026-11-19 at the end of the second Claude Code session on the owner's P
 
 - Branch `rebuild`. `main` is the old version and must stay untouched.
 - Build stamp: `2026-11-19.1` (bottom right corner of the title screen, and in the controls panel on `C`).
+- Two public links. `https://reyrey477.github.io/twinfang/twinfang.html` serves `main` (the old version) and must keep doing so. `https://reyrey477.github.io/twinfang-rebuild/twinfang.html` serves this branch from a second repository, `ReyRey477/twinfang-rebuild` (git remote `rebuild-site`). GitHub serves one branch per repository, hence the second one. When the owner approves a push, push to both: `git push origin rebuild` and `git push rebuild-site rebuild`.
 - The test tools run on this PC on the real GPU (headless Edge, RTX 4070 SUPER through Direct3D 11). Setup: `npm i --no-save playwright-core three@0.160.0`.
 
 ## What the project is
