@@ -191,7 +191,7 @@ const G={
     // roof weather: the storm's own lightning is a real bolt out over the roofs in front of the camera, not just a brighter sky
     const st=this.storm,out=P.z>258;rain.m.visible=out;st.flash=max(0,st.flash-rdt*2.4);
     if(out){rain.update(rdt,camera.position.x,AREA.roof.y-1,camera.position.z);st.next-=rdt;
-      if(st.next<=0){st.next=rand(4,9);st.flash=max(st.flash,rand(.5,1));sfx.thunder(.45);const a=cam.yaw+rand(-.5,.5),d=rand(58,82);fx.bolt(P.x+sin(a)*d,AREA.roof.y-6,P.z+cos(a)*d,true,2.6);}}   // always within 30 degrees of where the camera looks, and nearer than the skyline, so no tower hides it
+      if(st.next<=0){st.next=rand(4,9);st.flash=max(st.flash,rand(.5,1));sfx.thunder(.45);const a=cam.yaw+rand(-.5,.5),d=rand(58,82),R=AREA.roof,cx=(R.x0+R.x1)/2,cz=(R.z0+R.z1)/2,bx=P.x+sin(a)*d-cx,bz=P.z+cos(a)*d-cz,k=min(1,78/(hypot(bx,bz)||1));fx.bolt(cx+bx*k,R.y-6,cz+bz*k,true,2.6);}}   // always within 30 degrees of where the camera looks, and inside the ring of the skyline (its towers start 85 m from the middle of the roof), so none of them hides it
     sky.material.uniforms.uT.value=this.rt;sky.material.uniforms.uF.value=st.flash;moon.intensity=2.1+st.flash*5;hemi.intensity=.75+st.flash*1.3;
     updateLights(P.x,P.y,P.z);fx.parts.floor=p.gy;TIMEU.value=this.rt;for(const s of spinners)s.g.rotation.x+=s.speed*rdt;
     // while a finisher plays the lamps drop to 40%, so the blow is the brightest thing in the room
