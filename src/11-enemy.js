@@ -8,7 +8,7 @@ class Enemy{
     this.pos=V(x,this.gy+(S?min(8.4,(o.ceil||10.5)-2.15):0),z);this.vel=V();this.yaw=PI;this.state=S?'drop':'spawn';this.t=0;this.atkCd=S?rand(.6,1.6):rand(.5,2);this.strafe=random()<.5?-1:1;this.strafeT=rand(1,3);
     this.flash=0;this.hang=0;this.chain=0;this.token=false;this.dead=false;this.gone=false;this.spiked=false;this.struck=false;this.dodged=false;this.shield=null;this.poise=120;this.gunPoise=0;
     this.mats=enemyMats(kind);this.baseEm=S?0xa050ff:0xff6a2a;this.rig=new Rig({kind,scale:this.scale,mats:this.mats});scene.add(this.rig.root);
-    this.rig.play(S?CL.sHang:CL.eIdle,0);this.trail=B?null:new Trail(14,S?0xa050ff:0xff4a12,{life:.1,body:.2,px:8,white:.1,edge:1.3});   // a foe's ribbon: shorter history and a fainter body than the hero's
+    this.rig.play(S?CL.sHang:CL.eIdle,0);this.trail=B?null:new Trail(14,S?0xa050ff:0xff4a12,{life:.1,body:.3,px:10,white:.1,edge:1.3});   // a foe's ribbon: shorter history and a fainter body than the hero's
     if(!S){fx.spawnIn(x,this.gy,z,this.scale,1.1);sfx.spawn();}
   }
   get ghost(){return this.state==='spawn'||this.state==='drop';}

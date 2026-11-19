@@ -337,6 +337,6 @@ class Stormvane{
     this.iron.emissiveIntensity=.04;   // a faint constant glow so the dark hull never vanishes into the night; hits and tells are the rim's job
     // the eyes and the gape burn at about twice the reactor's idle level, and flare with a wind-up or a charging attack: the head is where a tell shows first
     const tell=S==='wsw'?sat(t/.8):S==='tail'?sat(t/.55):S==='bite'?sat(t/.66):0;this.eyeM.color.setHex(0xbfe6ff).multiplyScalar(1.8*(1+2.4*tell+1.3*hot)*(S==='stun'?.35+.25*sin(G.rt*23):1));
-    fx.rim(this,this.rimM||(this.rimM={m:this.iron}),this.flash,S==='wsw'?sat(t/.8):S==='tail'?sat(t/.55):S==='bite'?sat(t/.66):0,1,S==='stun',G.boltA<.05?1.5*G.boltK:0,0xbfd8ff);   // lightning rims it for three frames
+    fx.rim(this,this.rimM||(this.rimM={m:this.iron}),this.flash,tell,1,S==='stun',G.boltA<.07?1.5*G.boltK:0,0xbfd8ff);   // lightning rims it for four frames
   }
 }
