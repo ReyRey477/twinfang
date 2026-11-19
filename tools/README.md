@@ -42,6 +42,20 @@ python tools/fetch_samples.py                             # downloads the raw CC
 python tools/make_samples.py                              # cuts, levels, tunes and encodes them into src/samples/ (needs ffmpeg and the soundfile module)
 ```
 
+## The review loop
+
+One round = two independent art-director agents score the pictures (characters; combat effects and interface) against the owner's references and list findings, then one engineer agent per track fixes its findings in its own git worktree. Run from Claude Code:
+
+```bash
+python tools/review.py r1                                 # 1. the picture set for this round
+# 2. run tools/review_workflow.js with the Workflow tool, args:
+#    { "round": 1, "dir": "<repo>/tools/shots/review/r1", "base": "<HEAD sha>", "prevFile": null, "critiqueOnly": false, "repo": "<repo>" }
+python tools/review_round.py 1 <workflow journal.jsonl>   # 3. scores, findings and fix reports -> tools/shots/review/round1.json
+# 4. merge the two worktree branches, python build.py, run the checks above, commit, then round 2 with prevFile = round1.json
+```
+
+`critiqueOnly: true` scores a picture set without changing anything. The two engineers own separate files, but both rounds so far needed a look at the seams: who drives an enemy's glow (`fx.rim` does), and anything in `tools/s_review.mjs`.
+
 `audio_view.py` needs numpy, scipy and Pillow. Its `ring` column is the longest time a narrow spectral peak above 250 Hz holds its pitch: the signature of a bell. Keep it under about 60 ms.
 
 Every run prints the page's console errors at the end. A scenario is a small module, so adding a check means adding a file.
