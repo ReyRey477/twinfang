@@ -137,9 +137,11 @@ const LN_STRIP=new THREE.BoxGeometry(.05,1.6,.74).translate(.43,0,.5);   // the 
 
 // ===================== LANTERN =====================
 // A slender six-armed automaton that hovers out of reach: antlered mask, halo, the core held in a gimbal inside an open chest.
-// It is the dark counterpart of the white hero: gunmetal with gold trim, its light kept to rings, palms and the core.
+// It is the dark counterpart of the white hero, in three materials that separate at a glance: a dark gunmetal frame (arms, spine,
+// ribs, antlers), pale ceramic shells over it (mask, chest plate, shoulder mantles, hip and leg shells: not metal, satin), and gold
+// kept to the rings and the diamond on its chest. Its light is in rings, palms and the core, and down its back.
 // The core is the origin (orbs and the shield tether start there). The geometry is built once and shared by every Lantern.
-const LN_COL={dark:0x595f6d,mid:0x767d8e,pale:0xa0a8ba,gold:new THREE.Color(0xe0b25c).multiplyScalar(2.6),joint:0x2a2d36};
+const LN_COL={dark:0x4a4f5c,mid:0x676d7d,pale:0x9aa2b4,gold:new THREE.Color(0xe0b25c).multiplyScalar(2.6),joint:0x2a2d36};
 const LN_LA=.5,LN_LF=.48,LN_SC=1;                                   // arm bone lengths, figure scale
 const LN_SH=[[.3,.42,-.14],[.27,.22,-.24],[.22,.02,-.28]];            // left shoulders: upper, middle, lower pair
 const LN_POLE=[[.5,-.6,-.5],[.8,-.3,-.5],[.5,.1,-.9]];                // where each pair's elbows point
@@ -152,40 +154,47 @@ const LN_POSE={
 let LN_PARTS=null;
 function LN_lanternParts(){
   if(LN_PARTS)return LN_PARTS;
-  const K=LN_kit(),TM={uuid:'metal',userData:{tile:TILE.iron},vertexColors:true},TG={uuid:'glow',userData:{}},grp={};
+  const K=LN_kit(),TM={uuid:'metal',userData:{tile:TILE.iron},vertexColors:true},TC={uuid:'ceramic',userData:{tile:TILE.shell}},TG={uuid:'glow',userData:{}},grp={};
   for(const k of ['body','head','cage','legs','shin','cab','ua','fa','palm'])grp[k]={uuid:k};
   const {body,head,cage,legs,shin,cab,ua,fa,palm}=grp,{dark:D,mid:Md,pale:Pl,gold:Au,joint:Jn}=LN_COL;
   const m=(par,geo,col,x,y,z,sx,sy,sz,rx,ry,rz)=>K.add(par,geo,TM,x,y,z,sx,sy,sz,rx,ry,rz,col),mm=(par,geo,col,x,y,z,sx,sy,sz,rx,ry,rz)=>K.pair(par,geo,TM,x,y,z,sx,sy,sz,rx,ry,rz,col);
   const gl=(par,geo,x,y,z,sx,sy,sz,rx,ry,rz)=>K.add(par,geo,TG,x,y,z,sx,sy,sz,rx,ry,rz),gg=(par,geo,x,y,z,sx,sy,sz,rx,ry,rz)=>K.pair(par,geo,TG,x,y,z,sx,sy,sz,rx,ry,rz);
+  const ce=(par,geo,x,y,z,sx,sy,sz,rx,ry,rz)=>K.add(par,geo,TC,x,y,z,sx,sy,sz,rx,ry,rz),cc=(par,geo,x,y,z,sx,sy,sz,rx,ry,rz)=>K.pair(par,geo,TC,x,y,z,sx,sy,sz,rx,ry,rz);   // ceramic shells
   const bar=(par,a,b,r,col,geo=LN_UZ)=>K.span(par,geo,TM,a,b,r,r,col),bars=(par,a,b,r,col,geo)=>{bar(par,a,b,r,col,geo);bar(par,[-a[0],a[1],a[2]],[-b[0],b[1],b[2]],r,col,geo);};
   // ---- torso: spine, back plate, shoulder yoke, open ribs around the core, segmented waist, pelvis
   const zc=y=>-.17-.13*sin(sat((y+.56)/1.02)*PI);
   m(body,LN_tube([[0,-.56,zc(-.56)],[0,-.22,zc(-.22)],[0,.12,zc(.12)],[0,.46,zc(.46)]],.042),Jn);
   for(let k=0;k<8;k++){const y=-.5+k*.13;m(body,LN_cyl(.066,.058,.05),k%2?Md:D,0,y,zc(y));m(body,LN_cone(.018,.11,4),Md,0,y+.01,zc(y)-.09,1,1,1,-1.9);}
   m(body,LN_plate([[0,.5],[.16,.36],[.11,-.05],[0,-.32],[-.11,-.05],[-.16,.36]],.03),D,0,0,-.31);
+  // down the back plate: five blocks, a ring of light on every other one, so the figure is not a blank cut-out from behind
+  for(let k=0;k<5;k++){m(body,GB,k%2?D:Md,0,.37-k*.135,-.338,.085-k*.006,.1,.04);if(!(k%2))gl(body,LN_tor(.021,.0055,TAU,12,4),0,.37-k*.135,-.361);}
   LN_SH.forEach(([x,y,z])=>{mm(body,LN_SPH,Md,x,y,z,.07,.07,.07);bars(body,[0,y+.03,zc(y)+.02],[x,y,z],.026,D,LN_UZT);});
-  m(body,LN_shell((u,v,o)=>{const a=(u-.5)*2.5,e=-.12+v*1.3,k=.55+.45*sat(v*3);return o.set(sin(a)*cos(e)*.27*k,.3+sin(e)*.2,-.06+cos(a)*cos(e)*.25);},10,6,.02),Pl);
+  ce(body,LN_shell((u,v,o)=>{const a=(u-.5)*2.5,e=-.12+v*1.3,k=.55+.45*sat(v*3);return o.set(sin(a)*cos(e)*.27*k,.3+sin(e)*.2,-.06+cos(a)*cos(e)*.25);},10,6,.02));
   m(body,LN_plate([[0,.07],[.05,0],[0,-.1],[-.05,0]],.03),Au,0,.33,.2,1,1,1,-.2);
-  mm(body,LN_shell((u,v,o)=>{const a=(u-.5)*2.6,e=.25+v*1.25;return o.set(sin(a)*cos(e)*.13,sin(e)*.1,cos(a)*cos(e)*.13);},6,4,.016),Pl,.33,.43,-.14,1,1,1,0,.9,-.5);
+  cc(body,LN_shell((u,v,o)=>{const a=(u-.5)*2.6,e=.25+v*1.25;return o.set(sin(a)*cos(e)*.13,sin(e)*.1,cos(a)*cos(e)*.13);},6,4,.016),.33,.43,-.14,1,1,1,0,.9,-.5);
+  // shoulder mantle: three ceramic lames a side, each folded round the front and outside of the arm sockets and tucked under the
+  // one above, so that of the six ball joints only the top pair is in view; the arms come out behind and below it
+  for(let k=0;k<3;k++){const x=[.3,.27,.235][k],z=[-.2,-.245,-.275][k],y=.345-k*.115,o=(d,e)=>[[x+.085+d,z-.03],[x+.075+d,z+.085+d*.6,-e],[x-.085,z+.15+d*.5]];
+    K.pair(body,fold([[y,o(0,0)],[y-.155,o(.022,.02)]],.014,.005),TC);}
   [[.2,.37,2.42,.16,Md],[.02,.39,2.66,.1,Pl],[-.17,.34,2.46,-.02,Md]].forEach(([y,R,arc,tilt,c])=>{
     mm(body,LN_tor(R,.026,arc,14).rotateX(PI/2),c,0,y,-.04,1,1,1,tilt,1.83,0);
     const a=arc-1.83,z0=sin(a)*R;mm(body,LN_SPH,Au,cos(a)*R,y-z0*sin(tilt),-.04+z0*cos(tilt),.03,.03,.03);});
   for(const [y,r,c] of [[-.3,.1,Md],[-.37,.082,Jn],[-.44,.09,Md],[-.5,.075,Jn]])m(body,LN_cyl(r,r*.92,.06,10),c,0,y,-.12,1,1,.85);
   m(body,LN_SPH,D,0,-.6,-.08,.19,.12,.15);
-  m(body,LN_plate([[-.09,.08],[.09,.08],[.06,-.06],[0,-.22],[-.06,-.06]],.034),Pl,0,-.6,.08,1,1,1,.25);
-  mm(body,LN_shell((u,v,o)=>{const a=-1.0+u*2.0,r=.2+.12*v,y=-.5-v*(.34-.2*pow(abs(2*u-1),2));return o.set(cos(a)*r,y,-.08+sin(a)*r*.8);},8,4,.018),Pl);
+  ce(body,LN_plate([[-.09,.08],[.09,.08],[.06,-.06],[0,-.22],[-.06,-.06]],.034),0,-.6,.08,1,1,1,.25);
+  cc(body,LN_shell((u,v,o)=>{const a=-1.0+u*2.0,r=.2+.12*v,y=-.5-v*(.34-.2*pow(abs(2*u-1),2));return o.set(cos(a)*r,y,-.08+sin(a)*r*.8);},8,4,.018));
   bar(body,[0,.46,zc(.46)],[0,.64,-.14],.034,Jn); bars(body,[.03,.44,-.24],[.03,.62,-.2],.01,Md);
   for(const s of [-1,1])m(body,LN_tube([[s*.09,.66,-.24],[s*.3,.52,-.42],[s*.22,.2,-.46],[s*.05,.06,-.33]],.011,5),Jn);
   // ---- head: cowl, a blank mask narrowing to a point (no mouth: one gold seam down it, three ring marks in a triangle on the brow),
   // antlers of two swept pairs angled outwards, halo
   const mp=(a,e,off,o)=>{const k=.2+.8*smooth(sat((e+1.05)/2.25*1.45));return o.set(sin(a)*cos(e)*(.128+off)*k,.15+sin(e)*(.2+off)*(e<0?1.14:1),.012+cos(a)*cos(e)*(.168+off));};
   m(head,GS,D,0,.15,0,.112,.142,.15);
-  m(head,LN_shell((u,v,o)=>mp((u-.5)*2.6,-1.05+v*2.25,0,o),10,10,.014),Pl);
+  ce(head,LN_shell((u,v,o)=>mp((u-.5)*2.6,-1.05+v*2.25,0,o),10,10,.014));
   m(head,LN_shell((u,v,o)=>mp((u-.5)*.07,-1.0+v*1.05,.005,o),1,6,.008),Au);
   gl(head,LN_tor(.021,.0055,TAU,12,4),0,.3,.136,1,1,1,-.66); gg(head,LN_tor(.021,.0055,TAU,12,4),.046,.238,.153,1,1,1,-.4,.34,0);
   const horn=[1,1,1,-.18,.28,-.46];
   mm(head,LN_plate([[.06,.22],[.13,.2],[.3,.36],[.41,.58],[.39,.88],[.33,.93],[.31,.6],[.22,.45],[.09,.31]],.034,.01),D,-.04,.03,-.03,...horn);
-  gg(head,LN_tor(.03,.007,TAU,14,4).scale(1,2.5,1).translate(.356,.7,.022),-.04,.03,-.03,...horn);
+  gg(head,LN_tor(.03,.007,TAU,14,4).scale(1,2.5,1).translate(.356,.7,.022),-.04,.03,-.03,...horn); gg(head,new THREE.BoxGeometry(.016,.3,.008).rotateZ(.1).translate(.365,.7,-.0205),-.04,.03,-.03,...horn);   // (and a strip of light on the back of each antler)
   mm(head,LN_plate([[.03,.24],[.08,.22],[.2,.4],[.25,.62],[.21,.66],[.15,.46]],.026,.008),Md,0,.0,-.06,1,1,1,-.5,.5,-1.0);
   mm(head,LN_cyl(.036,.036,.03,10),Md,.112,.14,-.03,1,1,1,0,0,PI/2);
   m(head,LN_tor(.45,.011,TAU,40),Au,0,.2,-.2);
@@ -204,8 +213,8 @@ function LN_lanternParts(){
   const tring=LN_tor(.036,.008,TAU,14,4).rotateY(PI/2).rotateZ(.25).translate(cos(.25)*.13,sin(.25)*.145,.17);
   const ank=LN_cyl(.031,.031,.022,8).rotateX(PI/2).translate(0,0,.43),spur=LN_cone(.012,.1,4).rotateZ(PI).translate(0,-.06,.47);
   for(const s of [1,-1]){const rx=PI/2-(s>0?.1:-.02),tp=[s*.115,0,0,s,1,1,rx,-s*.09,0],kz=s>0?.036:-.03,sp=[s*.062,0,kz,s,1,1,PI/2-.05,-s*.02,0];
-    K.add(legs,thigh,TM,...tp,D);K.add(legs,tsh,TM,...tp,Pl);K.add(legs,tring,TG,...tp);
-    K.add(shin,LN_SPH,TM,s*.062,0,kz,.052,.052,.052,0,0,0,Md);K.add(shin,shn,TM,...sp,D);K.add(shin,ssh,TM,...sp,Pl);K.add(shin,ank,TM,...sp,Au);K.add(shin,spur,TM,...sp,Md);}
+    K.add(legs,thigh,TM,...tp,D);K.add(legs,tsh,TC,...tp);K.add(legs,tring,TG,...tp);
+    K.add(shin,LN_SPH,TM,s*.062,0,kz,.052,.052,.052,0,0,0,Md);K.add(shin,shn,TM,...sp,D);K.add(shin,ssh,TC,...sp);K.add(shin,ank,TM,...sp,Au);K.add(shin,spur,TM,...sp,Md);}
   // ---- trailing cables
   for(const pts of [[[.05,0,0],[.09,-.5,-.06],[.06,-1.1,.02],[.1,-1.65,-.05]],[[-.06,0,0],[-.12,-.6,-.1],[-.07,-1.2,-.02],[-.13,-1.5,.03]],[[0,0,-.03],[.01,-.7,-.14],[-.02,-1.3,-.06],[.02,-1.95,-.1]],[[.1,.05,0],[.2,-.4,-.14],[.16,-.9,-.2]]]){
     m(cab,LN_tube(pts,.011,5),Jn);const e=pts[pts.length-1];m(cab,LN_cone(.022,.09,5),Au,e[0],e[1]-.03,e[2],1,1,1,PI);}
@@ -214,7 +223,7 @@ function LN_lanternParts(){
   // that carries the ring glyph
   for(const s of [-1,1])m(ua,LN_cyl(.016,.014,LN_LA,6),Jn,s*.022,-LN_LA/2,0);
   m(ua,LN_shell((u,v,o)=>{const a=(u-.5)*3.4,y=.07-v*.2,r=.05+.03*sin(sat(v*1.4)*PI*.5);return o.set(sin(a)*r,y,-cos(a)*r);},6,3,.014),Pl);
-  m(ua,LN_shell((u,v,o)=>{const a=(u-.5)*2.6,y=-.2-v*.22,r=.052-.012*v;return o.set(sin(a)*r,y,-cos(a)*r);},5,2,.012),Md);
+  m(ua,LN_shell((u,v,o)=>{const a=(u-.5)*2.6,y=-.11-v*.32,r=.05-.01*v;return o.set(sin(a)*r,y,-cos(a)*r);},5,3,.012),Md);
   for(const s of [-1,1])m(ua,GB,Au,s*.05,-.31,-.012,.008,.2,.014);
   m(ua,LN_cyl(.05,.05,.08,10),D,0,-LN_LA,0,1,1,1,0,0,PI/2); m(ua,LN_cyl(.024,.024,.1,8),Au,0,-LN_LA,0,1,1,1,0,0,PI/2);
   for(const s of [-1,1])m(fa,LN_cyl(.013,.011,LN_LF,6),Jn,s*.018,-LN_LF/2,0);
@@ -226,7 +235,7 @@ function LN_lanternParts(){
     m(fa,GB,Md,dx+rz*.045,y-.05*l,.007,.02,.1*l,.02,-.15,0,rz); m(fa,GB,Md,dx+rz*.13,y-.14*l,.032*l,.016,.085*l,.016,-.5,0,rz);}
   for(const s of [-1,1])m(fa,GB,Md,s*.085,-LN_LF-.06,.012,.018,.085,.018,0,0,s*1.0);
   gl(palm,LN_tor(.032,.008,TAU,12,4),0,-LN_LF-.065,.02);
-  const out={};for(const s of K.collect())(out[s.par.uuid]||(out[s.par.uuid]=[])).push([s.geo,s.mat===TM?'metal':'glow']);
+  const out={};for(const s of K.collect())(out[s.par.uuid]||(out[s.par.uuid]=[])).push([s.geo,s.mat===TM?'metal':s.mat===TC?'ceramic':'glow']);
   return LN_PARTS=out;
 }
 class Lantern{
@@ -235,11 +244,13 @@ class Lantern{
     this.pos=V(x,this.gy+4.2,z);this.vel=V();this.state='spawn';this.t=0;this.low=0;this.lowT=0;this.fireCd=rand(1.6,3.2);this.linkCd=1.2;this.link=o.link||null;this.forced=!!o.link;
     this.flash=0;this.dead=false;this.gone=false;this.strafe=random()<.5?-1:1;this.strafeT=rand(2,4);this.seed=rand(10);
     const root=this.root=new THREE.Group(); root.rotation.order='YXZ'; scene.add(root);
-    this.metal=charMat('iron',{vertexColors:true,roughness:1.1,emissive:0x9fd0ff,emissiveIntensity:0,envMapIntensity:.75,rim:0x8fe0ff,rimK:.6});
+    this.metal=charMat('iron',{vertexColors:true,roughness:1.1,emissive:0x9fd0ff,emissiveIntensity:0,envMapIntensity:.75,rim:0x8fe0ff,rimK:.6,wear:0xe4e9f4,wearK:1.6});   // gunmetal, worn bright on its edges
+    this.ceramic=charMat('shell',{color:0xaeb4c0,roughness:1.25,emissive:0x9fd0ff,emissiveIntensity:0,envMapIntensity:.6,rim:0x8fe0ff,rimK:.6,wear:0x4c525e,wearK:.9,grime:.15});   // pale shells: chipped dark
+    this.rimM={m:this.metal,c:this.ceramic};   // both take the hit flash and the charge tell
     this.glowM=new THREE.MeshBasicMaterial({color:hdr(0x4fe6dc,2.2)});
-    const parts=LN_lanternParts(),mats={metal:this.metal,glow:this.glowM},fig=new THREE.Group(); fig.scale.setScalar(LN_SC); root.add(fig);
+    const parts=LN_lanternParts(),mats={metal:this.metal,glow:this.glowM,ceramic:this.ceramic},fig=new THREE.Group(); fig.scale.setScalar(LN_SC); root.add(fig);
     const grp=(name,par,x=0,y=0,z=0)=>{const g=new THREE.Group();g.position.set(x,y,z);g.rotation.order='YXZ';par.add(g);
-      for(const [geo,mk] of parts[name]){const m=new THREE.Mesh(geo,mats[mk]);m.castShadow=mk==='metal';g.add(m);}return g;};
+      for(const [geo,mk] of parts[name]){const m=new THREE.Mesh(geo,mats[mk]);m.castShadow=mk!=='glow';g.add(m);}return g;};
     const body=this.body=grp('body',fig);this.head=grp('head',body,0,.62,-.14);this.head.scale.setScalar(1.15);this.cage=grp('cage',fig);this.legs=grp('legs',body,0,-.62,-.06);this.shin=grp('shin',this.legs,0,-.565,.02);this.cab=grp('cab',body,0,-.5,-.3);
     const inst=(name,mat)=>{const m=new THREE.InstancedMesh(parts[name][0][0],mat,6);m.frustumCulled=false;m.castShadow=!mat.isMeshBasicMaterial;body.add(m);return m;};
     this.ua=inst('ua',this.metal);this.fa=inst('fa',this.metal);this.palm=inst('palm',this.glowM);
@@ -259,7 +270,7 @@ class Lantern{
   solid(){return 0;}
   cy(){return this.pos.y;}
   hitPos(o){return o.copy(this.pos);}
-  remove(){scene.remove(this.root);this.unlink();this.beam.dispose();for(const m of [this.ua,this.fa,this.palm])m.dispose();for(const m of [this.metal,this.glowM,this.coreM,this.glassM,this.glowS])m.dispose();}
+  remove(){scene.remove(this.root);this.unlink();this.beam.dispose();for(const m of [this.ua,this.fa,this.palm])m.dispose();for(const m of [this.metal,this.ceramic,this.glowM,this.coreM,this.glassM,this.glowS])m.dispose();}
   unlink(cd=3){if(this.link&&this.link.shield===this)this.link.shield=null;if(!this.forced||this.dead)this.link=null;this.linkCd=cd;}
   takeHit(h,dx,dz){
     if(this.dead||this.ghost)return;this.hp-=h.dmg;this.flash=1;if(!this.forced)this.unlink();

@@ -30,14 +30,15 @@ const enemyMats=k=>{const B=k==='brute',S=k==='stalker';return {
   blade:pbr('steel',{color:0xa8acb8,roughness:1.6,envMapIntensity:1.2}),
   edge:pbr('steel',{color:0xf4f6ff,roughness:.5,envMapIntensity:2}),
   glow:new THREE.MeshBasicMaterial({color:hdr(S?0xa040ff:0xff4d14,3.4)})};};
-// The Gatewarden: forged dark steel with a blue-black cast, worn bright along its edges. Its gold is painted metal that holds its hue
-// (bare gold turned green under the hall's cyan strips), its mantle and crest a dark red. char is the scorched plate left on its
-// limbs when the armour falls, seam the dull fire in the gaps of the frame.
+// The Gatewarden: forged dark steel, only faintly blue, worn bright along its edges, so that the orange core and the red crest carry
+// its colour. Its gold is antique: a real metal, dull and worn at the rims, that holds its hue (bare gold turned green under the
+// hall's cyan strips). Mantle and crest are a dark red. char is the scorched plate left on its limbs when the armour falls, seam
+// the dull fire in the gaps of the frame.
 const wardenMats=()=>({
-  armor:charMat('iron',{color:0x6c7690,metalness:.9,roughness:1.2,emissive:0xff6a2a,emissiveIntensity:0,envMapIntensity:.55,rim:0xffa468,rimK:.3,rimY:-1,wear:0xd9dde8,wearK:1.25,grime:.2}),   // rim: the glow of the hall's floor ring
+  armor:charMat('iron',{color:0x6f7482,metalness:.9,roughness:1.2,emissive:0xff6a2a,emissiveIntensity:0,envMapIntensity:.55,rim:0xffa468,rimK:.3,rimY:-1,wear:0xd9dde8,wearK:1.25,grime:.2}),   // rim: the glow of the hall's floor ring
   dark:charMat('frame',{color:0x9a9aa2,emissive:0x9a300c,emissiveIntensity:0,envMapIntensity:.8,rim:0xffa468,rimK:.2,rimY:-1,wearK:0}),   // a dull heat: the fire is in the core and the joints
   char:charMat('frame',{color:0x34343a,roughness:2.2,metalness:.5,envMapIntensity:.3,rim:0xffa468,rimK:.25,rimY:-1,wear:0x8a8c94,wearK:.8}),
-  trim:charMat('steel',{color:0xa87c2a,metalness:.55,roughness:1.6,envMapIntensity:.6,hold:.85,wearK:0}),
+  trim:charMat('steel',{color:0x9c7a2e,metalness:.9,roughness:1.25,envMapIntensity:.75,hold:.85,wear:0xd6cdb4,wearK:.8}),
   cloth:charMat('armor',{color:0x7a1a20,envMapIntensity:.4,hold:.75,wearK:.6}),
   seam:new THREE.MeshBasicMaterial({color:hdr(0xff5a14,1.05)}),
   rubber:pbr('rubber',{envMapIntensity:.3}),
