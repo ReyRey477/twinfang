@@ -31,6 +31,8 @@ const QUOTA = {
   thunder: [2, 2, 'lightning on the roof'],
   charge: [1, 22, 'a Lantern charging a shot'],
   coreCharge: [1, 70, 'the Stormvane charging its core'],
+  finisher: [2, 2, 'the finishing blow of an encounter, during its dark frames: the cut line through the target, letterbox'],
+  finBurst: [2, 7, 'the finishing blow of an encounter just after the dark frames: the burst, radial blur, slow motion'],
 };
 export default async ({ page, shot, ev, log }) => {
   const man = []; const take = async (name, group, caption, o) => { await shot(name, o); man.push({ file: name + '.png', group, caption }); };
@@ -44,9 +46,10 @@ export default async ({ page, shot, ev, log }) => {
     HX.hud(true); window.requestAnimationFrame = () => 0; window.__ev = []; window.__want = new Set();
     window.__block = new Set();
     // a death is framed where it happened (the foe is gone by the time the picture is taken, and it may have been the last one)
-    const tap = (k, key) => { const f = sfx[k].bind(sfx); sfx[k] = (...a) => { const n = key(a[0]); if (n && window.__want.has(n) && !window.__block.has(n + '|' + (G.enc ? G.enc.def.id : '-'))) { window.__ev.push(n);
+    const tap = (k, key) => { const f = sfx[k].bind(sfx); sfx[k] = (...a) => { const n = key(a[0]); if (n && window.__want.has(n) && !(G.cineT > 0 && (n === 'roar' || n === 'thunder' || n === 'boom')) && !window.__block.has(n + '|' + (G.enc ? G.enc.def.id : '-'))) { window.__ev.push(n);
       if (n === 'death' && window.__ev.length === 1) { const e = G.enemies.find(e => e.gone && e.dead); if (e) window.__at = { pos: e.pos.clone().setY(e.gy || 0), scale: e.scale || 1, kind: e.kind, state: 'destroyed' }; } } return f(...a); }; };
     tap('hit', a => a >= .6 ? 'hitBig' : 'hitLight'); tap('land', a => a >= .7 ? 'land' : null); tap('telegraph', a => a ? 'telegraphBig' : 'telegraph'); tap('slow', a => a ? 'slow' : null);
+    { const f = G.fin.bind(G), ok = n => window.__want.has(n) && !window.__block.has(n + '|' + (G.enc ? G.enc.def.id : '-')); G.fin = (...a) => { const n = ok('finisher') ? 'finisher' : ok('finBurst') ? 'finBurst' : null; if (n) window.__ev.push(n); return f(...a); }; }
     for (const k of ['gun', 'hurt', 'death', 'boom', 'dodge', 'orb', 'deflect', 'spawn', 'barrier', 'armorBreak', 'roar', 'thunder', 'charge', 'coreCharge']) if (sfx[k]) tap(k, () => k);
     // staged camera: frames the hero and the nearest foe together, from the side or from behind the hero
     window.__dir = mode => {
@@ -81,7 +84,7 @@ export default async ({ page, shot, ev, log }) => {
     if (r.enc && !hudDone[r.enc] && k !== 'barrier' && k !== 'spawn') { hudDone[r.enc] = 1;
       const rank = await ev(() => { const s = G.style, v = { c1: 130, c2: 250, warden: 340, A: 210, B: 420, C: 460, storm: 380 }[G.enc.def.id] || 150; s.m = v; s.idle = 0; G.combo = 3 + ((v / 9) | 0); G.comboT = 0; for (let i = 0; i < 3; i++) G.update(1 / 60); window.__chase(); return document.getElementById('rank').textContent + ' ' + document.getElementById('rword').textContent; });
       await wait(450); await take(`hud_${String(10 + n).padStart(2, '0')}_combat_${r.enc}`, 'hud', `Interface during the ${r.enc} fight through the real chase camera: vitality, style rank "${rank}", combo counter, weapon selector${r.enc === 'warden' || r.enc === 'storm' ? ', boss health bar' : ''}.`); }
-    const view = await ev(([delay, mode]) => { for (let i = 0; i < delay; i++) G.update(1 / 60); return window.__dir(mode); }, [delay, n % 2 ? 'chase' : 'side']);
+    const view = await ev(([delay, mode]) => { for (let i = 0; i < delay; i++) G.update(1 / 60); if (mode === 'game') { HX.free(); HX.render(); HX.render(); return 'the real game camera, as the player sees it'; } return window.__dir(mode); }, [delay, k.startsWith('fin') ? 'game' : n % 2 ? 'chase' : 'side']);
     await take(`fx_${String(n).padStart(2, '0')}_${k}_${r.enc || 'free'}`, 'fx', `${what}. Encounter ${r.enc || '-'}, weapon set ${['Twin Fangs', 'Blade & Pistol', 'Great Maul'][r.set]}; ${view}; taken ${delay} frames after the event.`);
     await ev(() => HX.free()); n++;
   }
