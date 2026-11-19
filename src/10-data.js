@@ -14,13 +14,15 @@ const heroMats={
   rubber:pbr('rubber',{envMapIntensity:.3}),
   blade:pbr('steel',{color:0x8f9aac,roughness:1.5,envMapIntensity:1.3}),
   edge:pbr('steel',{color:0xf4f8ff,roughness:.45,envMapIntensity:2.2}),
-  glow:new THREE.MeshBasicMaterial({color:hdr(0x45d4ff,2.6)})};
+  glow:new THREE.MeshBasicMaterial({color:hdr(0x45d4ff,2.6)}),   // visor, core, spine, blade edges: full strength
+  glow2:new THREE.MeshBasicMaterial({color:hdr(0x45d4ff,1.5)}),  // fin edges: about 60%
+  glow3:new THREE.MeshBasicMaterial({color:hdr(0x45d4ff,.62)})}; // tails, calves, bracers, vents: about a quarter, so the back is not a bundle of equal lines
 // Foes: bone-khaki ceramic (Husk), matte military olive (Brute), violet-black (Stalker, with a magenta rim from below so its
 // outline reads in a dark hall). Their armour carries the emissive colour the enemy code raises for tells and hit flashes.
 // Each has a second paint tone for the parts the rig flags: dark umber (Husk), light grey (Brute), a paler violet (Stalker).
 const enemyMats=k=>{const B=k==='brute',S=k==='stalker';return {
-  armor:charMat('armor',Object.assign({color:B?0x5f6c3e:S?0x2c2540:0xb7a478,tone:B?0x9a9f98:S?0x4a3f6c:0x4a3a2b,emissive:S?0xa050ff:0xff6a2a,emissiveIntensity:0,envMapIntensity:.6,hold:.6},
-    S?{rim:0xff3fc8,rimK:.2,rimY:-1,roughness:.62,envMapIntensity:.45,wear:0xb9b2d2,wearK:1.3,grime:.1}:{})),
+  armor:charMat('armor',Object.assign({color:B?0x33472f:S?0x2c2540:0x9c9276,tone:B?0x9a9f98:S?0x4a3f6c:0x4a3a2b,emissive:S?0xa050ff:0xff6a2a,emissiveIntensity:0,envMapIntensity:.6,hold:.6},
+    S?{rim:0xff3fc8,rimK:.2,rimY:-1,roughness:.84,envMapIntensity:.45,wear:0xb9b2d2,wearK:1.3,grime:.1}:B?{roughness:1.1,envMapIntensity:.4}:{roughness:1.08,envMapIntensity:.45})),
   frame:charMat('frame',Object.assign({color:S?0x9a94b4:0xa4a8b2,envMapIntensity:.9},S?{rim:0xff3fc8,rimK:.3,rimY:-1}:{})),
   trim:pbr('steel',{color:B?0x8a8672:S?0x7a70a0:0x8a8e98,envMapIntensity:.9}),
   rubber:pbr('rubber',{envMapIntensity:.3}),

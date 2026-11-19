@@ -50,16 +50,17 @@ const orbs={list:[],pool:[],
 // ===================== MODEL KIT (Lantern, Stormvane) =====================
 // Parts are added to a (parent, material) set with a transform and merged into one mesh per set, so a detailed model costs
 // a handful of draw calls. UVs are scaled by part size (even texture grain); materials with vertexColors get a tint per part
-// (a hex colour, or a THREE.Color, which may go above 1: bright gold on a dark metal set).
+// (a hex colour, or a THREE.Color, which may go above 1: bright gold on a dark metal set). Plates (LN_shell, LN_plate), blade
+// feathers and anything built with hull or fold from 07-rig carry the wear data the character material rubs bright along edges.
 const LN_M=new THREE.Matrix4(),LN_Q=new THREE.Quaternion(),LN_E=new THREE.Euler(),LN_P=V(),LN_S=V(1,1,1),LN_C=new THREE.Color(),LN_ZAX=V(0,0,1);
 const LN_a=V(),LN_b=V(),LN_c=V(),LN_d=V(),LN_e=V(),LN_f=V();
 function LN_kit(){
   const sets=new Map();let n=0;
   const put=(par,geo,mat,M,col=0xffffff)=>{
     const g=geo.index?geo.toNonIndexed():geo.clone(),A=g.attributes;
-    for(const k of Object.keys(A))if(k!=='position'&&k!=='normal'&&k!=='uv')g.deleteAttribute(k);
-    g.applyMatrix4(M);const cnt=A.position.count;
-    if(M.determinant()<0)for(const k of ['position','normal','uv']){const a=A[k].array,w=A[k].itemSize;for(let i=0;i<cnt;i+=3)for(let c=0;c<w;c++){const p=(i+1)*w+c,q=(i+2)*w+c,t=a[p];a[p]=a[q];a[q]=t;}}
+    for(const k of Object.keys(A))if(k!=='position'&&k!=='normal'&&k!=='uv'&&k!=='aW')g.deleteAttribute(k);
+    g.applyMatrix4(M);const cnt=A.position.count;if(!A.aW)g.setAttribute('aW',new THREE.BufferAttribute(new Float32Array(cnt*4),4));   // wear data (see WB in 07-rig); a part without any reads as unworn
+    if(M.determinant()<0)for(const k of ['position','normal','uv','aW']){const a=A[k].array,w=A[k].itemSize;for(let i=0;i<cnt;i+=3)for(let c=0;c<w;c++){const p=(i+1)*w+c,q=(i+2)*w+c,t=a[p];a[p]=a[q];a[q]=t;}}
     const tile=mat.userData.tile;
     if(tile){g.computeBoundingBox();const s=g.boundingBox.getSize(LN_P),k=max(s.x,s.y,s.z)/tile,uv=A.uv,ou=(++n*.37)%1,ov=(n*.61)%1;for(let i=0;i<cnt;i++)uv.setXY(i,uv.getX(i)*k+ou,uv.getY(i)*k+ov);}
     if(mat.vertexColors){col.isColor?LN_C.copy(col):LN_C.set(col);const c=new Float32Array(cnt*3);for(let i=0;i<cnt;i++){c[i*3]=LN_C.r;c[i*3+1]=LN_C.g;c[i*3+2]=LN_C.b;}g.setAttribute('color',new THREE.BufferAttribute(c,3));}
@@ -107,19 +108,23 @@ function LN_shell(f,nu,nv,th=.02){
   for(let i=0;i<=nu;i++)for(let j=0;j<=nv;j++){const u=i/nu,v=j/nv,p=f(u,v,V()),n=f(u+e,v,V()).sub(f(u-e,v,a)).cross(f(u,v+e,a).sub(f(u,v-e,b))).normalize();
     P.push(p);Nn.push(n);Q.push(p.clone().addScaledVector(n,-th));ctr.add(p);}
   ctr.divideScalar(P.length);
-  const vtx=(p,n,u,v)=>{pos.push(p.x,p.y,p.z);nor.push(n.x,n.y,n.z);uv.push(u,v);};
+  // wear: metres from each point to the plate's border, measured across and along it (less WB, as in 07-rig)
+  const run=(id,st,n)=>{let d=0;for(let k=0;k<n&&d<WB;k++)d+=P[id+k*st].distanceTo(P[id+(k+1)*st]);return d;},aw=[];
+  const D=P.map((_,id)=>{const i=floor(id/W),j=id%W;return [min(run(id,-W,i),run(id,W,nu-i),WB)-WB,min(run(id,-1,j),run(id,1,nv-j),WB)-WB];});
+  const vtx=(p,n,u,v,d)=>{pos.push(p.x,p.y,p.z);nor.push(n.x,n.y,n.z);uv.push(u,v);aw.push(d?d[0]:-WB,d?d[1]:-WB,0,1);};
   for(let i=0;i<nu;i++)for(let j=0;j<nv;j++){const k=[i*W+j,(i+1)*W+j,(i+1)*W+j+1,i*W+j+1];
     for(const [x,y,z] of [[0,1,2],[0,2,3]]){
-      for(const q of [x,y,z]){const id=k[q];vtx(P[id],Nn[id],floor(id/W)/nu,(id%W)/nv);}
-      for(const q of [x,z,y]){const id=k[q];a.copy(Nn[id]).negate();vtx(Q[id],a,floor(id/W)/nu,(id%W)/nv);}}}
+      for(const q of [x,y,z]){const id=k[q];vtx(P[id],Nn[id],floor(id/W)/nu,(id%W)/nv,D[id]);}
+      for(const q of [x,z,y]){const id=k[q];a.copy(Nn[id]).negate();vtx(Q[id],a,floor(id/W)/nu,(id%W)/nv,D[id]);}}}
   const rim=(i0,i1)=>{const p0=P[i0],p1=P[i1],q0=Q[i0],q1=Q[i1];a.subVectors(p1,p0).cross(b.subVectors(q0,p0));if(a.lengthSq()<1e-12)return;a.normalize();
     const fl=a.dot(b.addVectors(p0,p1).multiplyScalar(.5).sub(ctr))<0;if(fl)a.negate();for(const p of fl?[p0,q0,p1,p1,q0,q1]:[p0,p1,q0,p1,q1,q0])vtx(p,a,0,0);};
   for(let i=0;i<nu;i++){rim(i*W,(i+1)*W);rim(i*W+nv,(i+1)*W+nv);}
   for(let j=0;j<nv;j++){rim(j,j+1);rim(nu*W+j,nu*W+j+1);}
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));return g;
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setAttribute('aW',new THREE.Float32BufferAttribute(aw,4));return g;
 }
 const LN_plate=(pts,d=.03,bv=.008)=>{const s=new THREE.Shape();pts.forEach((p,i)=>i?s.lineTo(p[0],p[1]):s.moveTo(p[0],p[1]));s.closePath();const dd=max(.001,d-bv*2);
-  return new THREE.ExtrudeGeometry(s,{depth:dd,bevelEnabled:true,bevelThickness:bv,bevelSize:bv,bevelSegments:1}).translate(0,0,-dd/2);};
+  const g=new THREE.ExtrudeGeometry(s,{depth:dd,bevelEnabled:true,bevelThickness:bv,bevelSize:bv,bevelSegments:1}).translate(0,0,-dd/2),w=new Float32Array(g.attributes.position.count*4),sd=g.groups[1];
+  for(let i=0;i<w.length;i+=4){w[i+3]=1;if(sd&&i/4>=sd.start&&i/4<sd.start+sd.count)w[i]=w[i+1]=-WB;}g.setAttribute('aW',new THREE.BufferAttribute(w,4));return g;};   // the bevel and the wall are all edge
 const LN_tube=(pts,r,rs=6)=>new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p=>V(p[0],p[1],p[2]))),pts.length*5,r,rs,false);
 const LN_cyl=(rt,rb,h,n=8)=>new THREE.CylinderGeometry(rt,rb,h,n);
 const LN_tor=(R,r,arc=TAU,n=24,rs=5)=>new THREE.TorusGeometry(R,r,rs,n,arc);
@@ -127,6 +132,7 @@ const LN_cone=(r,h,n=5)=>new THREE.ConeGeometry(r,h,n);
 const LN_SPH=new THREE.SphereGeometry(1,10,7),LN_UZ=new THREE.CylinderGeometry(1,1,1,8).rotateX(PI/2).translate(0,0,.5),LN_UZT=new THREE.CylinderGeometry(.62,1,1,8).rotateX(PI/2).translate(0,0,.5);
 // blade feather, unit size: quill at the origin, tip at z=1, width along X (leading edge +X), a ridge along the middle
 const LN_BLADE=LN_loft([[0,.14,.25],[.05,.3,.45],[.16,.5,.5],[.72,.5,.4],[.9,.36,.25,0,.1],[1,.02,.04,0,.3]],4,true);
+{const p=LN_BLADE.attributes.position,w=new Float32Array(p.count*4);for(let i=0;i<p.count;i++){w[i*4]=min(WB,(.5-p.getX(i))*.8)-WB;w[i*4+1]=min(WB,(1-p.getZ(i))*2.5)-WB;w[i*4+3]=1;}LN_BLADE.setAttribute('aW',new THREE.BufferAttribute(w,4));}   // wear: its leading edge and its tip (for a blade about 0.8 m by 2.5 m)
 const LN_STRIP=new THREE.BoxGeometry(.05,1.6,.74).translate(.43,0,.5);   // the line of light along a feather's leading edge
 
 // ===================== LANTERN =====================

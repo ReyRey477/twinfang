@@ -9,13 +9,15 @@ const SV_HULL=[[-3.3,.32,.3,.24],[-2.5,.74,.68,.1],[-1.2,1.16,1.1,-.02],[0,1.34,
 // their neighbours by a third or more, so the wing is a surface, and each carries two rows of coverts above it and one row hung
 // below the spar's fairing (dn: how far it hangs out of the wing's plane), so there is feather to see from in front as well.
 // They are near-black navy; every flight feather has a pale steel strip on its leading edge (edge), and the primaries and every
-// third feather inboard of them a line of light. md = how far a feather droops when the bird stands mantling on the ground.
-const SV_F=[],SV_m2=new THREE.Matrix4(),SV_m3=new THREE.Matrix4(),SV_EDGE=new THREE.BoxGeometry(.085,1.5,.82).translate(.458,0,.5);
-{const add=(s,x,z,psi,len,w,fb,lg,glow,md=[0,.45,.85,1.25][s])=>SV_F.push({s,x,y:-.02,z,psi,len,w,fb,lg,glow,dn:0,md,edge:true,col:0x56638f},{s,x:x-.16,y:.1,z:z+.1,psi:psi-.04,len:len*.5,w:w*.95,fb,lg:lg*.4,glow:false,dn:0,md:md*.6,col:0x46527a},
-    {s,x:x-.3,y:.2,z:z+.18,psi:psi-.07,len:len*.25,w:w*.9,fb,lg:lg*.2,glow:false,dn:0,md:md*.3,col:0x6875a0},{s,x:x-.06,y:-.2,z:z+.06,psi:psi-.03,len:len*.34,w:w*.98,fb,lg:lg*.3,glow:false,dn:.75,md:md*.4,col:0x4c5882});
+// third feather inboard of them a line of light; six primaries end in a small light (tip). md = how far a feather droops when the
+// bird stands mantling on the ground, mf = how far it then fans away from its neighbours, so the mantled wing is a row of blades with
+// gaps between their tips and not one dark block. Primaries alternate in length.
+const SV_F=[],SV_m2=new THREE.Matrix4(),SV_m3=new THREE.Matrix4(),SV_EDGE=mergeGeometries([new THREE.BoxGeometry(.15,1.5,.82).translate(.428,0,.5),new THREE.BoxGeometry(.05,1.3,.6).translate(-.475,0,.52)],false),SV_TIP=new THREE.BoxGeometry(.34,1.9,.07).translate(.27,0,.925);
+{const add=(s,x,z,psi,len,w,fb,lg,glow,mf=0,tip=false,md=[0,.45,.85,1.25][s])=>SV_F.push({s,x,y:-.02,z,psi,len,w,fb,lg,glow,dn:0,md,mf,tip,edge:true,col:0x56638f},{s,x:x-.16,y:.1,z:z+.1,psi:psi-.04,len:len*.5,w:w*.95,fb,lg:lg*.4,glow:false,dn:0,md:md*.6,mf,col:0x46527a},
+    {s,x:x-.3,y:.2,z:z+.18,psi:psi-.07,len:len*.25,w:w*.9,fb,lg:lg*.2,glow:false,dn:0,md:md*.3,mf,col:0x6875a0},{s,x:x-.06,y:-.2,z:z+.06,psi:psi-.03,len:len*.34,w:w*.98,fb,lg:lg*.3,glow:false,dn:.75,md:md*.4,mf,col:0x4c5882});
   for(let k=0;k<5;k++)add(1,.75+k*.58,-.2,-.12+k*.05,2.3+k*.16,1.15,.35,.02,k%3===1);
-  for(let k=0;k<6;k++)add(2,.35+k*.55,-.16,.1+k*.045,3.1+k*.14,1.15,.7,.03,k%3===1);
-  for(let k=0;k<7;k++)add(3,.15+k*.36,-.1,.36+k*.15,4.3+sin(k/6*PI)*1,1-k*.03,1,.045,true);}
+  for(let k=0;k<6;k++)add(2,.35+k*.55,-.16,.1+k*.045,3.1+k*.14,1.15,.7,.03,k%3===1,(k-2.5)*.035);
+  for(let k=0;k<7;k++)add(3,.15+k*.36,-.1,.36+k*.15,(4.3+sin(k/6*PI)*1)*(k%2?.9:1),1-k*.03,1,.045,true,(k-2)*.075,k>0);}
 // leg joint angles (hip, knee, ankle, foot; negative = forward) for each stance
 const SV_LEG={stand:[-.87,1.57,-1.05,.35],crouch:[-1.25,2.45,-1.4,.2],tuck:[-1.9,2.8,-1.8,1.8],strike:[-1.5,1,-.4,.3],lift:[-.45,.5,-.2,.25]};
 class Stormvane{
@@ -35,11 +37,14 @@ class Stormvane{
     // dark forged steel all over, rough enough that the highlights on chest and head stay below white; a cold rim light from
     // above (storm light) draws its outline against the night sky and the wet roof
     // Navy feathers and dark hull plates, pale steel on beak and leading edges, brass in the joints: three values, so the bird has
-    // contrast of its own and does not melt into the floor it stands on.
-    const RIM={rim:0x9fc8ff,rimK:.55},iron=this.iron=charMat('iron',{vertexColors:true,roughness:1.5,emissive:0x9fc8ff,emissiveIntensity:0,envMapIntensity:.8,...RIM}),
+    // contrast of its own and does not melt into the floor it stands on. Against its own night sky it is drawn by light: the pale
+    // leading-edge strips glow faintly, six primaries carry a tip light, the eyes burn, and the rim light from above is strong.
+    // Plates wear pale along their edges (the bird is ten times a Husk, so the wear reaches further).
+    const RIM={rim:0x9fc8ff,rimK:.85},iron=this.iron=charMat('iron',{vertexColors:true,roughness:1.5,emissive:0x9fc8ff,emissiveIntensity:0,envMapIntensity:.8,wear:0xc4cee0,wearK:18,...RIM}),
       trim=charMat('steel',{color:0x98a1b2,roughness:2.2,envMapIntensity:.9,...RIM}),frame=charMat('frame',{color:0x8a90a0,roughness:1.5,envMapIntensity:.7,...RIM}),
       brass=charMat('steel',{color:0xb08a40,metalness:.6,roughness:1.9,envMapIntensity:.7,hold:.7,...RIM}),
-      fmat=charMat('steel',{metalness:.6,roughness:1.7,envMapIntensity:.9,...RIM}),emat=charMat('steel',{color:0xb9c4d8,roughness:1.6,envMapIntensity:1,...RIM}),glass=new THREE.MeshBasicMaterial({color:hdr(0x8fd0ff,1.4)});
+      fmat=charMat('steel',{metalness:.6,roughness:1.7,envMapIntensity:.9,wear:0xc4cee0,wearK:18,...RIM}),emat=charMat('steel',{color:0xb9c4d8,roughness:1.6,envMapIntensity:1,emissive:0x8fd0ff,emissiveIntensity:.8,...RIM}),glass=new THREE.MeshBasicMaterial({color:hdr(0x8fd0ff,1.4)});
+    this.eyeM=new THREE.MeshBasicMaterial({color:hdr(0xbfe6ff,1.8)});   // eye lenses and the seam of the gape: about twice the reactor's idle level, flaring with a tell (see pose)
     this.coreM=new THREE.MeshBasicMaterial({color:hdr(0x4f9cff,.85)});
     const root=this.root=new THREE.Group(); root.rotation.order='YXZ'; scene.add(root);
     const K=LN_kit(),DK=0x3c455e,MD=0x5c6682,PL=0xb2bac9,M=LN_M;
@@ -73,10 +78,13 @@ class Stormvane{
     K.add(hd,GS,frame,0,.06,.3,.4,.38,.62);
     ir(hd,LN_shell((u,v,o)=>{const la=(u-.5)*2.3,lo=.02+v*2.75;return o.set(sin(la)*.45,.08+cos(la)*sin(lo)*.43,.3+cos(la)*cos(lo)*.72);},10,10,.045),DK);
     ir2(hd,LN_plate([[-.1,-.02],[.62,.02],[.66,.1],[.1,.2],[-.12,.12]],.09,.02),PL,.3,.25,.4,1,1,1,0,-PI/2,-.22);
-    K.pair(hd,GS,glass,.3,.13,.66,.1,.075,.15);
-    ir(hd,LN_loft(BK,10),PL);
+    K.pair(hd,GS,this.eyeM,.31,.14,.68,.13,.1,.18); K.pair(hd,LN_tor(.15,.035,TAU,12,4),frame,.36,.14,.68,1,1,1,0,PI/2-.25,0);
+    // the beak is a darker steel worn pale along its cutting edge and over its last hand's breadth
+    {const bk=LN_loft(BK,10),p=bk.attributes.position,w=new Float32Array(p.count*4);for(let i=0;i<p.count;i++){const z=p.getZ(i),[,h,yo]=LN_sec(BK,z);w[i*4]=min(WB,max(0,p.getY(i)-yo+h)*.5)-WB;w[i*4+1]=min(WB,(2.22-z)*.12)-WB;w[i*4+3]=1;}
+      bk.setAttribute('aW',new THREE.BufferAttribute(w,4));ir(hd,bk,0x8791a8);}
     // the upper beak reads as two plates: a dark seam along each flank, and a brow ridge shading each eye
-    for(let i=0;i<4;i++){const a=BK[i],b=BK[i+1];for(const s of [-1,1])K.span(hd,LN_UZ,frame,[s*a[1]*.97,a[3]+a[2]*.34,a[0]],[s*b[1]*.97,b[3]+b[2]*.34,b[0]],.02);}
+    for(let i=0;i<4;i++){const a=BK[i],b=BK[i+1];for(const s of [-1,1]){K.span(hd,LN_UZ,frame,[s*a[1]*.97,a[3]+a[2]*.34,a[0]],[s*b[1]*.97,b[3]+b[2]*.34,b[0]],.02);
+      if(i<3)K.span(hd,LN_UZ,this.eyeM,[s*a[1]*.9,a[3]-a[2]*.86,a[0]],[s*b[1]*.9,b[3]-b[2]*.86,b[0]],.016);}}   // (and a thin seam of light along the gape)
     ir2(hd,LN_plate([[-.26,0],[.2,-.02],[.3,.07],[-.2,.12]],.1,.024),DK,.33,.26,.6,1,1,1,-.25,-PI/2+.16,0);
     ir(hd,LN_shell((u,v,o)=>{const z=.66+u*.52,[w,h,yo]=LN_sec(BK,z),a=2.75-v*2.36;return o.set(cos(a)*(w+.03),yo+sin(a)*(h+.03),z);},3,8,.03),DK);
     K.add(hd,GS,glass,0,-.12,.85,.15,.08,.32);
@@ -86,25 +94,32 @@ class Stormvane{
     ir(jaw,LN_loft([[0,.3,.1,0,0,1.7],[.6,.24,.08,-.02,0,1.7],[1.1,.12,.06,0,0,1.6],[1.42,.015,.02,.07,0,1.5]],8),PL); K.pair(jaw,LN_cyl(.13,.13,.1,10),trim,.33,.02,0,1,1,1,0,0,PI/2);
     // ---- wings: three segments each. Built once for the left side; the right wing shows the same meshes mirrored.
     const S1=[[0,.4,.3],[.6,.36,.27],[3.2,.27,.2]],S2=[[0,.3,.22],[3.3,.2,.16]],S3=[[0,.23,.17],[1.6,.12,.1],[2.4,.035,.04]];   // spars: thick arms, not booms
-    // wsh: a fairing over the spar, a D-section round its leading edge about 1.6 times the spar's size, so from in front the wing is
-    // a dark blade with a pale steel edge and not a pipe. The joints show past it only as arcs of brass.
-    const wsh=(par,S,x0,x1,col,a0=-1.2,a1=2.45,off=.13,k=1.3)=>ir(par,LN_shell((u,v,o)=>{const x=lerp(x0,x1,u),[w,h]=LN_sec(S,x),a=lerp(a0,a1,v);return o.set(x,sin(a)*(h*k+off),cos(a)*(w*k+off));},6,8,.04),col);
-    const hub=(par,x,r)=>{K.add(par,LN_cyl(r,r,.4,16),brass,x,0,0);ir(par,LN_cyl(r*.7,r*.8,.5,16),DK,x,0,0);K.add(par,LN_cyl(r*.3,r*.3,.58,10),frame,x,0,0);for(const s of [-1,1])K.add(par,LN_tor(r*.5,.035,TAU,18,4),glass,x,s*.26,0,1,1,1,PI/2,0,0);};   // disc joint: ring, hub, bolt
+    // fair: the arm is buried in a blade about 2.4 times as broad as it is deep, built from three overlapping lames a segment. Each is
+    // a folded plate (see fold in 07-rig: belly, lower nose, upper nose and a long top plate that runs back over the feather roots),
+    // a step smaller than the one inboard of it, so the blade narrows by 40% from shoulder to wrist; a pale strip is folded over the
+    // nose of each. Side-on and from in front the wing is stepped plate with a pale edge, and no tube shows.
+    // cov: a row of short covert plates along the top of a segment, overlapping the trailing edge of its fairing and each other.
+    const FM=new THREE.Matrix4().makeBasis(V(0,0,1),V(1,0,0),V(0,1,0));   // fold's outline x, ring y, outline z -> the wing's chord (forward), span, up
+    const fair=(par,x0,x1,f0,f1,col)=>{const sec=(f,o=0)=>[[-.62*f,-.36*f-o],[.36*f+o,-.36*f-o],[.66*f+o,-.02*f],[.3*f+o,.36*f+o],[-1.1*f,.2*f+o]];
+      const nose=f=>{const q=sec(f,.014),m=(a,b,k)=>[a[0]+(b[0]-a[0])*k,a[1]+(b[1]-a[1])*k];return [m(q[2],q[1],.3),q[2],m(q[2],q[3],.26)];};
+      K.put(par,fold([[x0,sec(f0)],[x1,sec(f1)]],.05,.02),iron,FM,col); K.put(par,fold([[x0+.05,nose(f0)],[x1-.05,nose(f1)]],.03,0),emat,FM);};
+    const cov=(par,x0,x1,n,f0,f1)=>{for(let k=0;k<n;k++){const u=k/(n-1),x=lerp(x0,x1,u),f=lerp(f0,f1,u);blade(par,iron,k%3===0?PL:k%2?DK:MD,[x,.2*f+.05,-.72*f],[.14,-.12,-1],.62*f+.12,(1+.25*(k%2))*f+.25,[.1,1,-.1],.06);}};
+    const hub=(par,x,r)=>{K.add(par,LN_cyl(r*.8,r*.8,.24,16),brass,x,-.4,0);ir(par,LN_cyl(r*.56,r*.64,.34,16),DK,x,-.4,0);K.add(par,LN_cyl(r*.3,r*.3,.42,10),frame,x,-.4,0);K.add(par,LN_tor(r*.4,.035,TAU,18,4),glass,x,-.58,0,1,1,1,PI/2,0,0);};   // disc joint, set low: it shows under the fairing as a half-arc of brass
     this.wing=[];
     for(const sx of [1,-1]){
       const g0=grp(root,sx*1.12,.55,.5); g0.scale.x=sx; const s1=grp(g0),s2=grp(s1,3.2),s3=grp(s2,3.3);
       if(sx>0){
-        K.add(s1,LN_loft(S1,10),frame,0,0,0,1,1,1,0,PI/2,0); wsh(s1,S1,.12,1.55,DK); wsh(s1,S1,1.6,3.02,MD); wsh(s1,S1,.2,3,PL,-.2,.2,.17);
+        K.add(s1,LN_loft(S1,10),frame,0,0,0,1,1,1,0,PI/2,0); fair(s1,.3,1.3,1,.97,DK); fair(s1,1.15,2.2,.94,.91,MD); fair(s1,2.05,3.05,.88,.85,DK); cov(s1,.45,2.95,8,1,.86);
         K.span(s1,LN_UZ,trim,[.5,-.46,-.1],[2.75,-.36,-.1],.06); K.span(s1,LN_UZ,frame,[.5,-.46,-.1],[1.6,-.41,-.1],.1); hub(s1,.42,.6); hub(s1,3.2,.56);
-        K.add(s2,LN_loft(S2,10),frame,0,0,0,1,1,1,0,PI/2,0); wsh(s2,S2,.34,1.7,MD); wsh(s2,S2,1.75,3.12,DK); wsh(s2,S2,.4,3.1,PL,-.2,.2,.17);
+        K.add(s2,LN_loft(S2,10),frame,0,0,0,1,1,1,0,PI/2,0); fair(s2,.35,1.35,.82,.79,MD); fair(s2,1.2,2.3,.76,.74,DK); fair(s2,2.15,3.15,.71,.68,MD); cov(s2,.4,3.05,8,.82,.69);
         K.span(s2,LN_UZ,trim,[.55,-.36,-.08],[2.85,-.3,-.08],.05); K.span(s2,LN_UZ,frame,[.55,-.36,-.08],[1.7,-.33,-.08],.085); hub(s2,3.3,.46);
-        K.add(s3,LN_loft(S3,8),frame,0,0,0,1,1,1,0,PI/2,0); wsh(s3,S3,.3,2.25,DK); wsh(s3,S3,.36,2.3,PL,-.2,.2,.16);
+        K.add(s3,LN_loft(S3,8),frame,0,0,0,1,1,1,0,PI/2,0); fair(s3,.3,1.1,.64,.56,DK); fair(s3,.95,1.75,.53,.42,MD); fair(s3,1.6,2.3,.4,.26,DK); cov(s3,.35,1.9,5,.62,.36);
         K.add(s3,LN_loft([[0,.07,.07],[.5,.035,.04,.04],[.72,.004,.005,.12]],6),trim,.12,0,.2,1,1,1,0,.5,0);
         K.flush(); this.wparts=[s1,s2,s3].map(g=>g.children.filter(o=>o.isMesh));
       }else [s1,s2,s3].forEach((g,i)=>{for(const m of this.wparts[i])g.add(m.clone());});
-      const fm=new THREE.InstancedMesh(LN_BLADE,fmat,SV_F.length),gm=new THREE.InstancedMesh(LN_STRIP,glass,SV_F.filter(f=>f.glow).length),em=new THREE.InstancedMesh(SV_EDGE,emat,SV_F.filter(f=>f.edge).length);
-      fm.frustumCulled=gm.frustumCulled=em.frustumCulled=false;fm.castShadow=true;SV_F.forEach((f,i)=>fm.setColorAt(i,LN_C.set(f.col)));g0.add(fm,gm,em);
-      this.wing.push({s1,s2,s3,fm,gm,em,pwr:.1,lag:0});
+      const fm=new THREE.InstancedMesh(LN_BLADE,fmat,SV_F.length),gm=new THREE.InstancedMesh(LN_STRIP,glass,SV_F.filter(f=>f.glow).length),em=new THREE.InstancedMesh(SV_EDGE,emat,SV_F.filter(f=>f.edge).length),tm=new THREE.InstancedMesh(SV_TIP,glass,SV_F.filter(f=>f.tip).length);
+      fm.frustumCulled=gm.frustumCulled=em.frustumCulled=tm.frustumCulled=false;fm.castShadow=true;SV_F.forEach((f,i)=>fm.setColorAt(i,LN_C.set(f.col)));g0.add(fm,gm,em,tm);
+      this.wing.push({s1,s2,s3,fm,gm,em,tm,pwr:.1,lag:0});
     }
     // ---- tail: two segments, a hub, and a fan of blades that spreads on the ground and narrows in a dive
     const T1=[[0,.42,.36],[.95,.3,.24]],T2=[[0,.3,.24],[.85,.22,.16]];
@@ -296,8 +311,8 @@ class Stormvane{
     const fold=sat(wf*.85);
     for(let w=0;w<2;w++){const W=this.wing[w],wr=w?J.wrR:J.wrL;W.s1.updateMatrix();W.s2.updateMatrix();W.s3.updateMatrix();
       const M1=W.s1.matrix,M2=SV_m2.multiplyMatrices(M1,W.s2.matrix),M3=SV_m3.multiplyMatrices(M2,W.s3.matrix);
-      W.lag=damp(W.lag,dt>0?clamp((wr-W.pwr)/dt,-6,6):0,10,dt);W.pwr=wr;let gi=0,ei=0;
-      for(let i=0;i<SV_F.length;i++){const f=SV_F[i],e=(f.s===1?M1:f.s===2?M2:M3).elements,sn=sin(f.psi),cs=cos(f.psi),wb=fold*f.fb;
+      W.lag=damp(W.lag,dt>0?clamp((wr-W.pwr)/dt,-6,6):0,10,dt);W.pwr=wr;let gi=0,ei=0,ti=0;
+      for(let i=0;i<SV_F.length;i++){const f=SV_F[i],e=(f.s===1?M1:f.s===2?M2:M3).elements,ps=f.psi+mt*f.mf,sn=sin(ps),cs=cos(ps),wb=fold*f.fb;
         let dx=e[0]*sn-e[8]*cs,dy=e[1]*sn-e[9]*cs,dz=e[2]*sn-e[10]*cs;
         dx=lerp(dx,sin(f.psi*.45),wb)-e[4]*f.dn;dy=lerp(dy,-.06,wb)-W.lag*f.lg-e[5]*f.dn-mt*f.md;dz=lerp(dz,-cos(f.psi*.45),wb)-e[6]*f.dn;
         let nx=e[1]*dz-e[2]*dy,ny=e[2]*dx-e[0]*dz,nz=e[0]*dy-e[1]*dx;
@@ -305,8 +320,8 @@ class Stormvane{
         if(nx*nx+ny*ny+nz*nz<.02){nx=e[4];ny=e[5];nz=e[6];}
         const nl=1/hypot(nx,ny,nz);nx=nx*nl-e[0]*.14;ny=ny*nl-e[1]*.14;nz=nz*nl-e[2]*.14;
         LN_aim(LN_M,e[0]*f.x+e[4]*f.y+e[8]*f.z+e[12],e[1]*f.x+e[5]*f.y+e[9]*f.z+e[13],e[2]*f.x+e[6]*f.y+e[10]*f.z+e[14],dx,dy,dz,-nx,-ny,-nz,f.w,.06,f.len);
-        W.fm.setMatrixAt(i,LN_M);if(f.glow)W.gm.setMatrixAt(gi++,LN_M);if(f.edge)W.em.setMatrixAt(ei++,LN_M);}
-      W.fm.instanceMatrix.needsUpdate=W.gm.instanceMatrix.needsUpdate=W.em.instanceMatrix.needsUpdate=true;}
+        W.fm.setMatrixAt(i,LN_M);if(f.glow)W.gm.setMatrixAt(gi++,LN_M);if(f.edge)W.em.setMatrixAt(ei++,LN_M);if(f.tip)W.tm.setMatrixAt(ti++,LN_M);}
+      W.fm.instanceMatrix.needsUpdate=W.gm.instanceMatrix.needsUpdate=W.em.instanceMatrix.needsUpdate=W.tm.instanceMatrix.needsUpdate=true;}
     const sp=this.tsp=damp(this.tsp,S==='dpass'?.4:S==='tail'||S==='tails'?1.25:gnd||S==='perch'||S==='land'?1:.7,6,dt);
     for(let i=0;i<7;i++){const k=i-3,a=k*.25*sp,sn=sin(a),cs=cos(a);
       LN_aim(LN_M,sn*.26,-abs(k)*.02,-.1-cs*.26,sn,-.03,-cs,k<0?-.14:.14,k<0?1:-1,0,.8,.06,2.9-abs(k)*.17);this.tfm.setMatrixAt(i,LN_M);this.tgm.setMatrixAt(i,LN_M);}
@@ -320,6 +335,8 @@ class Stormvane{
     const sh=this.shieldOn,hot=sat((coreK-2.5)/3.5);this.coreM.color.setHex(sh?0x6fffe0:this.phase===2&&this.armor>0?0xffc070:0x4f9cff).lerp(LN_C.setHex(0xd8ecff),hot*.8).multiplyScalar((.85+max(0,coreK-2.5)*.85)*(1+.2*sin(G.rt*8)));
     this.core.scale.set(.6,.5,.74).multiplyScalar(1+min(.6,(coreK-2.5)*.05));
     this.iron.emissiveIntensity=.04;   // a faint constant glow so the dark hull never vanishes into the night; hits and tells are the rim's job
+    // the eyes and the gape burn at about twice the reactor's idle level, and flare with a wind-up or a charging attack: the head is where a tell shows first
+    const tell=S==='wsw'?sat(t/.8):S==='tail'?sat(t/.55):S==='bite'?sat(t/.66):0;this.eyeM.color.setHex(0xbfe6ff).multiplyScalar(1.8*(1+2.4*tell+1.3*hot)*(S==='stun'?.35+.25*sin(G.rt*23):1));
     fx.rim(this,this.rimM||(this.rimM={m:this.iron}),this.flash,S==='wsw'?sat(t/.8):S==='tail'?sat(t/.55):S==='bite'?sat(t/.66):0,1,S==='stun',G.boltA<.05?1.5*G.boltK:0,0xbfd8ff);   // lightning rims it for three frames
   }
 }

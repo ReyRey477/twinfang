@@ -129,15 +129,57 @@ const prow=(rings,ex,xf=0,xb=xf)=>rings.map(r=>{const q=ring7(r),t=x=>PI/2-Math.
 const UC=new THREE.CylinderGeometry(1,1,1,12);   // unit rod: scaled into struts, pistons, hinge discs (UPV, the up vector, is from 05-world)
 const PISTON=mergeGeometries([new THREE.CylinderGeometry(.015,.015,.56,8).translate(0,.28,0),new THREE.CylinderGeometry(.008,.008,.5,8).translate(0,.75,0)],false);   // sleeve and rod, one unit long: stretched between two bones
 const ZAX=V(0,0,1);
-// slab: a block with a real bevel c wide on every edge: flat faces, smooth across the bevels, so each edge catches its own line of
-// light. Its wear line runs down the middle of each bevel.
-const slab=(w,h,d,c=.014)=>{const k='b'+[w,h,d,c];if(geoCache[k])return geoCache[k];const g=new RoundedBoxGeometry(w,h,d,2,c),n=g.attributes.normal,q=new Float32Array(n.count*4);
-  for(let i=0;i<n.count;i++){const t=Math.acos(min(1,max(abs(n.getX(i)),abs(n.getY(i)),abs(n.getZ(i)))));q[i*4]=q[i*4+1]=c<.008?0:(t<.01?.03:max(0,c*(PI/4-t)))-WB;q[i*4+3]=1;}   // (the flat of a face counts as well clear of the edge; a thin strip is a painted band: no wear)
-  g.setAttribute('aW',new THREE.BufferAttribute(q,4));return geoCache[k]=g;};
+// hull: a faceted solid, for everything that should read as cut and folded plate rather than a moulded shell. rings = [[y, pts], ...];
+// pts is the outline at that height, [[x, z] or [x, z, dy], ...], the same count in every ring (dy lifts one point off its ring, which
+// slopes a face; points may coincide, which closes a face to a triangle or an edge). Every face is flat. A strip c wide inside each
+// edge leans its shading normal toward the neighbouring face, so every edge catches its own line of light as a bevel would without
+// rounding the silhouette, and carries the wear data (aW: x = metres to the nearest edge, y = to the next nearest, small at a corner;
+// only an edge that turns by more than about 40 degrees counts: a shallow crease across one plate does not chip).
+// cap: 1 = close the first ring, 2 = the last, 3 = both. c = 0: plain flat faces that never wear (a painted band, a decal). soft: outline
+// points whose upright edges are seams inside one plate, not borders: they keep their line of light but do not wear.
+const rect=(w,d,cx=0,cz=0,ch=0)=>{const a=w/2,b=d/2;return (ch?[[a,-b+ch],[a,b-ch],[a-ch,b],[-a+ch,b],[-a,b-ch],[-a,-b+ch],[-a+ch,-b],[a-ch,-b]]:[[a,-b],[a,b],[-a,b],[-a,-b]]).map(p=>[p[0]+cx,p[1]+cz]);};
+const hull=(rings,c=.008,cap=3,soft)=>{const key='H'+c+cap+(soft||'')+JSON.stringify(rings);if(geoCache[key])return geoCache[key];
+  const n=rings.length,m=rings[0][1].length,P=[];for(const [y,pts] of rings)for(const p of pts)P.push([p[0],y+(p[2]||0),p[1]]);
+  let F=[],ar=0;for(let j=0;j<n-1;j++)for(let i=0;i<m;i++){const a=j*m+i,b=j*m+(i+1)%m;F.push([a,a+m,b+m,b]);}
+  const R=[...Array(m).keys()];if(cap&1)F.push(R);if(cap&2)F.push(R.map(i=>n*m-1-i));
+  for(const [,pts] of rings){let s=0;pts.forEach((p,i)=>{const q=pts[(i+1)%m];s+=p[0]*q[1]-q[0]*p[1];});if(abs(s)>abs(ar))ar=s;}
+  if((ar>0)!==(rings[n-1][0]>rings[0][0]))F=F.map(f=>f.slice().reverse());
+  const pk=p=>Math.round(p[0]*2e4)+','+Math.round(p[1]*2e4)+','+Math.round(p[2]*2e4),sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const unit=a=>{const l=hypot(a[0],a[1],a[2])||1;return [a[0]/l,a[1]/l,a[2]/l];},mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t],ek=(p,q)=>{const a=pk(p),b=pk(q);return a<b?a+'|'+b:b+'|'+a;};
+  const faces=[],vn=new Map(),en=new Map();
+  for(const f of F){const v=f.map(i=>Object.assign(P[i].slice(),{o:i%m})).filter((p,i,a)=>pk(p)!==pk(a[(i+1)%a.length]));if(v.length<3)continue;let N=[0,0,0];
+    v.forEach((p,i)=>{const q=v[(i+1)%v.length];N[0]+=(p[1]-q[1])*(p[2]+q[2]);N[1]+=(p[2]-q[2])*(p[0]+q[0]);N[2]+=(p[0]-q[0])*(p[1]+q[1]);});if(hypot(N[0],N[1],N[2])<1e-9)continue;N=unit(N);faces.push({v,N});
+    v.forEach((p,i)=>{const k=pk(p),a=vn.get(k)||[0,0,0];a[0]+=N[0];a[1]+=N[1];a[2]+=N[2];vn.set(k,a);const e=ek(p,v[(i+1)%v.length]);if(!en.has(e))en.set(e,[]);en.get(e).push(N);});}
+  const pos=[],nor=[],uv=[],aw=[],bb=[1e9,1e9,1e9,-1e9,-1e9,-1e9];for(const p of P)for(let k=0;k<3;k++){bb[k]=min(bb[k],p[k]);bb[k+3]=max(bb[k+3],p[k]);}const us=1/max(bb[3]-bb[0],bb[4]-bb[1],bb[5]-bb[2],1e-4);
+  for(const {v,N} of faces){const k=v.length,ax=abs(N[0]),ay=abs(N[1]),az=abs(N[2]),ua=ax>=ay&&ax>=az?2:0,va=ay>ax&&ay>=az?2:1;
+    const put=(p,n2,x,y)=>{pos.push(p[0],p[1],p[2]);nor.push(n2[0],n2[1],n2[2]);uv.push(p[ua]*us,p[va===ua?1:va]*us);aw.push(min(x,WB)-WB,min(y,WB)-WB,0,1);},tri=(a,b,d)=>{put(...a);put(...b);put(...d);};
+    if(!(c>0)){for(let i=1;i<k-1;i++)tri([v[0],N,WB,WB],[v[i],N,WB,WB],[v[i+1],N,WB,WB]);continue;}
+    const G=v.reduce((s,p)=>[s[0]+p[0]/k,s[1]+p[1]/k,s[2]+p[2]/k],[0,0,0]);
+    const E=v.map((p,i)=>{const q=v[(i+1)%k],d=sub(q,p),L=hypot(d[0],d[1],d[2]),e=[d[0]/L,d[1]/L,d[2]/L],inw=[N[1]*e[2]-N[2]*e[1],N[2]*e[0]-N[0]*e[2],N[0]*e[1]-N[1]*e[0]],o=en.get(ek(p,q)).find(x=>x!==N);
+      return {L,inw,sharp:(!o||dot(N,o)<.75)&&!(soft&&p.o===q.o&&soft.includes(p.o)),EN:o?unit([N[0]+o[0],N[1]+o[1],N[2]+o[2]]):N,gd:dot(sub(G,p),inw)};});
+    const ci=min(c,max(1e-4,min(...E.map(e=>e.gd))*.45)),gs=E.filter(e=>e.sharp).map(e=>e.gd).sort((a,b)=>a-b);
+    const Q=v.map((p,i)=>{const a=E[(i+k-1)%k].inw,b=E[i].inw,s=ci/max(.3,1+dot(a,b));return [p[0]+(a[0]+b[0])*s,p[1]+(a[1]+b[1])*s,p[2]+(a[2]+b[2])*s];}),CN=v.map(p=>unit(vn.get(pk(p)))),g=[G,N,gs[0]??WB,gs[1]??WB];
+    for(let i=0;i<k;i++){const j=(i+1)%k,e=E[i],sp=E[(i+k-1)%k].sharp,sn=E[j].sharp,Li=hypot(...sub(Q[j],Q[i])),ts=e.L>.1?[0,.03/e.L,1-.03/e.L,1]:[0,.5,1];
+      const O=ts.map(t=>[mix(v[i],v[j],t),t===0?CN[i]:t===1?CN[j]:e.EN,e.sharp?0:WB,min(sp?t*e.L:WB,sn?(1-t)*e.L:WB)]),I=ts.map(t=>[mix(Q[i],Q[j],t),N,e.sharp?ci:WB,min(sp?ci+t*Li:WB,sn?ci+(1-t)*Li:WB)]);
+      for(let s=0;s<ts.length-1;s++){tri(O[s],O[s+1],I[s+1]);tri(O[s],I[s+1],I[s]);tri(g,I[s],I[s+1]);}}}
+  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.setAttribute('aW',new THREE.Float32BufferAttribute(aw,4));
+  return geoCache[key]=geo;};
+// slab: a block whose edges each catch their own line of light (a hull with a rectangular section). A strip thinner than 8 mm is a painted band: no wear.
+const slab=(w,h,d,c=.014)=>hull([[-h/2,rect(w,d)],[h/2,rect(w,d)]],c<.008?0:c);
+// fold: a plate folded along straight lines, th thick: one flat facet between each pair of neighbouring outline points, through every
+// ring. Rings as in hull, but the outline is an open row of points across the plate, going round from +X toward +Z (the plate's
+// thickness is laid on the inside of that turn). Each facet is its own hull, so every fold line shows as a seam between two lames.
+// mirX: the same rings for the other side of the body.
+const fold=(rings,th=.012,c=.006)=>{const key='F'+th+c+JSON.stringify(rings);if(geoCache[key])return geoCache[key];const m=rings[0][1].length;
+  const Q=rings.map(([,pts])=>pts.map((p,i)=>{const nr=k=>{const a=pts[k],b=pts[k+1],l=hypot(b[0]-a[0],b[1]-a[1])||1;return [(b[1]-a[1])/l,(a[0]-b[0])/l];},a=nr(max(0,i-1)),b=nr(min(m-2,i)),s=th/max(.4,1+a[0]*b[0]+a[1]*b[1]);
+    return [p[0]-(a[0]+b[0])*s,p[1]-(a[1]+b[1])*s,p[2]||0];}));
+  const out=[];for(let i=0;i<m-1;i++)out.push(hull(rings.map(([y,pts],j)=>[y,[pts[i],pts[i+1],Q[j][i+1],Q[j][i]]]),c,3,[...(i?[0,3]:[]),...(i<m-2?[1,2]:[])]));
+  return geoCache[key]=mergeGeometries(out,false);};
+const mirX=(rings,sx=-1)=>sx>0?rings:rings.map(([y,pts])=>[y,pts.map(p=>[-p[0],p[1],p[2]||0]).reverse()]);
 // thin strip along a polyline edge (a blade's honed edge, the line of light behind it): between i0 and i1 in from the edge
 const edgeStrip=(E,i0,i1)=>[...E.map(p=>[p[0]-i0,p[1]]),...E.slice().reverse().map(p=>[p[0]-i1,p[1]])];
 // proportions per kind: leg = [thigh, shin] against the standard lengths, knee = how far the knees point outwards
-const FRAME={hero:{leg:[1,1.1],knee:.05},brute:{leg:[1.1,1.14],knee:.16},warden:{leg:[1.08,1.14],knee:.1}};
+const FRAME={hero:{leg:[1,1.1],knee:.05},brute:{leg:[1.27,1.31],knee:.16},warden:{leg:[1.08,1.14],knee:.1}};
 
 const SPR=[I.ch,I.ch+1,I.ch+2,I.hd,I.hd+1,I.hd+2];   // pose channels that get spring follow-through
 class Rig{
@@ -167,6 +209,11 @@ class Rig{
     const hinge=(par,m1,m2,x,y,z,r,w)=>{add(par,UC,m1,x,y,z,r,w,r,0,0,PI/2);add(par,UC,m2,x,y,z,r*.64,w+.014,r*.64,0,0,PI/2);add(par,UC,m1,x,y,z,r*.26,w+.026,r*.26,0,0,PI/2);};
     const S=(par,rings,a0,a1,mat,th=.012,x=0,y=0,z=0,rx=0,ry=0,rz=0,ex=2.4,seg=8,bolts=0,br)=>add(par,shell(rings,a0,a1,th,seg,ex,bolts,br),mat,x,y,z,1,1,1,rx,ry,rz);
     const SX=(sx,par,rings,a0,a1,mat,th,x=0,y=0,z=0,rx=0,ry=0,rz=0,ex,seg,bolts,br)=>sx<0?S(par,mirS(rings),PI-a1,PI-a0,mat,th,-x,y,z,rx,-ry,-rz,ex,seg,bolts&&bolts.map?bolts.map(b=>[1-b[0],b[1]]):bolts,br):S(par,rings,a0,a1,mat,th,x,y,z,rx,ry,rz,ex,seg,bolts,br);
+    // H: a faceted solid (see hull). FD: a folded plate (see fold). sx = -1 builds and places the mirrored part for the right side.
+    // stud: a bolt head at a point, standing along the direction n.
+    const H=(par,rings,mat,c=.008,x=0,y=0,z=0,rx=0,ry=0,rz=0,sx=1)=>add(par,hull(mirX(rings,sx),c),mat,sx*x,y,z,1,1,1,rx,sx*ry,sx*rz);
+    const FD=(par,rings,mat,th=.012,c=.006,x=0,y=0,z=0,rx=0,ry=0,rz=0,sx=1)=>add(par,fold(mirX(rings,sx),th,c),mat,sx*x,y,z,1,1,1,rx,sx*ry,sx*rz);
+    const stud=(par,mat,x,y,z,nx,ny,nz,r=.0065)=>{const m=add(par,BOLT,mat,x,y,z,r,r*.6,r);m.quaternion.setFromUnitVectors(UPV,_a.set(nx,ny,nz).normalize());return m;};
     // PL: a plate, or a row of plates split at the fractions o.cols of its arc with a groove o.gap wide between them: a panel line, with
     // whatever is underneath showing in it. A fraction may be a pair [at the first ring, at the last ring]: a diagonal cut.
     // o: sx (-1 = the mirrored plate for the right side), th, ex, seg, bolts, br, at [x,y,z], rot [x,y,z], tone (1, or a flag per
@@ -184,7 +231,7 @@ class Rig{
       add(o,plate(edgeStrip(E,-.003,ew),.016,.007),M.edge,0,y0,0);add(o,plate(edgeStrip(E.slice(0,-1),ew+.008,ew+.008+gw),.018,.002),M.glow,0,y0,0);};
     // flat: fold a temporary group's parts into its parent (the group only gave a tilted frame to build in), so they merge with the rest
     const flat=(g,to=g.parent)=>{g.updateMatrix();for(const c of [...g.children]){c.updateMatrix();c.applyMatrix4(g.matrix);to.add(c);}g.parent.remove(g);};
-    this.K={rod,hinge,struts,blade,flat,S,SX,PL,T2,NW};
+    this.K={rod,hinge,struts,blade,flat,S,SX,PL,T2,NW,H,FD,stud};
     if(c.kind==='hero')this.buildHero(add);else if(c.kind==='warden')this.buildWarden(add);else this.buildFoe(add);
     this.bake();
   }
@@ -203,7 +250,7 @@ class Rig{
   // spine, a sheath slung across navy shoulder blades, coat tails hanging in an A. White armour is kept to the surfaces that face
   // outwards; flanks, abdomen and the inside and back of the limbs are navy, gunmetal or bare graphite frame, so the figure is layered.
   buildHero(add){
-    const M=this.mats,{hips,chest,head}=this,{rod,hinge,flat,S,SX,PL,NW,blade:bladeOf}=this.K,A=M.shell,B=M.shell2,F=M.frame,D=M.dark,J=M.steel,R=M.rubber,GL=M.glow,MG=M.mglow,L1=this.L1,L2=this.L2,HP=PI/2;
+    const M=this.mats,{hips,chest,head}=this,{rod,hinge,flat,S,SX,PL,NW,H,FD,stud,blade:bladeOf}=this.K,A=M.shell,B=M.shell2,F=M.frame,D=M.dark,J=M.steel,R=M.rubber,GL=M.glow,GL2=M.glow2,GL3=M.glow3,MG=M.mglow,L1=this.L1,L2=this.L2,HP=PI/2;
     this.gripD=[.07,.07];this.pad=[];this.pist=[];this.fins=[];this.finK=0;this.swing=0;
     // stand tall at rest, feet under the shoulders and the weight on the rear leg (the idle clip itself is a wider, lower guard)
     this.pose=(o,c)=>{if(c.loco==='idle'){o[I.hy]+=.03;o[I.fl]=.12;o[I.fl+2]=.17;o[I.fr]=-.13;o[I.fr+2]=-.13;o[I.hip+2]+=.045;}};
@@ -219,33 +266,49 @@ class Rig{
     // waist: a slim dark core, four bright piston rods, two dark lames in front (gunmetal, then navy): a machine waist under the chest
     add(chest,loft([[-.07,.07,.058],[0,.054,.046],[.08,.052,.044],[.15,.072,.056]],12,2.4),D);
     S(chest,[[-.04,.078,.064],[.03,.07,.058,0,0,.12,.12]],HP-1.05,HP+1.05,F,.01); S(chest,[[.036,.08,.066,0,0,.1,.1],[.1,.086,.068],[.13,.09,.07]],HP-.9,HP+.9,B,.01);
-    // rib cage: a graphite core, flat in front and narrow at the lower ribs. Standing proud of it: two white pectoral plates with a dark
-    // gap down the sternum, a navy rib plate under each, gunmetal flank plates with three vent slots, navy shoulder blades bordered in
-    // white, and a white yoke that overhangs the lot by a step. A raised collar, open at the throat, with the neck pistons in the gap.
-    const PEC=[[.292,.148,.107,0,0,.1,0],[.33,.158,.11],[.392,.164,.109]],RIB=[[.208,.11,.09,0,0,.42,.1],[.25,.132,.101,0,0,.1,.04],[.28,.145,.106]];
+    // rib cage: a graphite core, flat in front and narrow at the lower ribs. Standing proud of it: two faceted white pectoral plates with
+    // a dark gap down the sternum, three graphite lames under them, gunmetal flank plates with three vent slots, navy shoulder blades
+    // bordered in white under a white yoke (the back only), a navy plate sloping from the neck to each shoulder.
     const FLK=[[.2,.108,.082],[.3,.142,.094],[.392,.152,.094]],BLD=[[.21,.11,.088,0,0,0,.7],[.27,.138,.1,0,0,0,.25],[.34,.156,.108],[.392,.163,.107]];
-    const YOKE=[[.404,.176,.118],[.414,.186,.128],[.446,.188,.122],[.476,.158,.1],[.498,.116,.078]];
+    const YOKE=[[.404,.176,.118],[.414,.186,.128],[.446,.188,.122],[.476,.158,.1]];
     add(chest,loft([[.12,.074,.058],[.2,.104,.08],[.3,.136,.092],[.4,.146,.092],[.47,.1,.07]],16,3),D);
-    PL(chest,YOKE,.32,PI-.32,A,{th:.01,ex:3,seg:16,cols:[.36,.64],gap:.007}); PL(chest,YOKE,-PI+.32,-.32,A,{th:.01,ex:3,seg:14,cols:[.5],gap:.03});
-    PL(chest,[[.452,.112,.09,0,-.004],[.492,.106,.086,0,-.004],[.522,.086,.072,0,-.008]],HP+.42,HP+TAU-.42,A,{th:.012,seg:16});
-    add(chest,loft([[.47,.05,.05],[.565,.036,.04]],10,2),D); for(const [x,z] of [[.03,.034],[-.03,.034],[.04,-.012],[-.04,-.012]])rod(chest,J,x,.47,z,x*.7,.57,z*.8,.006);
-    add(chest,UC,D,0,.345,.112,.03,.016,.03,HP); add(chest,ringGeo(.0155,.0045,0),GL,0,.345,.122); add(chest,UC,J,0,.345,.114,.007,.018,.007,HP);   // core light in a dark socket on the sternum
+    PL(chest,YOKE,-PI+.32,-.32,A,{th:.01,ex:3,seg:14,cols:[.5],gap:.03});
+    // neck: the head stands 3.5 cm higher on a dark column between four pistons; round it a white collar ring floats on four more, open at the throat
+    head.position.y=.595; add(chest,loft([[.47,.05,.05],[.606,.036,.04]],10,2),D);
+    for(const [x,z] of [[.032,.036],[-.032,.036],[.042,-.014],[-.042,-.014]]){rod(chest,F,x,.468,z,x*.86,.53,z*.9,.0085);rod(chest,J,x*.86,.53,z*.9,x*.68,.612,z*.78,.005);}
+    S(chest,[[0,.124,.104],[.024,.124,.104]],HP+.62,HP+TAU-.62,A,.014,0,.494,-.014,.16,0,0,2.6,18);
+    for(const [x,z] of [[.088,-.07],[-.088,-.07],[.112,.026],[-.112,.026]])rod(chest,J,x*.86,.45,z*.86,x,.497-(z+.014)*.16,z,.0055);
+    // core light: a ring in a dark housing with a thin white bezel, under the point the two pectorals make
+    add(chest,UC,D,0,.254,.1,.036,.03,.036,HP); add(chest,ringGeo(.027,.0035,0),A,0,.254,.1155); add(chest,ringGeo(.0155,.0045,0),GL,0,.254,.117); add(chest,UC,J,0,.254,.108,.007,.018,.007,HP);
+    // three graphite lames under the pectorals, each overlapping the next, two bolts on the first
+    for(let k=0;k<3;k++){const y=.292-k*.031,w=.118-k*.011,f=.072-k*.007,z=.106-k*.005;
+      FD(chest,[[y,[[w,.064],[f,z],[-f,z],[-w,.064]]],[y-.036,[[w+.003,.066],[f+.002,z+.004],[-f-.002,z+.004],[-w-.003,.066]]]],F,.01,.005);}
     for(const sx of [-1,1]){
       rod(chest,J,sx*.062,-.05,.04,sx*.084,.17,.054,.0075); rod(chest,J,sx*.058,-.05,-.04,sx*.08,.17,-.05,.0075);
       rod(chest,F,sx*.062,-.05,.04,sx*.07,.04,.045,.0125); rod(chest,F,sx*.058,-.05,-.04,sx*.066,.04,-.044,.0125);
-      PL(chest,PEC,.74,HP-.02,A,{sx,th:.01,ex:3,bolts:[[.1,.5],[.9,.14],[.9,.86]]}); PL(chest,RIB,.74,HP-.02,B,{sx,th:.009,ex:3});
+      // pectoral plate: a faceted block creased at 55% of its height; above the crease it leans back to a chamfered top edge, below it
+      // rakes back under by about 25 degrees to a lower edge that runs down toward the sternum, so the two make a V over the core
+      H(chest,[[.286,[[.15,.034,.052],[.138,.072,.046],[.1,.092,.022],[.014,.096],[.014,.045]]],[.38,[[.172,.03],[.156,.092],[.112,.124],[.011,.13],[.011,.05]]],
+        [.445,[[.176,.03],[.158,.088],[.112,.116],[.011,.122],[.011,.05]]],[.462,[[.168,.03],[.15,.078],[.108,.102],[.011,.108],[.011,.05]]]],A,.007,0,0,0,0,0,0,sx);
+      stud(chest,J,sx*.0965,.276,.0865,sx*.67,0,.74,.006);
+      H(chest,[[0,[[.056,-.06],[.056,.046],[-.05,.03],[-.05,-.04]]],[.014,[[.052,-.056],[.052,.042],[-.046,.027],[-.046,-.037]]]],B,.005,.136,.462,-.014,0,0,-.42,sx);   // navy plate from the neck down to the shoulder
       PL(chest,FLK,-.6,.6,F,{sx,th:.008,ex:3,seg:6}); for(let k=0;k<3;k++)SX(sx,chest,cut(shrink(FLK,-.0015),.262+k*.024,.274+k*.024),-.26,.26,R,.003,0,0,0,0,0,0,3,4);
       PL(chest,BLD,-HP+.11,-.74,A,{sx,th:.008,ex:3}); PL(chest,cut(shrink(BLD,-.005),.236,.376),-HP+.2,-.86,B,{sx,th:.006,ex:3,bolts:4});
       // shoulder: the ball of the joint sits in a dark collar; the pauldron (pad) rides over it, see apply
       add(chest,UC,D,sx*.2,SHY,0,.054,.052,.054,0,0,HP); add(chest,UC,F,sx*.172,SHY,0,.06,.012,.06,0,0,HP);
       // thruster vent under the shoulder blade
-      add(chest,GR,F,sx*.08,.168,-.088,.056,.09,.05,.42,0,sx*.28); add(chest,GR,D,sx*.086,.136,-.112,.04,.03,.02,.42,0,sx*.28); add(chest,GB,GL,sx*.087,.13,-.118,.03,.008,.012,.42,0,sx*.28);
-      // back fin: hinged on the shoulder blade and pointing down and out, so the back spreads into an inverted V. White outside, navy
-      // inside, a line of light down the outer edge. It opens wider in a dodge and trails on the run (see apply).
+      add(chest,GR,F,sx*.08,.168,-.088,.056,.09,.05,.42,0,sx*.28); add(chest,GR,D,sx*.086,.136,-.112,.04,.03,.02,.42,0,sx*.28); add(chest,GB,GL3,sx*.087,.13,-.118,.03,.008,.012,.42,0,sx*.28);
+      // back fin: hinged on the shoulder blade and pointing down and out, so the back spreads into an inverted V. A wedge, 3 cm thick at
+      // its root and thinning to a blade, with a step notch a third of the way from the tip; white outside, navy inside, a line of
+      // light (at 60%) down the trailing edge. It hangs from a dark hinge block and is worked by a short piston. It opens wider in a
+      // dodge and trails on the run (see apply).
       const fn=new THREE.Group();fn.rotation.order='YXZ';fn.position.set(sx*.15,.372,-.13);chest.add(fn);this.fins[sx>0?0:1]=fn;
-      const FO=[[-.058,0],[.058,0],[.066,-.11],[.036,-.38],[.006,-.5],[-.018,-.49],[-.046,-.22]].map(p=>[p[0]*sx,p[1]]);
-      add(fn,plate(FO,.012,.004),A,0,0,-.006); add(fn,plate(FO.map(p=>[p[0]*.82,p[1]*.95-.012]),.008,.003),B,0,0,.003); add(fn,plate([[-.012,-.03],[.012,-.03],[.007,-.3],[-.007,-.3]].map(p=>[p[0]*sx,p[1]]),.006,.002),B,0,0,-.013);
-      add(fn,GB,GL,sx*.052,-.245,-.011,.006,.265,.008,0,0,-sx*.11); add(fn,UC,F,0,0,-.002,.03,.036,.03,HP); add(chest,GR,F,sx*.15,.372,-.11,.05,.064,.03);
+      const fr=(y,x0,x1,t,z=0)=>[y,rect(x1-x0,t,(x0+x1)/2,z)];
+      H(fn,[fr(0,-.058,.058,.03),fr(-.11,-.052,.066,.026),fr(-.33,-.03,.043,.013),fr(-.337,-.03,.029,.013),fr(-.5,-.012,.003,.005)],A,.006,0,0,-.008,0,0,0,sx);
+      H(fn,[fr(-.03,-.042,.042,.004,.008),fr(-.11,-.04,.052,.004,.006),fr(-.32,-.022,.03,.004,0)],B,0,0,0,0,0,0,0,sx);
+      add(fn,GB,GL2,sx*.0565,-.215,-.008,.006,.215,.011,0,0,-sx*.104); add(fn,UC,F,0,0,-.002,.03,.04,.03,HP);
+      rod(fn,F,-sx*.04,.012,-.03,-sx*.014,-.07,-.028,.011); rod(fn,J,-sx*.014,-.07,-.028,sx*.006,-.135,-.024,.006); add(fn,GR,F,sx*.008,-.14,-.022,.03,.024,.014);
+      H(chest,[[-.036,rect(.066,.034)],[.036,rect(.054,.03)]],D,.006,sx*.15,.374,-.112); for(const y of [.35,.398])stud(chest,J,sx*.15,y,-.1295,0,0,-1,.005);
       // shoulder piston: one end under the housing, the other on the upper arm (stretched every frame in apply)
       const pm=new THREE.Mesh(PISTON,F);pm.castShadow=true;pm.userData.keep=true;chest.add(pm);this.pist[sx>0?0:1]={m:pm,a:V(sx*.168,.3,-.016),b:V(-sx*.022,-.118,-.012)};
     }
@@ -256,8 +319,8 @@ class Rig{
     // sheath slung across the back, navy with a band of light at the throat and a white tip; the long sword's hilt stands over the
     // right shoulder whenever it is not drawn
     const sh=new THREE.Group();sh.position.set(-.2,.55,-.172);sh.quaternion.setFromUnitVectors(UPV,_a.set(.37,-.6,-.012).normalize());chest.add(sh);
-    add(sh,loft([[0,.031,.018],[.05,.034,.02],[.58,.029,.017],[.74,.021,.013]],10,3),B); add(sh,loft([[.742,.022,.014],[.79,.013,.009],[.812,.005,.004]],10,3),A); add(sh,GB,GL,0,.42,-.019,.004,.3,.006);
-    add(sh,loft([[-.014,.037,.023],[.03,.038,.024]],10,3),J); add(sh,loft([[.036,.0365,.0225],[.052,.0365,.0225]],10,3),GL); add(sh,loft([[.24,.035,.022],[.28,.035,.022]],10,3),A);
+    add(sh,loft([[0,.031,.018],[.05,.034,.02],[.58,.029,.017],[.74,.021,.013]],10,3),B); add(sh,loft([[.742,.022,.014],[.79,.013,.009],[.812,.005,.004]],10,3),A);
+    add(sh,loft([[-.014,.037,.023],[.03,.038,.024]],10,3),J); add(sh,loft([[.036,.0365,.0225],[.052,.0365,.0225]],10,3),GL3); add(sh,loft([[.24,.035,.022],[.28,.035,.022]],10,3),A);
     add(sh,GR,F,0,.2,.03,.03,.05,.06); add(sh,GR,F,0,.56,.03,.03,.05,.06);
     const hl=this.hilt=new THREE.Group();sh.add(hl);
     add(hl,UC,R,0,-.13,0,.018,.2,.018); add(hl,plate([[-.07,0],[-.05,-.03],[.05,-.03],[.07,0],[.05,.014],[-.05,.014]],.032,.008),J,0,-.022,0); add(hl,UC,J,0,-.238,0,.023,.03,.023); add(hl,cone(.022,.05,4),J,0,-.275,0,1,1,1,PI); flat(sh);
@@ -277,23 +340,27 @@ class Rig{
       add(head,UC,J,sx*.089,.074,-.012,.026,.02,.026,0,0,HP); add(head,UC,F,sx*.091,.074,-.012,.014,.026,.014,0,0,HP);
       add(head,plate([[0,-.018],[.09,-.03],[.325,.066],[.31,.086],[.04,.022]],.01,.004),B,sx*.1,.078,-.016,1,1,1,0,HP-sx*.56,0);
     }
-    // coat tails: two long split plates hung from the hip points and leaning outwards, so the legs show between them in an A; a short
-    // centre tail to the back of the knee. Navy, a line of light down each outer edge.
-    this.addTails([[PI-.95,PI-.32,-.2],[PI+.95,PI+.32,.2]],.136,.1,[.25,.24],(g,k,i)=>{const e=i?1:-1,w=[.07,.058,.046][k],w2=[.058,.046,0][k],ln=[.25,.24,.26][k];
-      add(g,plate(k<2?[[-w,0],[w,0],[w2,-ln+.014],[-w2,-ln+.014]]:[[-w,0],[w,0],[w*.75,-.16],[.012,-ln],[-.012,-ln],[-w*.75,-.16]],.018,.006),B);
-      add(g,GR,B,0,-ln*.45,.008,.034,ln*.7,.014); add(g,UC,B,0,0,0,.011,w*2.1,.011,0,0,HP);
-      add(g,GB,GL,e*(k<2?(w+w2)/2:w*.88),k<2?-ln/2:-.08,.002,.006,k<2?ln-.03:.14,.02,0,0,k<2?-e*(w-w2)/ln:-e*.07);});
-    this.addTails([PI],.1,.09,[.22],(g,k)=>{const w=k?.034:.042,ln=k?.2:.22;
-      add(g,plate(k?[[-w,0],[w,0],[w*.7,-.13],[0,-ln],[-w*.7,-.13]]:[[-w,0],[w,0],[.034,-ln+.012],[-.034,-ln+.012]],.016,.005),B); add(g,GR,A,0,-ln*.45,.007,.014,ln*.6,.01); if(!k)add(g,UC,B,0,0,0,.01,w*2.1,.01,0,0,HP);});
+    // coat tails: two navy plates hung from the hip points on hinge barrels, leaning 20 degrees outward and ending at the back of the
+    // knee, so the legs show under and between them. Each is two hinged wedges (the lower one lags in motion, see apply) with a dim
+    // line of light on its outer edge only. Between them a short tab.
+    this.addTails([[PI-.95,PI-.32,-.35],[PI+.95,PI+.32,.35]],.136,.1,[.25],(g,k,i)=>{const e=i?1:-1;
+      if(k){H(g,[[-.008,rect(.1,.013)],[-.1,rect(.074,.01)],[-.168,rect(.014,.005)]],B,.005); add(g,UC,F,0,0,0,.008,.09,.008,0,0,HP); add(g,GB,GL3,e*.046,-.052,0,.005,.085,.015,0,0,-e*.13);}
+      else{H(g,[[0,rect(.132,.024)],[-.07,rect(.136,.02)],[-.242,rect(.106,.013)]],B,.005); add(g,UC,F,0,0,.004,.014,.15,.014,0,0,HP); add(g,GR,F,0,.014,.01,.05,.03,.02);
+        add(g,GB,GL3,e*.064,-.15,0,.005,.17,.017,0,0,-e*.085); H(g,[[-.04,rect(.05,.004,0,.012)],[-.2,rect(.034,.004,0,.008)]],F,0);}});
+    this.addTails([PI],.1,.09,[],g=>{H(g,[[0,rect(.084,.018)],[-.06,rect(.076,.014)],[-.12,rect(.024,.008)]],B,.005); H(g,[[-.02,rect(.016,.004,0,.009)],[-.09,rect(.012,.004,0,.006)]],A,0);});
     this.tailBase=.07;
     for(let s=0;s<2;s++){const sx=s?-1:1,ua=this.arm[s],fa=this.fore[s],hd=this.hand[s],ul=this.leg[s],ll=this.shin[s],ft=this.foot[s];
-      // pauldron: three lames over the joint's dark ball, the lowest navy; three tally bars on the left one. It hangs on its own pivot
-      // (pad), which follows the arm forward and back but only part of the way out to the side.
+      // pauldron: lames folded round the shoulder with a ridge down the outside, each tucked a step under the one above and navy where
+      // it shows in the step. Three on the left, the lowest drawn down to a point, with three tally bars; two on the right, which
+      // leaves the dark joint housing and its piston in view. It hangs on its own pivot (pad), which follows the arm forward and back
+      // but only part of the way out to the side.
       const pd=new THREE.Group();pd.position.set(sx*SHX,SHY,0);chest.add(pd);this.pad.push({g:pd});
-      const P2=[[-.012,.078,.084,.014],[-.05,.081,.087,.016],[-.094,.088,.094,.02,0,.12,.12]];
-      SX(sx,pd,[[.1,.024,.032,.008],[.084,.052,.06,.01],[.05,.076,.084,.012,0,.3,.3],[0,.086,.092,.014,0,.75,.75],[-.03,.09,.096,.016,0,.9,.9]],-2.5,2.5,A,.011,0,0,0,0,0,0,2.7,12);
-      add(pd,UC,B,sx*.008,.097,0,.03,.012,.036); SX(sx,pd,P2,-1.5,1.5,A,.01,0,0,0,0,0,0,2.7,10,[[.06,.5],[.94,.5]]); SX(sx,pd,[[-.074,.07,.076,.014],[-.11,.072,.078,.015],[-.15,.08,.086,.018,0,.18,.18]],-1.22,1.22,B,.01,0,0,0,0,0,0,2.7,10);
-      if(!s)for(const a of [-.21,0,.21])NW(S(pd,cut(shrink(P2,-.0015),-.03,-.064),a-.055,a+.055,B,.003,0,0,0,0,0,0,2.7,3));
+      const pt=(a,R)=>[.012+R*cos(a),R*sin(a)*1.04],arc=(R,dy=[0,0,0,0,0])=>[-1.92,-.96,0,.96,1.92].map((a,i)=>[...pt(a,R),dy[i]]),lame=(rings,m,th=.012,c=.006)=>FD(pd,rings,m,th,c,0,0,0,0,0,0,sx);
+      H(pd,[[.004,arc(.098,[.012,-.004,-.02,-.004,.012])],[.064,arc(.066)],[.09,arc(.03)]],A,.006,0,0,0,0,0,0,sx);
+      lame([[.016,arc(.08)],[-.016,arc(.084)]],B,.011,.004); lame([[-.016,arc(.084)],[-.088,arc(.104,s?[.008,-.006,-.022,-.006,.008]:[.01,-.01,-.034,-.01,.01])]],A);
+      if(!s){lame([[-.074,arc(.086)],[-.104,arc(.089)]],B,.011,.004); lame([[-.104,arc(.089)],[-.16,arc(.102,[.024,-.012,-.064,-.012,.024])]],A);
+        const bar=y=>{const p=pt(0,.087+.02*(-.016-y)/.106),q=pt(.96,.087+.02*(-.016-y)/.082);return [y,[[p[0]+(q[0]-p[0])*.22,p[1]+(q[1]-p[1])*.22],[p[0]+(q[0]-p[0])*.8,p[1]+(q[1]-p[1])*.8]]];};
+        for(let k=0;k<3;k++)NW(lame([bar(-.034-k*.017),bar(-.043-k*.017)],B,.004,0));}
       // arm: twin-strut upper arm under a navy plate, hinge elbow, a white bracer over the outside of the forearm and navy inside it
       add(ua,GS,D,0,0,0,.05,.05,.05);
       rod(ua,F,sx*.004,-.04,.022,sx*.004,-.3,.018,.0125); rod(ua,F,sx*.004,-.04,-.022,sx*.004,-.3,-.018,.0125); rod(ua,J,-sx*.03,-.07,0,-sx*.024,-.28,0,.0075);
@@ -302,26 +369,30 @@ class Rig{
       rod(fa,F,sx*.014,-.02,.012,sx*.01,-.285,.008,.011); rod(fa,F,-sx*.016,-.02,-.006,-sx*.012,-.285,-.004,.011); rod(fa,J,0,-.05,-.03,0,-.27,-.022,.0065);
       const FA=[[-.04,.032,.036,.004,0,.6,.6],[-.1,.052,.058,.008,0,.1,.1],[-.17,.048,.053,.006],[-.235,.037,.041,.003],[-.268,.031,.034,0,0,.4,.4]];
       SX(sx,fa,FA,-1.35,1.35,A,.012,0,0,0,0,0,0,2.6,8,[[.5,.08],[.5,.92]]); SX(sx,fa,shrink(cut(FA,-.07,-.25),.004),1.55,TAU-1.55,B,.009,0,0,0,0,0,0,2.6,8);
-      add(fa,GR,B,sx*.052,-.15,-.004,.014,.13,.046); add(fa,GB,GL,sx*.06,-.15,0,.006,.1,.012); add(fa,UC,J,0,-.278,0,.03,.016,.03); add(fa,GS,D,0,-ARM2,0,.027,.027,.027);
+      add(fa,GR,B,sx*.052,-.15,-.004,.014,.13,.046); add(fa,GB,GL3,sx*.06,-.15,0,.006,.1,.012); add(fa,UC,J,0,-.278,0,.03,.016,.03); add(fa,GS,D,0,-ARM2,0,.027,.027,.027);
       // hand, built round the grip axis (Y): palm block behind, four fingers and a thumb wrapped round, knuckle guard in front
       add(hd,GR,F,0,0,-.037,.056,.084,.03); add(hd,GR,A,0,-.004,.045,.05,.078,.012);
       for(let k=0;k<4;k++)add(hd,arcGeo(.031,.0085,s?-.6:-.87,4.6),J,0,-.03+k*.02,0);
       add(hd,arcGeo(.031,.0095,s?-.2:1.4,1.95),J,0,.052,0);
-      // leg: white plates down the front and the outside of the thigh with a dark groove between them, navy round the inside and the
-      // back; a navy knee cap on a hinge; a white shin plate; behind it a short calf shell over an open strut frame with a strip of
-      // light in the gap; a blade foot on a navy sole with a separate heel strut
+      // leg: the thigh is navy all round, with one white blade down its front that narrows by a quarter toward the knee and ends in a
+      // point over the knee cap; a navy knee cap on a hinge; a white blade down the shin over navy side plates; a white calf shell
+      // over the whole back of the shin with one dim strip of light down it; a blade foot on a navy sole with a separate heel strut
       add(ul,GS,D,0,0,0,.058,.058,.058); add(ul,limb(.04,.032,L1),D,0,0,-.008);
       const TH=[[.05,.042,.048,.012],[-.03,.074,.082,.014,.004],[-.12,.07,.078,.01,.008],[-.24,.055,.062,.004,.008],[-.35,.046,.052,0,.005],[-.418,.042,.046]];
-      PL(ul,ends(TH,.25,.1,.12,.1),-1.02,2.16,A,{sx,seg:12,cols:[.5],gap:.017,bolts:[[.5,.03],[.5,.97]]}); PL(ul,shrink(cut(TH,0,-.4),.004),2.32,5.1,B,{sx,th:.009,seg:10});
-      if(s)for(const y of [-.1,-.128])PL(ul,cut(shrink(TH,-.0015),y,y-.014),-1.02,2.16,B,{sx,th:.003,seg:12,cols:[.5],gap:.017}).forEach(NW);   // two pinstripes across the right thigh
+      PL(ul,ends(TH,.25,.1,.12,.1),-1.02,2.16,B,{sx,seg:12,cols:[.34],gap:.012,bolts:[[.16,.04],[.16,.96]]}); PL(ul,shrink(cut(TH,0,-.4),.004),2.32,5.1,B,{sx,th:.009,seg:10});
+      // blade rings: [y, half width, z of the ridge, x of the ridge]; bl gives the outline at any height
+      const TB=[[.03,.03,.072,.012],[-.04,.05,.097,.014],[-.14,.048,.097,.01],[-.3,.038,.08,.004],[-.42,.026,.072,0],[-.505,0,.09,0]],SB=[[-.062,.008,.062,0],[-.15,.044,.082,0],[-.3,.036,.066,0],[-.42,.029,.049,0],[-.468,.022,.04,0]];
+      const bl=(T,y,d=0)=>{let j=0;while(j<T.length-2&&y<T[j+1][0])j++;const a=T[j],b=T[j+1],k=(y-a[0])/(b[0]-a[0]),w=a[1]+(b[1]-a[1])*k,z=a[2]+(b[2]-a[2])*k+d,x=a[3]+(b[3]-a[3])*k;return [y,[[x+w,z-.01-w*.14],[x,z],[x-w,z-.01-w*.14]]];};
+      FD(ul,TB.map(r=>bl(TB,r[0])),A,.012,.006,0,0,0,0,0,0,sx);
+      if(s)for(const y of [-.1,-.128])NW(FD(ul,[bl(TB,y,.002),bl(TB,y-.014,.002)],B,.004,0,0,0,0,0,0,0,sx));   // two pinstripes across the right thigh
       hinge(ll,D,J,0,0,0,.046,.088);
       S(ll,[[.066,.036,.046,0,.012,.5,.5],[0,.05,.064,0,.016],[-.062,.036,.046,0,.012,.5,.5]],HP-.95,HP+.95,B,.011);
       add(ll,limb(.03,.024,L2),D,0,0,-.012);
       const q=L2/LEG2,ys=r=>r.map(v=>[v[0]*q,...v.slice(1)]);
-      S(ll,ys([[-.078,.04,.044,0,.012,.7,.7],[-.15,.052,.058,0,.016,.1,.1],[-.3,.042,.048,0,.01],[-.42,.033,.037,0,.004],[-.47,.03,.032,0,0,.35,.35]]),HP-1.3,HP+1.3,A,.012,0,0,0,0,0,0,2.6,10,[[.5,.05],[.12,.4],[.88,.4]]);
-      S(ll,ys([[-.045,.03,.034,0,-.012,.8,.8],[-.12,.052,.064,0,-.02,.1,.1],[-.2,.05,.06,0,-.018],[-.262,.04,.046,0,-.012,.45,.45]]),-HP-1.25,-HP+1.25,A,.012,0,0,0,0,0,0,2.4,10);
-      for(const k of [-1,1])rod(ll,F,k*.027,-.24*q,-.05,k*.017,-L2+.045,-.04,.0095); for(const y of [-.31,-.41])add(ll,UC,F,0,y*q,-.049-(y+.31)*-.06,.006,.05,.006,0,0,HP);
-      add(ll,GB,GL,0,-.35*q,-.046,.009,.2,.005); add(ll,UC,D,0,-L2+.03,0,.034,.02,.034);
+      S(ll,ys([[-.078,.038,.042,0,.012,.7,.7],[-.15,.05,.056,0,.016,.1,.1],[-.3,.04,.046,0,.01],[-.42,.031,.035,0,.004],[-.47,.028,.03,0,0,.35,.35]]),HP-1.3,HP+1.3,B,.011,0,0,0,0,0,0,2.6,10);
+      FD(ll,SB.map(r=>{const o=bl(SB,r[0]);o[0]*=q;return o;}),A,.012,.006);
+      S(ll,ys([[-.045,.03,.034,0,-.012,.8,.8],[-.12,.052,.064,0,-.02,.1,.1],[-.2,.05,.06,0,-.018],[-.33,.039,.046,0,-.012],[-.435,.03,.034,0,-.006,.4,.4]]),-HP-1.25,-HP+1.25,A,.012,0,0,0,0,0,0,2.4,10,[[.5,.06]]);
+      add(ll,GB,GL3,0,-.285*q,-.0655,.008,.15,.006,-.16); add(ll,UC,D,0,-L2+.03,0,.034,.02,.034);
       hinge(ft,D,J,0,0,0,.034,.076);
       add(ft,loft([[-.03,.03,.03],[.03,.046,.036],[.11,.05,.027],[.19,.042,.017],[.245,.024,.009]],12,3.2),A,0,-.018,-.012,1,1,1,1.84);
       add(ft,GR,B,0,-.082,.1,.098,.016,.21); rod(ft,F,0,-.012,-.03,0,-.08,-.084,.012); add(ft,GR,F,0,-.083,-.088,.04,.014,.044);
@@ -518,101 +589,148 @@ class Rig{
       else for(let k=-1;k<=1;k++){add(sw,cone(.018,.24,4),F,k*.036,.15,0,1,1,1,0,0,-k*.22); add(sw,cyl(.012,.012,.08),F,k*.036,.03,0);}
     }
   }
-  // Brute: a walking siege engine in matte olive, built from slabs. Every form is a bevelled block or a plate, bolted, with the dark
-  // frame showing in the gaps: stacked slab pauldrons over a hazard lip, a raked glacis between two side plates, grey fuel tanks and
-  // exhaust stacks, a visor head under a cowl, block fists with four finger slabs, broad thighs under flared hip plates.
+  // Brute: a walking siege engine in dark matte green, built from faceted hulls that taper, rake and flare so no two parts share a
+  // shape: wedge pauldron shells over a thin lame and a hazard lip, a torso that narrows from the shoulders to a pinched frame waist
+  // under a raked glacis, round grey tanks under the glacis, a small wedge head sunk in its collar, forearms that widen to the wrist,
+  // thighs that narrow to the knee and shins that flare to the foot. Broad faces carry a panel groove and a vent or an access plate.
+  // Its back is its hot side: two exhaust stacks with heat in their slots and a three-slot vent between them.
   buildBrute(add,L,M){
-    const {hips,chest,head}=this,{rod,hinge,flat,T2}=this.K,A=M.armor,T=M.trim,F=M.frame,G=M.glow,HZ=M.hazard,HP=PI/2,L1=this.L1,L2=this.L2,q1=L1/LEG1,q2=L2/LEG2;
+    const {hips,chest,head}=this,{rod,hinge,flat,T2,H,stud}=this.K,A=M.armor,T=M.trim,F=M.frame,R=M.rubber,G=M.glow,HZ=M.hazard,HP=PI/2,L1=this.L1,L2=this.L2;
     // it stands tall and square, feet planted wider than its shoulders
     this.pose=(o,c)=>{if(c===CL.eIdle){o[I.hy]+=.1;o[I.hip]-=.17;o[I.ch]-=.17;o[I.hd]+=.26;o[I.fl]+=.1;o[I.fr]-=.1;}};
-    // BX: a block (see slab). bolt: a fastener head at a point, standing along n. tilt: a frame to build a leaning assembly in, then folded away.
+    // BX: a block (see slab). bolt: a fastener head at a point, standing along n. tilt: a frame to build a leaning assembly in, then
+    // folded away. face: the same, set on a slab face: +Z along the face's normal n, +Y along u as near as the face allows.
     const BX=(par,mat,w,h,d,x=0,y=0,z=0,rx=0,ry=0,rz=0,c=.014)=>add(par,slab(w,h,d,c),mat,x,y,z,1,1,1,rx,ry,rz);
-    const bolt=(par,x,y,z,nx,ny,nz,r=.011)=>{const m=add(par,BOLT,A,x,y,z,r,r*.6,r);m.quaternion.setFromUnitVectors(UPV,_a.set(nx,ny,nz).normalize());return m;};
+    const bolt=(par,x,y,z,nx,ny,nz,r=.011)=>stud(par,A,x,y,z,nx,ny,nz,r);
     const tilt=(par,x,y,z,rx,ry,rz)=>{const g=new THREE.Group();g.position.set(x,y,z);g.rotation.set(rx,ry,rz);par.add(g);return g;};
+    const face=(par,x,y,z,nx,ny,nz,ux=0,uy=1,uz=0)=>{const g=new THREE.Group(),n=_a.set(nx,ny,nz).normalize(),u=_b.set(ux,uy,uz);u.addScaledVector(n,-u.dot(n)).normalize();
+      g.quaternion.setFromRotationMatrix(_m4.makeBasis(_c.crossVectors(u,n),u,n));g.position.set(x,y,z);par.add(g);return g;};
     const HB=GB.clone();{const uv=HB.attributes.uv;for(let i=0;i<uv.count;i++)uv.setY(i,uv.getY(i)*.115);}   // HB: a strip whose chevrons keep their shape
-    // pelvis: a frame block and belt, a loin plate and a rear plate, a flared skirt plate over each hip
-    BX(hips,F,.36,.24,.26,0,-.03,0,0,0,0,.03); add(hips,UC,T,0,.09,0,.19,.05,.15);
-    BX(hips,A,.22,.22,.045,0,-.08,.14,-.14); for(const x of [-.08,.08])bolt(hips,x,0,.158,0,.14,1); T2(BX(hips,A,.1,.05,.012,0,-.12,.172,-.14,0,0,.004)); BX(hips,A,.26,.17,.045,0,-.05,-.135,.1);
-    for(const sx of [-1,1]){const g=tilt(hips,sx*.225,-.07,0,0,0,sx*.2);BX(g,A,.05,.27,.27);T2(BX(g,A,.012,.05,.2,sx*.027,-.08,0,0,0,0,.004));for(const z of [-.09,.09])bolt(g,sx*.026,.09,z,sx,0,0);flat(g);}
-    // waist: the dark frame showing between two pistons; a barrel of frame under the chest armour
-    L(chest,[[-.04,.12,.1],[.06,.1,.085],[.14,.14,.11]],F,0,0,0,0,0,0,3.2,16); L(chest,[[.1,.17,.14],[.24,.235,.175],[.38,.245,.175],[.48,.2,.15],[.53,.13,.1]],F,0,0,0,0,0,0,3.4,16);
-    // vent grille in the belly: its bars are the Brute's own light. Above it, two grey tanks with end caps
-    add(chest,GR,T,0,.115,.185,.3,.1,.05); for(let k=-1;k<=1;k++)add(chest,GB,G,k*.08,.115,.207,.034,.068,.012);
-    // glacis: a raked plate in two halves, its top edge standing proud, a grey band across it
-    {const g=tilt(chest,0,.375,.185,-.3,0,0);for(const sx of [-1,1]){BX(g,A,.2,.27,.045,sx*.106,0,0);T2(BX(g,A,.2,.035,.012,sx*.106,.06,.026,0,0,0,.004));for(const [x,y] of [[.17,.1],[.17,-.1],[.04,-.1]])bolt(g,sx*x,y,.023,0,0,1);}flat(g);}
-    for(let k=0;k<4;k++)add(chest,GR,F,0,.16+k*.1,-.215,.07,.07,.05);
-    BX(chest,A,.3,.22,.04,0,.63,-.14,-.22); for(const x of [-.1,.1])bolt(chest,x,.7,-.136,0,.2,1);   // cowl behind the head
+    // what a broad face carries (built in a face frame): groove, a panel line 8 mm wide; vent, a dark recess with three slats; hatch,
+    // an access plate standing 2 cm proud on four bolts
+    const groove=(g,x0,y0,x1,y1)=>{const m=add(g,GB,R,(x0+x1)/2,(y0+y1)/2,.001,.0055,hypot(x1-x0,y1-y0),.004);m.rotation.z=atan2(x0-x1,y1-y0);};
+    const vent=(g,x,y,w=.1,h=.07)=>{add(g,GB,R,x,y,.0015,w,h,.005);for(let k=-1;k<=1;k++)add(g,GB,A,x,y+k*h*.3,.004,w*.88,h*.13,.007,.5);};
+    const hatch=(g,x,y,w=.1,h=.08)=>{add(g,slab(w,h,.016,.008),A,x,y,.006);for(const a of [-1,1])for(const b of [-1,1])bolt(g,x+a*(w/2-.014),y+b*(h/2-.014),.014,0,0,1,.007);};
+    // pelvis: a frame block and belt, a loin wedge and a rear plate, a skirt plate over each hip that flares toward its lower edge
+    BX(hips,F,.34,.24,.24,0,-.03,0,0,0,0,.03); add(hips,UC,T,0,.09,0,.18,.05,.14);
+    H(hips,[[.04,rect(.2,.05,0,.142)],[-.1,rect(.19,.055,0,.162)],[-.24,rect(.06,.04,0,.15)]],A,.01); for(const x of [-.07,.07])bolt(hips,x,-.02,.178,0,.1,1); T2(BX(hips,A,.1,.04,.01,0,-.115,.188,0,0,0,.004));
+    BX(hips,A,.26,.17,.045,0,-.05,-.13,.1);
+    for(const sx of [-1,1]){const g=tilt(hips,sx*.215,-.06,0,0,0,sx*.22);H(g,[[.13,rect(.05,.2)],[-.16,rect(.05,.31)]],A,.012);T2(BX(g,A,.01,.04,.2,sx*.027,-.09,0,0,0,0,.004));for(const z of [-.07,.07])bolt(g,sx*.026,.08,z,sx,0,0);flat(g);}
+    // waist: the dark frame, in view between the pelvis and the chest, a piston either side. The vent grille low in the belly is the
+    // Brute's own light
+    L(chest,[[-.05,.12,.1],[.05,.095,.08],[.19,.14,.11]],F,0,0,0,0,0,0,3.2,16);
+    add(chest,GR,T,0,.012,.112,.21,.085,.05); for(let k=-1;k<=1;k++)add(chest,GB,G,k*.058,.012,.134,.03,.056,.012);
+    // torso: one hull, as wide as the shoulders at the top and 0.6 of that at the waist; its front is a glacis raked 25 degrees, split
+    // down the middle, with a grey band, a vent and an access plate
+    const TR=(y,w,zf,zb,ch)=>[y,[[w/2,zb+ch],[w/2,zf-ch],[w/2-ch,zf],[-w/2+ch,zf],[-w/2,zf-ch],[-w/2,zb+ch],[-w/2+ch,zb],[w/2-ch,zb]]];
+    H(chest,[TR(.16,.3,.19,-.14,.05),TR(.27,.38,.245,-.18,.07),TR(.56,.55,.11,-.21,.1),TR(.61,.47,.07,-.18,.09)],A,.012);
+    {const g=face(chest,0,.415,.178,0,.42,.906); groove(g,0,-.155,0,.15); T2(BX(g,A,.31,.034,.008,0,.085,.003,0,0,0,.004)); vent(g,.075,-.055,.09,.075); hatch(g,-.075,-.05,.1,.09);
+      for(const [x,y] of [[.15,.135],[-.15,.135],[.1,-.135],[-.1,-.135]])bolt(g,x,y,.004,0,0,1); flat(g);}
+    // back: spine blocks, and above them a dark recess with three hot slots
+    for(let k=0;k<3;k++)add(chest,GR,F,0,.2+k*.09,-.192-k*.009,.07,.07,.05);
+    {const g=face(chest,0,.475,-.203,0,-.103,-.995); add(g,GB,R,0,0,.003,.2,.1,.008); for(let k=-1;k<=1;k++)add(g,GB,G,0,k*.03,.007,.16,.013,.008); for(const x of [-.115,.115])bolt(g,x,0,.004,0,0,1,.008); flat(g);}
+    // collar: a cowl behind the head, a cheek either side, a lip in front
+    BX(chest,A,.3,.2,.04,0,.69,-.19,-.22); for(const x of [-.1,.1])bolt(chest,x,.75,-.184,0,.2,1); BX(chest,A,.25,.045,.03,0,.628,.105,-.5);
     for(const sx of [-1,1]){
-      rod(chest,T,sx*.1,-.05,.1,sx*.13,.17,.15,.016); rod(chest,F,sx*.1,-.05,.1,sx*.116,.06,.127,.025);
-      T2(add(chest,UC,A,sx*.105,.228,.212,.05,.15,.05,0,0,HP)); for(const x of [.026,.184])add(chest,UC,T,sx*x,.228,.212,.056,.014,.056,0,0,HP);
-      BX(chest,A,.13,.3,.045,sx*.262,.345,.105,0,sx*.75,0); bolt(chest,sx*.3,.44,.1,sx*.68,0,.73); bolt(chest,sx*.3,.25,.1,sx*.68,0,.73);   // side plate
-      BX(chest,A,.2,.3,.045,sx*.106,.37,-.185,.08); for(const [x,y] of [[.17,.47],[.17,.27]])bolt(chest,sx*x,y,-.205,0,0,-1);   // back plate
-      BX(chest,A,.04,.18,.2,sx*.17,.6,-.06,0,0,-sx*.14);   // cowl cheek
+      rod(chest,T,sx*.15,-.06,.03,sx*.17,.17,.05,.016); rod(chest,F,sx*.15,-.06,.03,sx*.16,.06,.04,.026);
+      // grey tank under the glacis, capped and banded, piped up into the chest
+      {const g=tilt(chest,sx*.125,.118,.15,0,sx*.42,-sx*.3); T2(add(g,UC,A,0,0,0,.064,.13,.064,0,0,HP)); for(const x of [-.07,.07])add(g,UC,T,x,0,0,.069,.014,.069,0,0,HP); add(g,GS,T,sx*.072,0,0,.03,.05,.05); flat(g);}
+      rod(chest,T,sx*.09,.16,.12,sx*.1,.25,.1,.014);
+      {const g=face(chest,sx*.2,.3,.04,sx*.96,-.28,0); vent(g,0,0,.12,.07); flat(g);}
+      BX(chest,A,.04,.13,.22,sx*.135,.665,-.05,0,0,-sx*.14);   // cowl cheek
       hinge(chest,T,F,sx*.3,SHY,0,.085,.1);
-      // pauldron: two stacked slabs with the dark core showing in the gap between them, bolted, a grey plate on top, a hazard lip below
-      const g=tilt(chest,sx*.375,.455,0,0,0,-sx*.2);
-      BX(g,F,.26,.25,.36,0,0,0,0,0,0,.02); BX(g,A,.32,.15,.43,0,.083,0,0,0,0,.016); BX(g,A,.3,.115,.41,0,-.066,0,0,0,0,.016); T2(BX(g,A,.2,.02,.3,sx*.02,.163,0,0,0,0,.006));
-      for(const z of [-.15,.15]){bolt(g,sx*.161,.083,z,sx,0,0);bolt(g,sx*.151,-.066,z,sx,0,0);} for(const x of [-.1,.1])bolt(g,x,.083,.216,0,0,1);
-      add(g,GR,T,sx*.01,-.142,0,.31,.03,.42); add(g,HB,HZ,sx*.01,-.142,.212,.29,.032,.008); flat(g);
-      add(chest,plate([[-.035,0],[.035,0],[.05,.3],[.012,.44],[-.02,.3]],.022,.006),T,sx*.2,.5,-.2,1,1,1,-.3,HP,0);
-      // exhaust stack in grey, collared, a glow in its mouth
-      T2(add(chest,UC,A,sx*.12,.6,-.22,.048,.3,.048,-.25)); add(chest,UC,T,sx*.12,.69,-.243,.054,.04,.054,-.25); add(chest,UC,T,sx*.12,.53,-.203,.054,.04,.054,-.25); add(chest,UC,G,sx*.12,.746,-.258,.032,.02,.032,-.25);
+      // pauldron: one wedge shell, its top sloping 20 degrees down and outward, its outer face raked in, over a dark core; under it a
+      // thin lame and the hazard lip. On the top a grey plate, a groove and a vent
+      const g=tilt(chest,sx*.385,.475,0,0,0,0),PB=[[.19,-.17],[.19,.17],[.125,.24],[-.16,.24],[-.16,-.24],[.125,-.24]];
+      BX(g,F,.24,.2,.36,0,-.03,0,0,0,0,.02);
+      H(g,[[-.085,PB],[.125,[[.15,-.145,-.112],[.15,.145,-.112],[.095,.205,-.092],[-.16,.205,0],[-.16,-.205,0],[.095,-.205,-.092]]]],A,.012,0,0,0,0,0,0,sx);
+      H(g,[[-.168,PB.map(p=>[p[0]*1.04+.004,p[1]*1.03])],[-.112,PB]],A,.01,0,0,0,0,0,0,sx);
+      add(g,GR,T,sx*.02,-.188,0,.33,.028,.47); for(const z of [-.237,.237])add(g,HB,HZ,sx*.02,-.188,z,.3,.03,.008);
+      {const t=face(g,-sx*.005,.07,0,sx*.34,.94,0,0,0,1); T2(BX(t,A,.15,.12,.01,sx*.06,-.085,.004,0,0,0,.004)); groove(t,-.15,.02,.15,.02); vent(t,sx*.01,.105,.13,.075);
+        for(const [x,y] of [[.13,-.17],[.13,.17],[-.13,-.11],[-.13,.11]])bolt(t,sx*x,y,.004,0,0,1); flat(t);}
+      {const f=face(g,-sx*.02,.01,.224,0,.16,.987); T2(BX(f,A,.11,.024,.008,-sx*.06,.045,.003,0,0,0,.004)); bolt(f,sx*.13,-.06,.004,0,0,1); bolt(f,-sx*.11,-.06,.004,0,0,1); flat(f);}
+      {const f=face(g,sx*.171,-.035,0,sx*.93,.38,0); hatch(f,0,0,.12,.055); flat(f);}
+      flat(g);
+      add(chest,plate([[-.035,0],[.035,0],[.05,.3],[.012,.44],[-.02,.3]],.022,.006),T,sx*.21,.52,-.21,1,1,1,-.3,HP,0);
+      // exhaust stack in grey, collared; heat in its mouth and in three slots down its back
+      T2(add(chest,UC,A,sx*.12,.62,-.235,.05,.3,.05,-.25)); add(chest,UC,T,sx*.12,.71,-.258,.056,.04,.056,-.25); add(chest,UC,T,sx*.12,.54,-.215,.056,.04,.056,-.25); add(chest,UC,G,sx*.12,.767,-.272,.036,.02,.036,-.25);
+      for(const t of [-.05,0,.05])add(chest,GB,G,sx*.12,.608+t*.969,-.283-t*.247,.052,.014,.012,-.25);
     }
-    // head: an armoured block, larger than before, one visor slit under a heavy brow, a grey crown plate
-    head.scale.setScalar(1.3);
-    BX(head,A,.2,.17,.22,0,.025,.02,0,0,0,.022); add(head,GR,F,0,.02,.125,.15,.06,.05); add(head,GB,G,0,.025,.153,.13,.022,.012); add(head,GR,T,0,.07,.08,.2,.03,.16,.15);
-    T2(BX(head,A,.13,.02,.15,0,.115,.0,0,0,0,.006)); for(const sx of [-1,1]){add(head,GR,T,sx*.1,.0,.05,.02,.09,.1);bolt(head,sx*.07,-.03,.131,0,0,1,.009);}
+    // head: a small wedge, sunk in the collar so that only its top third clears the lip: a slit of light and two lens rings in a
+    // dark recess under a grey crown plate
+    head.scale.setScalar(1);
+    H(head,[[.035,rect(.2,.24,0,-.035)],[.135,[[.085,-.16],[.085,.045],[-.085,.045],[-.085,-.16]]]],A,.012); T2(BX(head,A,.12,.014,.13,0,.14,-.06,0,0,0,.005));
+    {const g=face(head,0,.108,.0565,0,.37,.93); add(g,GB,R,0,0,.001,.165,.04,.006); add(g,GB,G,0,0,.004,.15,.02,.008); for(const x of [-.045,.045])add(g,ringGeo(.016,.0045,0),T,x,0,.009); flat(g);}
+    for(const sx of [-1,1])add(head,GR,T,sx*.103,.075,-.04,.014,.06,.12);
     for(let s=0;s<2;s++){const sx=s?-1:1,ua=this.arm[s],fa=this.fore[s],sw=this.sword[s],ul=this.leg[s],ll=this.shin[s],ft=this.foot[s];
-      // arm: a slab over the upper arm, two stacked slabs on the forearm with the tell light down the outside
-      add(ua,limb(.06,.05,ARM1),F,sx*.04); BX(ua,A,.19,.2,.21,sx*.055,-.145,0); T2(BX(ua,A,.2,.03,.22,sx*.055,-.2,0,0,0,0,.006)); for(const z of [-.07,.07])bolt(ua,sx*.151,-.09,z,sx,0,0);
-      hinge(fa,T,F,0,0,0,.078,.17); add(fa,limb(.06,.05,ARM2),F); BX(fa,F,.2,.26,.22,sx*.015,-.17,0,0,0,0,.02);
-      BX(fa,A,.23,.125,.25,sx*.015,-.107,0); BX(fa,A,.25,.115,.27,sx*.015,-.242,0); for(const z of [-.09,.09]){bolt(fa,sx*.015+.08,-.107,z>0?.126:-.126,0,0,z);bolt(fa,sx*.015-.08,-.242,z>0?.136:-.136,0,0,z);}
-      add(fa,UC,T,sx*.15,-.15,0,.03,.24,.03); add(fa,GB,G,sx*.152,-.18,0,.012,.11,.06);
+      // arm: the upper arm narrows to the elbow; the forearm is a third wider at the wrist than at the elbow, banded in grey, with
+      // the tell light in a conduit down its outside
+      add(ua,limb(.06,.05,ARM1),F,sx*.04); H(ua,[[-.035,rect(.21,.23,.055,0,.03)],[-.255,rect(.16,.18,.05,0,.025)]],A,.012,0,0,0,0,0,0,sx);
+      T2(BX(ua,A,.172,.028,.192,sx*.051,-.215,0,0,0,0,.006)); for(const z of [-.07,.07])bolt(ua,sx*.157,-.07,z,sx,.1,0);
+      hinge(fa,T,F,0,0,0,.078,.17); add(fa,limb(.06,.05,ARM2),F);
+      H(fa,[[-.045,rect(.2,.21,.015,0,.03)],[-.3,rect(.27,.28,.015,0,.04)]],A,.012,0,0,0,0,0,0,sx); T2(BX(fa,A,.262,.026,.272,sx*.015,-.262,0,0,0,0,.006));
+      {const f=face(fa,sx*.1325,-.1725,0,sx*.99,.136,0); add(f,UC,T,0,.02,.012,.03,.2,.03); add(f,GB,G,0,0,.016,.062,.11,.012); flat(f);}
+      {const f=face(fa,sx*.015,-.1725,.1225,0,.136,.99); vent(f,0,.01,.11,.075); flat(f);}
       // fist: a dark palm block under a banded cuff (the band glows), four bevelled finger slabs across the knuckles, a thumb plate
       BX(sw,F,.21,.17,.21,0,.02,0,0,0,0,.02); add(sw,GR,T,0,-.05,0,.27,.055,.27); add(sw,GB,G,0,-.05,0,.28,.024,.1); add(sw,GB,G,0,-.05,0,.1,.024,.28);
       for(let k=0;k<4;k++)BX(sw,A,.2,.105,.047,0,.098,(k-1.5)*.053,0,0,0,.012); T2(BX(sw,A,.214,.026,.222,0,.05,0,0,0,0,.005)); BX(sw,A,.05,.13,.13,-sx*.127,.055,.02);
-      // leg: a broad thigh in two slabs over the frame; a hinge knee under a grey cap; a calf block behind a forward-raked shin plate
-      // that widens to the foot; a long foot with a separate toe plate and a heel strut
-      hinge(ul,F,F,0,0,0,.09,.1); add(ul,limb(.08,.065,L1),F); BX(ul,F,.24,.4*q1,.2,sx*.045,-.24*q1,0,0,0,0,.02);
-      BX(ul,A,.3,.2*q1,.27,sx*.05,-.13*q1,0,0,0,0,.016); BX(ul,A,.27,.2*q1,.25,sx*.045,-.345*q1,0,0,0,0,.016); for(const x of [-.09,.09]){bolt(ul,sx*.05+x,-.07*q1,.136,0,0,1);bolt(ul,sx*.045+x,-.41*q1,.126,0,0,1);}
-      hinge(ll,F,F,0,0,0,.088,.2); T2(BX(ll,A,.2,.17,.06,0,.005,.105,.1,0,0,.016)); add(ll,limb(.06,.05,L2),F); BX(ll,A,.2,.3*q2,.17,0,-.25*q2,-.035);
-      {const g=tilt(ll,0,-.075*q2,.09,-.2,0,0);add(g,plate([[-.085,0],[.085,0],[.14,-.4*q2],[-.14,-.4*q2]],.05,.014),A);T2(BX(g,A,.2,.03,.012,0,-.3*q2,.028,0,0,0,.004));for(const [x,y] of [[.06,-.03],[-.06,-.03],[.11,-.36],[-.11,-.36]])bolt(g,x,y*q2,.025,0,0,1);flat(g);}
-      for(const k of [-1,1])rod(ll,F,k*.05,-.04,-.085,k*.05,-.36*q2,-.125,.014);
-      BX(ft,A,.27,.1,.34,0,-.04,.075,0,0,0,.018); BX(ft,A,.25,.066,.125,0,-.052,.322); add(ft,HB,HZ,0,-.05,.3855,.21,.03,.006); BX(ft,F,.25,.022,.5,0,-.079,.13,0,0,0,.008);
-      rod(ft,F,0,-.01,-.07,0,-.066,-.2,.03); BX(ft,F,.15,.03,.09,0,-.075,-.21,0,0,0,.01); for(const x of [-.09,.09])bolt(ft,x,.011,.14,0,1,0);
+      // leg: a thigh that narrows from the hip to three quarters at the knee; a hinge knee under a grey cap; a shin that flares from
+      // the knee to the ankle, a dark channel down its front; a wedge foot with a separate toe plate and a heel strut
+      hinge(ul,F,F,0,0,0,.09,.1); add(ul,limb(.08,.065,L1),F); const th=L1-.12,sh=L2-.185;
+      H(ul,[[-.01,rect(.3,.28,.05,0,.05)],[-.01-th,rect(.225,.21,.04,0,.04)]],A,.014,0,0,0,0,0,0,sx);
+      {const f=face(ul,sx*.045,-.01-th/2,.1225,0,-.08,1); groove(f,-.125,.035,.125,.035); hatch(f,0,-.07,.12,.09); for(const x of [-.1,.1])bolt(f,x,th/2-.035,.004,0,0,1); flat(f);}
+      {const f=face(ul,sx*.176,-.01-th/2,0,sx,-.1,0); vent(f,0,.03,.12,.08); flat(f);}
+      hinge(ll,F,F,0,0,0,.088,.2); T2(BX(ll,A,.2,.17,.06,0,.005,.105,.1,0,0,.016)); add(ll,limb(.06,.05,L2),F);
+      H(ll,[[-.11,rect(.2,.19,0,-.02,.03)],[-.11-sh,rect(.34,.34,0,.01,.055)]],A,.014);
+      {const f=face(ll,0,-.11-sh/2,.1275,0,.24,.97); add(f,GB,R,0,0,.002,.07,sh*.84,.006); for(const y of [-.3,0,.3])add(f,GB,A,0,y*sh,.004,.066,.012,.008); for(const x of [-.07,.07])bolt(f,x,sh*.38,.004,0,0,1,.009); flat(f);}
+      {const f=face(ll,sx*.135,-.11-sh/2,-.005,sx,.16,0); hatch(f,0,-.04,.13,.1); flat(f);}
+      T2(BX(ll,A,.334,.03,.334,0,-.085-sh,.01,0,0,0,.006)); for(const k of [-1,1])rod(ll,F,k*.05,-.04,-.085,k*.06,-.1-sh,-.14,.014);
+      H(ft,[[-.09,rect(.3,.38,0,.07)],[.012,[[.14,-.11],[.14,.11],[-.14,.11],[-.14,-.11]]]],A,.014); BX(ft,A,.27,.066,.13,0,-.052,.325); add(ft,HB,HZ,0,-.05,.391,.23,.03,.006); BX(ft,F,.28,.022,.54,0,-.079,.13,0,0,0,.008);
+      rod(ft,F,0,-.01,-.07,0,-.066,-.21,.03); BX(ft,F,.16,.03,.09,0,-.075,-.22,0,0,0,.01); for(const x of [-.09,.09])bolt(ft,x,.014,.05,0,1,0);
     }
   }
-  // Stalker: a lean assassin frame in violet-black, all facets and ridges. Two flat chest plates meeting on a keel, wedge shoulder
-  // caps with a ridge pointing outward, a narrow wedge skull with a brow over one vertical eye, four broad wing blades in an X on the
-  // back, a clipped blade on a bracket at each wrist and a spur behind each elbow. Its plates are low-exponent sections (a ridge down
-  // the middle of each), worn bright at the rims; pink only as thin lines and the eye.
+  // Stalker: the elite, a lean assassin frame in violet-black, cut entirely from flat plates that meet on ridges. A broad chest of two
+  // plates meeting on a keel at about 110 degrees, with a slit of light down the keel so its facing reads in a fight; a collar plate
+  // behind the head; angular shoulder yokes with a spike; three dark lames for a waist over a pelvis wedge with flared hip plates;
+  // four wing blades of diamond section on hinge arms from a hub on its back, in an X. Its limbs are ridged plates over twin struts:
+  // wedge thighs, a knee spike, a shin that breaks backward to a hock like a reverse joint, heavy bladed vambraces that run on past
+  // the elbow as a spur, a clipped blade on a bracket at each wrist. Pink only as thin lines and the eye.
   buildStalker(add,L,M){
-    const {hips,chest,head}=this,{rod,hinge,struts,flat,S,SX,blade}=this.K,A=M.armor,T=M.trim,F=M.frame,R=M.rubber,G=M.glow,HP=PI/2,L1=this.L1,L2=this.L2;
+    const {hips,chest,head}=this,{rod,hinge,struts,flat,S,SX,H,FD,blade}=this.K,A=M.armor,T=M.trim,F=M.frame,R=M.rubber,G=M.glow,HP=PI/2,L1=this.L1,L2=this.L2;
+    this.body.scale.setScalar(1.12);   // it outranks the Husks, and stands taller than they do
     // it waits low and pitched forward, one foot leading, both blades held back and out behind its hips like folded wings, never
     // resting on the floor (the walk cycle of the idle clip still drives its feet)
     this.pose=(o,c)=>{if(c===CL.eIdle){o[I.hy]-=.1;o[I.hip]+=.06;o[I.hd]+=.14;o[I.fl+2]+=.2;o[I.fr+2]-=.14;const b=sin(this.t*2.6+this.seed)*.02;
       wr(o,AL([.55,-.62,-.56],.5,[.42,-.7,-.6]));wr(o,AR([-.55,-.62,-.56],.5,[-.42,-.7,-.6]));o[I.hl+1]-=b;o[I.hr+1]+=b;}};
-    L(hips,[[-.12,.04,.046],[-.05,.08,.068],[.03,.088,.072],[.08,.072,.06]],F); add(hips,UC,T,0,.082,0,.088,.026,.072);
-    S(hips,[[.05,.092,.076],[-.04,.086,.072],[-.17,.03,.036,0,.016,.4,.4]],HP-.6,HP+.6,A,.011,0,0,0,0,0,0,1.6); S(hips,[[.05,.09,.074],[-.02,.084,.07],[-.08,.05,.044,0,0,.3,.3]],-HP-.55,-HP+.55,A,.01,0,0,0,0,0,0,1.6);
-    for(const sx of [-1,1]){SX(sx,hips,[[.05,.096,.078],[-.03,.098,.08],[-.09,.08,.064,0,0,.25,.25]],-.55,.55,A,.01,0,-.02,0,0,0,.18,1.6); hinge(hips,T,F,sx*.11,-.05,0,.036,.028);}
-    // torso: black bellows waist, dark ribs, two flat chest plates meeting on a keel with the eye of the core set in it
-    L(chest,[[-.02,.05,.044],[.07,.04,.036],[.15,.058,.05]],R); L(chest,[[.1,.07,.06],[.22,.118,.09],[.36,.15,.098],[.45,.122,.08],[.49,.07,.056]],F);
-    add(chest,UC,T,0,.3,.118,.034,.024,.034,HP); add(chest,GS,G,0,.3,.128,.024,.03,.012); L(chest,[[.47,.034,.038],[.57,.03,.036,0,.014]],R);
-    rod(chest,G,0,.19,.094,0,.262,.114,.0028); rod(chest,G,0,.338,.12,0,.45,.104,.0028);   // a thin line of light down the keel
-    const KEEL=[[.17,.03,.05,0,.03,.3,0],[.25,.09,.094,0,.012,.1,0],[.36,.146,.112],[.45,.14,.096],[.488,.08,.064]];
-    for(let k=0;k<5;k++)add(chest,GR,F,0,.12+k*.08,[-.07,-.09,-.1,-.104,-.09][k],.032,.056,.034);
+    // outlines of ridged plates. kite: ridge at z = zf in front, flanks w either side at zs, back at zb. kx: the same turned to face
+    // outward (ridge at x = xr, flanks at xs and z = +-w, back at xi), set back by cz
+    const kite=(w,zf,zs,zb,cx=0)=>[[cx+w,zs],[cx,zf],[cx-w,zs],[cx,zb]],kx=(xr,xs,xi,w,cz=0)=>[[xr,cz],[xs,cz+w],[xi,cz],[xs,cz-w]];
+    // pelvis: a wedge with its point down under a belt, a flared plate over each hip
+    const CH=(y,w,zk,zs,zb)=>[y,[[w,zb],[w*1.06,zs],[0,zk],[-w*1.06,zs],[-w,zb],[0,zb-.022]]];
+    add(hips,UC,T,0,.082,0,.086,.024,.07); H(hips,[CH(.07,.084,.09,.03,-.056),CH(-.05,.07,.088,.03,-.046),CH(-.2,.012,.054,.034,.03)],A,.006);
+    for(const sx of [-1,1]){H(hips,[[.05,[[.02,-.06],[.03,.05],[-.012,.05],[-.012,-.06]]],[-.11,[[.052,-.09],[.064,.03],[.032,.03],[.022,-.09]]]],A,.006,.098,-.02,0,0,0,0,sx); hinge(hips,T,F,sx*.11,-.05,0,.036,.028);}
+    // waist: three lames over a black core, each with a ridge in front and overlapping the next
+    L(chest,[[-.03,.045,.04],[.07,.038,.034],[.17,.05,.044]],R);
+    for(let k=0;k<3;k++){const y=.118-k*.042,w=.066-k*.005,o=(w,f)=>[[w*.55,-.05],[w,-.012],[w*.76,.04*f],[0,.062*f],[-w*.76,.04*f],[-w,-.012],[-w*.55,-.05]]; FD(chest,[[y,o(w,1)],[y-.047,o(w+.007,1.11)]],A,.008,.004);}
+    // chest: one faceted hull, widest at the shoulders; the slit of light runs down its keel
+    H(chest,[CH(.15,.05,.076,.03,-.03),CH(.3,.136,.13,.03,-.06),CH(.42,.168,.122,.02,-.078),CH(.49,.09,.076,.01,-.06)],A,.007);
+    rod(chest,G,0,.19,.092,0,.3,.1315,.0034); rod(chest,G,0,.3,.1315,0,.41,.1245,.0034);
+    H(chest,[[.47,rect(.17,.03,0,-.076)],[.575,[[.058,-.128],[.058,-.108],[-.058,-.108],[-.058,-.128]]]],A,.006);   // collar plate behind the head
+    L(chest,[[.47,.034,.038],[.57,.03,.036,0,.014]],R);
+    for(let k=0;k<4;k++)add(chest,GR,F,0,.13+k*.07,[-.07,-.09,-.1,-.106][k],.032,.05,.034);
+    add(chest,UC,F,0,.36,-.108,.052,.05,.052,HP); add(chest,UC,T,0,.36,-.136,.03,.012,.03,HP);   // the hub the wings hinge on
     for(const sx of [-1,1]){
-      SX(sx,chest,KEEL,.45,HP-.03,A,.011,0,0,0,0,0,0,1.2,8,[[.12,.55],[.3,.88]],.005); SX(sx,chest,[[.22,.094,.092,0,0,0,.6],[.32,.134,.11],[.44,.138,.104],[.485,.08,.07]],-HP+.2,-.45,A,.011,0,0,0,0,0,0,1.3,8);
+      // shoulder yoke: an angular block over the joint, a spike standing out and up from it with a line of light on its ridge
+      H(chest,[[.385,[[.262,-.064],[.262,.04],[.12,.062],[.12,-.074]]],[.472,[[.212,-.05],[.212,.016],[.1,.036],[.1,-.062]]]],A,.006,0,0,0,0,0,0,sx);
+      H(chest,[[0,kite(.05,.03,0,-.032)],[.05,kite(.046,.026,0,-.028)],[.2,kite(.004,.004,0,-.004)]],A,.005,.19,.44,-.012,0,0,-1.12,sx);
+      {const g=new THREE.Group();g.position.set(sx*.19,.44,-.012);g.rotation.z=-sx*1.12;chest.add(g);rod(g,G,0,.04,.029,0,.185,.006,.003);flat(g);}
       hinge(chest,T,F,sx*.2,SHY,0,.036,.044);
-      // shoulder cap: a wedge of three planes, two slopes and a narrow flat between them, its ridge pointing outward; a line of light on the ridge
-      const g=new THREE.Group();g.position.set(sx*.185,.455,-.01);g.rotation.z=-sx*(HP+.3);chest.add(g);
-      const SL=[[0,-.04],[.088,.01],[.076,.15],[0,.3]];
-      add(g,plate(SL,.014,.006),A,-sx*.036,0,.007,1,1,1,0,sx>0?-.95:.95-PI,0); add(g,plate(SL,.014,.006),A,-sx*.036,0,-.007,1,1,1,0,sx>0?.95:PI-.95,0);
-      add(g,plate([[-.012,-.04],[.012,-.04],[.01,.16],[0,.31],[-.01,.16]],.012,.005),A,-sx*.04,0,0,1,1,1,0,-sx*HP,0); add(g,GB,G,-sx*.047,.1,0,.004,.2,.005); flat(g);
-      // wing blades: broad at the root, tapering, a line of light down the trailing edge; the upper pair a fifth longer
-      for(const [an,ln,rx] of [[.75,.66,-.6],[2.25,.54,.5]]){const w=new THREE.Group();w.position.set(sx*.07,.36,-.118);w.rotation.set(rx,0,-sx*an);chest.add(w);
-        add(w,plate([[-.046,0],[.046,0],[.04,ln*.55],[.012,ln],[-.014,ln*.8],[-.04,ln*.3]],.018,.006),A); add(w,GB,G,-sx*.04,ln*.36,0,.007,ln*.6,.022,0,0,-sx*.07);
-        add(w,UC,T,0,.02,0,.03,.03,.03,HP); flat(w);}
+      // wing blades: each on a hinge arm from the hub; a diamond section (a ridge 2.5 cm thick down the middle, a few millimetres at
+      // the edges), its trailing side stepping out 30% of the way from the root; a line of light down that edge. The upper pair a fifth longer
+      for(const [an,ln,rx] of [[.75,.66,-.6],[2.25,.54,.5]]){const w=new THREE.Group();w.position.set(sx*.05,.36,-.118);w.rotation.set(rx,0,-sx*an);chest.add(w);
+        const WR=(y,a,b,t)=>[y+.075,[[a,0],[0,t/2],[-b,0],[0,-t/2]]];
+        H(w,[WR(0,.022,.022,.02),WR(ln*.3-.004,.026,.028,.025),WR(ln*.3,.03,.054,.025),WR(ln*.72,.026,.04,.016),WR(ln,.003,.006,.003)],A,.005,0,0,0,0,0,0,sx);
+        add(w,slab(.024,.11,.016,.008),F,0,.035,0); add(w,UC,T,0,.082,0,.016,.03,.016,HP); add(w,GB,G,-sx*.048,.075+ln*.51,0,.005,ln*.4,.009,0,0,-sx*.029/ln); flat(w);}
     }
     // head: a narrow wedge skull in two halves that meet on a ridge and leave a slot for the one vertical eye; a brow plate over it,
     // a long crest behind, mandible plates
@@ -622,20 +740,26 @@ class Rig{
     add(head,plate([[-.05,.004],[0,.034],[.05,.004],[.034,-.02],[0,-.004],[-.034,-.02]],.014,.005),A,0,.132,.096,1,1,1,.55);
     for(const sx of [-1,1]){SX(sx,head,SK,-HP,HP,A,.01,0,0,0,0,0,0,1.7,10); add(head,plate([[-.014,.03],[.014,.03],[.008,-.1],[0,-.15]],.012,.004),T,sx*.046,.02,.08,1,1,1,.5,sx*.4,0);}
     for(let s=0;s<2;s++){const sx=s?-1:1,ua=this.arm[s],fa=this.fore[s],sw=this.sword[s],ul=this.leg[s],ll=this.shin[s],ft=this.foot[s];
-      // limbs: twin struts and a piston under narrow ridged plates; the forearm plate runs on past the elbow as a spur
-      struts(ua,F,T,-.02,-ARM1+.01,.02,.01,.011); SX(sx,ua,[[-.03,.032,.036,.006,0,.5,.5],[-.09,.044,.048,.008],[-.17,.038,.042,.006],[-.245,.024,.028,.002,0,.4,.4]],-1.8,1.8,A,.01,0,0,0,0,0,0,1.6,8);
+      // arm: a slim ridged plate on the upper arm; on the forearm a heavy vambrace, 7 cm wide, that flares past the elbow into a spur
+      struts(ua,F,T,-.02,-ARM1+.01,.02,.01,.011); H(ua,[[-.028,kx(.034,.014,.002,.022)],[-.09,kx(.058,.02,.002,.046)],[-.245,kx(.036,.012,.002,.028)]],A,.005,0,0,0,0,0,0,sx);
       hinge(fa,F,T,0,0,0,.03,.058); struts(fa,F,T,-.02,-ARM2+.02,.018,.009,.0095);
-      SX(sx,fa,[[.1,.004,.006,.034],[.045,.018,.022,.03],[-.03,.036,.042,.014],[-.1,.042,.048,.008],[-.2,.032,.036,.003],[-.262,.022,.025,0,0,.5,.5]],-1.7,1.7,A,.01,0,0,0,0,0,0,1.6,8);
+      H(fa,[[.12,kx(.04,.037,.034,.004,-.036)],[.03,kx(.056,.03,.012,.022,-.014)],[-.06,kx(.062,.024,.004,.036)],[-.2,kx(.046,.016,.002,.03)],[-.268,kx(.03,.012,.002,.02)]],A,.005,0,0,0,0,0,0,sx);
+      add(fa,GB,G,sx*.059,-.11,0,.004,.15,.005,0,0,-sx*.1);
       // wrist blade on its bracket: tapering, clipped at the tip, honed along the cutting edge
       add(sw,GR,F,0,.03,0,.07,.06,.036); add(sw,GR,F,0,.11,0,.05,.12,.024); for(const y of [.07,.15])add(sw,UC,F,0,y,0,.008,.04,.008,HP);
       blade(sw,[[-.028,0],[.032,0],[.036,.3],[.026,.82],[-.01,.98],[-.03,.9]],[[.032,.04],[.036,.3],[.026,.82],[-.006,.97]],[[-.018,.1],[.006,.1],[.008,.6],[-.012,.8],[-.02,.6]],.06,.01);
+      // leg: a wedge thigh, its ridge forward, 9 cm wide at the hip and 5 at the knee, the struts in view behind it; a knee spike; the
+      // calf plate sweeps back to a hock with a hinge disc and a spur, the shin blade comes forward from it to the ankle
       struts(ul,F,T,-.03,-L1+.02,.019,.011,.012);
-      SX(sx,ul,[[-.04,.054,.058,.008,.014],[-.09,.06,.064,.008,.014],[-.24,.046,.05,.002,.012],[-.39,.028,.03,0,.006,.5,.5]],-.7,2.3,A,.011,0,0,0,0,0,0,1.7,8); add(ul,GB,G,sx*.066,-.16,.02,.005,.2,.006,0,0,sx*.06);
-      hinge(ll,F,T,0,0,0,.038,.084); add(ll,cone(.02,.14,4),A,0,.06,.05,1,1,1,.25);
+      H(ul,[[.01,kite(.036,.056,.02,-.02,sx*.006)],[-.06,kite(.06,.094,.03,-.03,sx*.006)],[-.24,kite(.044,.07,.02,-.022)],[-.4,kite(.03,.046,.012,-.008)]],A,.006);
+      add(ul,GB,G,sx*.0535,-.15,.026,.004,.18,.005,0,0,-sx*.089);
+      hinge(ll,F,T,0,0,0,.038,.084); H(ll,[[-.04,rect(.058,.014,0,.045)],[.03,rect(.046,.012,0,.054)],[.1,rect(.004,.003,0,.063)]],A,.005);
       struts(ll,F,T,-.03,-L2+.03,.014,.01,.0105);
-      S(ll,[[-.05,.042,.052,0,-.016,.2,.2],[-.12,.046,.058,0,-.018],[-.27,.036,.044,0,-.01],[-.4,.024,.028,0,-.004,.5,.5]],-HP-1.2,-HP+1.2,A,.011,0,0,0,0,0,0,1.7);
-      S(ll,[[-.06,.034,.04,0,.012],[-.14,.038,.044,0,.012],[-.3,.03,.034,0,.006],[-.42,.022,.024,0,0,.4,.4]],HP-.9,HP+.9,A,.01,0,0,0,0,0,0,1.7); add(ll,GB,G,sx*.042,-.22,0,.005,.2,.006);
-      hinge(ft,F,F,0,0,0,.024,.056); L(ft,[[0,.024,.022],[.06,.034,.026],[.16,.024,.016],[.23,.006,.005]],A,0,-.02,-.012,1.875,0,0,1.7); add(ft,cone(.014,.11,5),F,0,-.045,-.05,1,1,1,PI+.6);
+      H(ll,[[-.035,kite(.034,-.05,-.018,.006)],[-.12,kite(.048,-.096,-.032,.004)],[-.205,kite(.036,-.122,-.056,-.012)],[-.25,kite(.012,-.092,-.064,-.03)]],A,.006);
+      H(ll,[[0,rect(.034,.014)],[.05,rect(.026,.01)],[.13,rect(.003,.003)]],A,.004,0,-.2,-.112,-1.9);
+      hinge(ll,F,T,0,-.21,-.062,.025,.062);
+      H(ll,[[-.07,kite(.03,.04,.012,0)],[-.2,kite(.042,.058,.02,0)],[-.33,kite(.034,.046,.014,0)],[-.43,kite(.022,.03,.008,0)]],A,.006); add(ll,GB,G,sx*.0385,-.29,.017,.004,.17,.005,0,0,sx*.05);
+      hinge(ft,F,F,0,0,0,.024,.056); H(ft,[[0,kite(.026,.024,.004,-.02)],[.07,kite(.034,.028,.004,-.022)],[.235,kite(.004,.006,.002,-.004)]],A,.005,0,-.02,-.012,1.875); add(ft,cone(.014,.11,5),F,0,-.045,-.05,1,1,1,PI+.6);
     }
   }
   // merge each bone's loose parts into one mesh per material (a hero drops from ~170 draw calls to ~45) and
