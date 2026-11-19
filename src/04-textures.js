@@ -75,15 +75,15 @@ plate:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out f
   ro=clamp(.44+(n2-.5)*.35+(brush-.5)*.15-chip*.18+(1.-gap)*.3,.1,1.);
   me=mix(.8,1.,chip);ao=mix(.5,1.,gap);}`,
 // painted armour (neutral, tinted per character): a matte coat over metal, so a foe keeps its own colour under coloured light.
-// The shells are mapped every which way, so nothing here has a direction or a pattern: soft mottling, an orange-peel grain,
-// a few chips down to bare metal, broad patches rubbed thin. Panel lines are real gaps in the geometry (see shell in 07-rig).
+// The shells are mapped every which way, so nothing here has a direction or a pattern: an even colour with the faintest mottling, an
+// orange-peel grain, a few chips down to dark bare metal, and a roughness that wanders by about a tenth either way over a hand's
+// width, which is what keeps a big flat face from shining like moulded plastic. Panel lines are real gaps in the geometry.
 armor:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out float ao){
-  float n1=fbm(uv,vec2(3.),5),n2=fbm(uv+4.2,vec2(11.),4),n3=fbm(uv+9.1,vec2(72.),3);
+  float n1=fbm(uv,vec2(3.),5),n2=fbm(uv+4.2,vec2(9.),4),n3=fbm(uv+9.1,vec2(72.),3);
   vec3 v=vor(uv,13.);float chip=smoothstep(.055,.012,v.y)*smoothstep(.66,.8,n2*.6+n1*.4);
-  float rub=smoothstep(.6,.9,n1*.65+n2*.35);
   h=.5+(n3-.5)*.018-chip*.06;
-  al=vec3(.8)*(.93+.12*n1);al=mix(al,al*vec3(.8,.78,.75),smoothstep(.45,.85,n2)*.35);al=mix(al,vec3(.66,.67,.7),chip);
-  ro=clamp(.58+(n2-.5)*.14-rub*.14-chip*.32,.12,1.);me=max(chip,.06+rub*.08);ao=1.-chip*.15;}`,
+  al=vec3(.8)*(.96+.06*n1);al=mix(al,al*vec3(.8,.78,.75),smoothstep(.45,.85,n2)*.08);al=mix(al,vec3(.2,.205,.22),chip);
+  ro=clamp(.6+(n2-.5)*.42+(n3-.5)*.06-chip*.3,.12,1.);me=chip;ao=1.-chip*.15;}`,
 // frame: dark gunmetal for struts, hinges and everything under the plates. Machined, faintly oiled, edges knocked bright.
 frame:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out float ao){
   float n1=fbm(uv,vec2(4.),4),n2=fbm(uv+2.7,vec2(26.),3),br=vn(uv*vec2(8.,160.),vec2(8.,160.));
@@ -99,15 +99,15 @@ iron:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out fl
   h=.5+(n2-.5)*.05+(n3-.5)*.02-dent*.08-chip*.03;
   al=vec3(.62,.63,.66)*(.8+.3*n1)*(1.-.25*smoothstep(.4,.8,n2));al=mix(al,vec3(.85),chip*.6);
   ro=clamp(.44+(n2-.5)*.22+(n3-.5)*.08-chip*.15,.12,1.);me=.95;ao=1.-dent*.2;}`,
-// painted composite shell (tinted per character): smooth satin lacquer, not metal; sparse chips down to the alloy, faint grime
+// painted composite shell (tinted per character): satin lacquer, not metal, its sheen uneven; sparse chips down to the alloy; grime and scratches all but gone (a fifth of what they were: they read as smears)
 shell:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out float ao){
   float n1=fbm(uv,vec2(3.),5),n2=fbm(uv+4.2,vec2(14.),4),n3=fbm(uv+9.1,vec2(64.),3);
   vec3 v=vor(uv,18.);float chip=smoothstep(.07,.015,v.y)*smoothstep(.64,.8,n2*.65+n1*.35);
   float sc=scr(uv,vec2(4.,64.),.08,.3)+scr(uv.yx+.6,vec2(3.,52.),.07,.25);
   float dirt=smoothstep(.5,.85,n1*.6+n3*.4);
   h=.5+(n3-.5)*.012-chip*.07-sc*.03;
-  al=vec3(.88)*(.94+.08*n1);al=mix(al,al*vec3(.74,.72,.68),dirt*.45);al=mix(al,vec3(.6),sc*.25);al=mix(al,vec3(.22,.23,.25),chip);
-  ro=clamp(.3+(n2-.5)*.12+dirt*.2+sc*.1-chip*.05,.12,1.);me=chip;ao=1.-chip*.2;}`,
+  al=vec3(.88)*(.96+.05*n1);al=mix(al,al*vec3(.74,.72,.68),dirt*.1);al=mix(al,vec3(.6),sc*.06);al=mix(al,vec3(.22,.23,.25),chip);
+  ro=clamp(.4+(n2-.5)*.34+dirt*.06+sc*.04-chip*.05,.12,1.);me=chip;ao=1.-chip*.2;}`,
 // bright machined steel: a faint brushed grain (kept faint: on a turned part a strong one reads as wood), fine scratches, oil staining
 steel:`void surf(vec2 uv,out vec3 al,out float h,out float ro,out float me,out float ao){
   float br=vn(uv*vec2(4.,300.),vec2(4.,300.))*.6+vn(uv*vec2(9.,140.),vec2(9.,140.))*.4;
@@ -178,7 +178,7 @@ function pbr(set,o={}){
 //    o.wearK = how far in the wear reaches (0 = none). Geometry without the attribute reads as unworn.
 function charMat(set,o={}){
   const c=new THREE.Color(o.rim||0).multiplyScalar(o.rimK??1),rim=new THREE.Vector4(c.r,c.g,c.b,o.rimY??1),hold={value:o.hold||0};
-  const wc=new THREE.Color(o.wear??0xa4a8b2),wear={value:new THREE.Vector4(wc.r,wc.g,wc.b,o.wearK??1)},b=new THREE.Color(o.color??0xffffff),t=new THREE.Color(o.tone??o.color??0xffffff);
+  const wc=new THREE.Color(o.wear??0x70747c),wear={value:new THREE.Vector4(wc.r,wc.g,wc.b,o.wearK??1)},b=new THREE.Color(o.color??0xffffff),t=new THREE.Color(o.tone??o.color??0xffffff);
   const tone={value:new THREE.Vector4(t.r/max(b.r,.004),t.g/max(b.g,.004),t.b/max(b.b,.004),o.grime??.25)};
   for(const k of ['rim','rimK','rimY','hold','wear','wearK','tone','grime'])delete o[k];
   const m=pbr(set,o);m.userData.wear=wear;
@@ -188,11 +188,13 @@ function charMat(set,o={}){
       uniform vec4 uRim,uWear,uTone;uniform float uHold;varying vec4 vW;
       float cH(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
       float cN(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(cH(i),cH(i+vec2(1.,0.)),f.x),mix(cH(i+vec2(0.,1.)),cH(i+vec2(1.,1.)),f.x),f.y);}`).replace('#include <metalnessmap_fragment>',`#include <metalnessmap_fragment>
-      {float wD=min(vW.x,vW.y)+.25,wA=cN(vMapUv*63.),wB=cN(vMapUv*17.+3.7),wN=wA*.5+wB*.5,wE=max(wN-.42,0.)*.026*uWear.a;   // how far in the wear reaches here: nowhere on about a third of an edge, a centimetre or two at most
-      float wR=(1.-smoothstep(wE*.35,max(wE,1e-4),wD))*step(1e-4,wE),wK=step(wD,-.004);
+      {float wD=min(vW.x,vW.y)+.25,wS=max(vW.x,vW.y)+.25,wA=cN(vMapUv*97.),wB=cN(vMapUv*29.+3.7),wG=cN(vMapUv*8.3+1.9);
+      // how far in the paint is chipped off here: a millimetre or two either side of a straight edge, up to a centimetre at a corner (where the two nearest edges are both close), nothing on a good third of any edge
+      float wE=mix(.0017,.01,1.-smoothstep(.006,.034,wS))*uWear.a*smoothstep(.45,.62,wA*.4+wB*.6)*(.3+1.4*wG),wF=max(fwidth(wD),1e-5);
+      float wR=(1.-smoothstep(wE-wF,wE+wF,wD))*step(3e-4,wE),wK=step(wD,-.004);
       diffuseColor.rgb*=mix(vec3(1.),uTone.rgb,clamp(1.-vW.w,0.,1.))*(1.-uTone.a*clamp(vW.z,0.,1.)*(.55+.45*wB));
       diffuseColor.rgb=mix(mix(diffuseColor.rgb,uWear.rgb,wR),vec3(.15,.155,.17),wK);
-      metalnessFactor=mix(mix(metalnessFactor,.9,wR),.85,wK);roughnessFactor=mix(mix(roughnessFactor,.4,wR),.42,wK);}`).replace('#include <lights_fragment_end>',`#include <lights_fragment_end>
+      metalnessFactor=mix(mix(metalnessFactor,1.,wR),.85,wK);roughnessFactor=mix(mix(roughnessFactor,.34,wR),.42,wK);}`).replace('#include <lights_fragment_end>',`#include <lights_fragment_end>
       {vec3 cL=reflectedLight.directDiffuse/max(material.diffuseColor,vec3(.004));reflectedLight.directDiffuse=mix(cL,vec3(dot(cL,vec3(.2126,.7152,.0722))),uHold)*material.diffuseColor;}`).replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
       {vec3 cV=vViewPosition*inversesqrt(max(dot(vViewPosition,vViewPosition),1e-12));float cF=1.-clamp(abs(dot(cV,normal)),0.,1.),cF3=cF*cF*cF;
       float cE=max(totalEmissiveRadiance.r,max(totalEmissiveRadiance.g,totalEmissiveRadiance.b)),cH=smoothstep(1.3,1.8,cE);

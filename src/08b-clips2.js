@@ -35,11 +35,12 @@ const mirClip=c=>({dur:c.dur,noAir:c.noAir,fn(t,o,r){c.fn(t,o,r);o.set(mir(o));}
 // (+X the hero's left, +Z forward); directions are where the blade, barrel or hammer head points. null = leave the clip's own.
 const HOLD=(hl,sl,hr,sr)=>{const o={};if(hl){o.hl=hl;o.sl=nrm(sl);}if(hr){o.hr=hr;o.sr=nrm(sr);}return o;};
 const STANCE=[
-  // twin fangs: lead blade up in a guard, rear blade low and trailing; both swept back on the run
-  {idle:HOLD([.25,.1,.32],[.08,.32,.94],[-.3,-.12,-.05],[-.25,-.45,-.86]),
+  // twin fangs: lead blade up in a guard, rear blade low and trailing, turned out from the hip so that the camera behind sees its
+  // flat at 35 degrees or so and not its edge; both swept back on the run
+  {idle:HOLD([.25,.1,.32],[.08,.32,.94],[-.31,-.12,-.05],[-.56,-.45,-.7]),
    run:HOLD([.34,.02,-.2],[.35,.14,-.93],[-.34,.02,-.2],[-.35,.14,-.93])},
   // blade & pistol: gun forward at the low ready, sword low behind
-  {idle:HOLD([.2,.12,.36],[-.1,-.3,.95],[-.3,-.12,-.05],[-.25,-.45,-.86]),
+  {idle:HOLD([.2,.12,.36],[-.1,-.3,.95],[-.31,-.12,-.05],[-.56,-.45,-.7]),
    run:HOLD([.28,-.02,.12],[.1,-.8,.6],[-.34,.02,-.2],[-.35,.14,-.93]),
    air:HOLD([.3,.1,.2],[.1,-.5,.85],[-.5,.1,-.1],[-.6,.3,-.75])},
   // great maul (the left hand follows the shaft): carried across the body with the head high at the right shoulder, trailed low on the run
